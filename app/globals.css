@@ -31,3 +31,45 @@ body {
   color: var(--foreground) !important; /* Always black */
   font-family: var(--font-poppins);
 }
+
+.input {
+  @apply border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 
+         focus:ring-blue-500 focus:border-blue-500 outline-none;
+}
+
+/* add these in globals.css */
+
+@keyframes floaty {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50% { transform: translateY(-12px) rotate(1deg); }
+}
+
+@keyframes shadow {
+  0%, 100% { transform: translateX(-50%) scale(1); opacity: 0.18; }
+  50% { transform: translateX(-50%) scale(0.85); opacity: 0.10; }
+}
+
+@keyframes blink {
+  0%, 45%, 47%, 100% { transform: scaleY(1); }
+  46% { transform: scaleY(0.08); }
+}
+
+@keyframes smile {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(2px); }
+}
+
+@keyframes glow {
+  0%, 100% { transform: translateY(0); opacity: 0.75; }
+  50% { transform: translateY(-10px); opacity: 1; }
+}
+
+@keyframes blob {
+  0%, 100% { transform: translate(0,0) scale(1); }
+  50% { transform: translate(18px,-14px) scale(1.08); }
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.15; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.35); }
+}

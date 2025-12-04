@@ -11,7 +11,24 @@ export const sidebarMenus = {
 
   accounts: [{ label: "Accounts Dashboard", href: "/accounts" }, { label: "Transactions", href: "/accounts/transactions" }, { label: "Payouts", href: "/accounts/payouts" }, { label: "Invoice Management", href: "/accounts/invoices" }, { label: "GST Reports", href: "/accounts/gst" }, { label: "Vendor Ledger", href: "/accounts/vendor-ledger" }, { label: "COD Reconciliation", href: "/accounts/cod" }, { label: "Refunds Ledger", href: "/accounts/refunds" }],
 
-  inventory: [{ label: "Inventory Dashboard", href: "/inventory" }, { label: "All Inventory", href: "/inventory/list" }, { label: "Stock Alerts", href: "/inventory/alerts" }, { label: "Variants Manager", href: "/inventory/variants" }, { label: "Categories Manager", href: "/inventory/categories" }, { label: "Bulk Upload", href: "/inventory/bulk-upload" }, { label: "Purchase Invoices", href: "/inventory/purchase" }, { label: "Stock Movement", href: "/inventory/movements" }],
+  // ✅ UPDATED: inventory (Barcodes added)
+  inventory: [
+    { label: "Inventory Dashboard", href: "/inventory" },
+    { label: "All Inventory", href: "/inventory/list" },
+    { label: "Stock Alerts", href: "/inventory/alerts" },
+    { label: "Variants Manager", href: "/inventory/variants" },
+    { label: "Categories Manager", href: "/inventory/categories" },
+    { label: "Bulk Upload", href: "/inventory/bulk-upload" },
+    { label: "Purchase Invoices", href: "/inventory/purchase" },
+    { label: "Stock Movement", href: "/inventory/movements" },
+
+    // ✅ NEW: Barcode menus under Inventory
+    { label: "Barcodes Dashboard", href: "/inventory/barcodes" },
+    { label: "Generate Barcode", href: "/inventory/barcodes/generate" },
+    { label: "Barcode Items (Saved)", href: "/inventory/barcodes/items" },
+    { label: "Scan / Lookup", href: "/inventory/barcodes/scan" },
+    { label: "Print Labels", href: "/inventory/barcodes/print" } // optional but recommended
+  ],
 
   media: [{ label: "Media Library", href: "/media" }, { label: "Upload Media", href: "/media/upload" }, { label: "Folders", href: "/media/folders" }],
 
@@ -35,7 +52,7 @@ export const sidebarMenus = {
 
   sales: [{ label: "Sales Dashboard", href: "/sales" }, { label: "Orders", href: "/sales/orders" }, { label: "Revenue Reports", href: "/sales/reports" }, { label: "Returns Summary", href: "/sales/returns" }, { label: "COD vs Prepaid", href: "/sales/payment-type" }, { label: "Top Products", href: "/sales/top-products" }, { label: "Top Categories", href: "/sales/top-categories" }],
 
-  account_user: [{ label: "Profile", href: "/account/profile" }, { label: "Change Password", href: "/account/password" }, { label: "Logout", href: "/logout" }],
+  account_user: [{ label: "Profile", href: "/account/profile" }, { label: "Change Password", href: "/account/password" }, { label: "Logout", href: "/logout" }]
 };
 
 // ------------------------------
@@ -47,7 +64,7 @@ export const routeSidebarMap = [
   { prefix: "/designing", key: "designing" },
   { prefix: "/production", key: "production" },
   { prefix: "/accounts", key: "accounts" },
-  { prefix: "/inventory", key: "inventory" },
+  { prefix: "/inventory", key: "inventory" }, // ✅ works for /inventory/barcodes/* too
   { prefix: "/media", key: "media" },
   { prefix: "/blogs", key: "blogs" },
   { prefix: "/products", key: "products" },
@@ -59,5 +76,5 @@ export const routeSidebarMap = [
   { prefix: "/customers", key: "customers" },
   { prefix: "/support-tickets", key: "support_tickets" },
   { prefix: "/sales", key: "sales" },
-  { prefix: "/account", key: "account_user" },
+  { prefix: "/account", key: "account_user" }
 ];

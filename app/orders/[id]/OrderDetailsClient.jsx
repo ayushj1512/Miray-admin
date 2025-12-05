@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -31,77 +31,121 @@ export default function OrderDetailsClient({ id }) {
   const [remarks, setRemarks] = useState("");
   const [remarksSaving, setRemarksSaving] = useState(false);
 
-  const loadOrder = async () => {
-    try {
-      const res = await fetch(`${API}/api/orders/${id}`, {
-        cache: "no-store"
-      });
+  const orderStatusLabel = useMemo(() => {
+    if (!order?.fulfillmentStatus) return "";
+    return String(order.fulfillmentStatus).replace(/_/g, " ");
+  }, [order?.fulfillmentStatus]);
 
+  const loadOrder = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API}/api/orders/${id}`, { cache: "no-store" });
       const data = await res.json();
 
+      if (!res.ok) {
+        console.log("Error fetching order:", data);
+        setOrder(null);
+        setLoading(false);
+        return;
+      }
+
       setOrder(data);
-      setNewStatus(data.fulfillmentStatus);
+      setNewStatus(data.fulfillmentStatus || "processing");
       setTrackingId(data.trackingDetails?.trackingId || "");
       setCourierName(data.trackingDetails?.courierName || "");
       setRemarks(data.adminRemarks || "");
       setLoading(false);
-
     } catch (err) {
       console.log("Error fetching order:", err);
+      setOrder(null);
       setLoading(false);
     }
   };
 
   useEffect(() => {
     loadOrder();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   // ------------------------------
-  // UPDATE ORDER STATUS
+  // UPDATE ORDER STATUS (use PATCH /:id/status)
   // ------------------------------
   const updateStatus = async () => {
+    if (!order?._id) return;
+
     setStatusUpdating(true);
+    try {
+      const res = await fetch(`${API}/api/orders/${order._id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fulfillmentStatus: newStatus }),
+      });
 
-    await fetch(`${API}/api/orders/${order._id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fulfillmentStatus: newStatus }),
-    });
-
-    setStatusUpdating(false);
-    loadOrder();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(data?.message || "Failed to update status");
+      } else {
+        await loadOrder();
+      }
+    } catch (e) {
+      alert("Failed to update status");
+    } finally {
+      setStatusUpdating(false);
+    }
   };
 
   // ------------------------------
-  // UPDATE TRACKING
+  // UPDATE TRACKING (use PATCH /:id/tracking)
   // ------------------------------
   const updateTracking = async () => {
-    await fetch(`${API}/api/orders/${order._id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        trackingDetails: { trackingId, courierName },
-      }),
-    });
+    if (!order?._id) return;
 
-    alert("Tracking updated!");
-    loadOrder();
+    try {
+      const res = await fetch(`${API}/api/orders/${order._id}/tracking`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ trackingId, courierName }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(data?.message || "Failed to update tracking");
+        return;
+      }
+
+      alert("Tracking updated!");
+      await loadOrder();
+    } catch (e) {
+      alert("Failed to update tracking");
+    }
   };
 
   // ------------------------------
-  // UPDATE REMARKS
+  // UPDATE REMARKS (PUT full update is okay)
   // ------------------------------
   const updateRemarks = async () => {
+    if (!order?._id) return;
+
     setRemarksSaving(true);
+    try {
+      const res = await fetch(`${API}/api/orders/${order._id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adminRemarks: remarks }),
+      });
 
-    await fetch(`${API}/api/orders/${order._id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ adminRemarks: remarks }),
-    });
-
-    setRemarksSaving(false);
-    alert("Remarks updated!");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(data?.message || "Failed to update remarks");
+      } else {
+        alert("Remarks updated!");
+        await loadOrder();
+      }
+    } catch (e) {
+      alert("Failed to update remarks");
+    } finally {
+      setRemarksSaving(false);
+    }
   };
 
   if (loading)
@@ -111,13 +155,11 @@ export default function OrderDetailsClient({ id }) {
       </div>
     );
 
-  if (!order)
-    return <p className="p-10 text-red-500">Order not found</p>;
+  if (!order) return <p className="p-10 text-red-500">Order not found</p>;
 
   return (
     <section className="min-h-screen bg-gray-50 p-10">
       <div className="max-w-5xl mx-auto space-y-10">
-
         {/* BACK */}
         <button
           onClick={() => router.push("/orders/all")}
@@ -128,12 +170,10 @@ export default function OrderDetailsClient({ id }) {
 
         {/* HEADER */}
         <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">
-            Order #{order.orderNumber}
-          </h1>
+          <h1 className="text-3xl font-bold">Order #{order.orderNumber}</h1>
 
           <span className="px-4 py-2 rounded-full bg-blue-100 text-blue-700 capitalize">
-            {order.fulfillmentStatus.replace(/_/g, " ")}
+            {orderStatusLabel}
           </span>
         </div>
 
@@ -143,16 +183,14 @@ export default function OrderDetailsClient({ id }) {
             <User size={20} /> Customer
           </h2>
 
-          <p className="font-semibold text-lg">
-            {order.customerId?.name}
+          <p className="font-semibold text-lg">{order.customerId?.name || "-"}</p>
+
+          <p className="flex items-center gap-2 text-gray-600">
+            <Phone size={16} /> {order.customerId?.phone || "-"}
           </p>
 
           <p className="flex items-center gap-2 text-gray-600">
-            <Phone size={16} /> {order.customerId?.phone}
-          </p>
-
-          <p className="flex items-center gap-2 text-gray-600">
-            <Mail size={16} /> {order.customerId?.email}
+            <Mail size={16} /> {order.customerId?.email || "-"}
           </p>
         </div>
 
@@ -163,13 +201,13 @@ export default function OrderDetailsClient({ id }) {
               <MapPin size={20} /> Shipping Address
             </h2>
             <div className="text-gray-700 leading-relaxed">
-              <p>{order.shippingAddressSnapshot.fullName}</p>
-              <p>{order.shippingAddressSnapshot.line1}</p>
-              <p>{order.shippingAddressSnapshot.line2}</p>
+              <p>{order.shippingAddressSnapshot?.fullName || "-"}</p>
+              <p>{order.shippingAddressSnapshot?.line1 || "-"}</p>
+              <p>{order.shippingAddressSnapshot?.line2 || ""}</p>
               <p>
-                {order.shippingAddressSnapshot.city},{" "}
-                {order.shippingAddressSnapshot.state} -{" "}
-                {order.shippingAddressSnapshot.pincode}
+                {order.shippingAddressSnapshot?.city || "-"},{" "}
+                {order.shippingAddressSnapshot?.state || "-"} -{" "}
+                {order.shippingAddressSnapshot?.pincode || "-"}
               </p>
             </div>
           </div>
@@ -179,32 +217,94 @@ export default function OrderDetailsClient({ id }) {
               <Receipt size={20} /> Billing Address
             </h2>
             <div className="text-gray-700 leading-relaxed">
-              <p>{order.billingAddressSnapshot.fullName}</p>
-              <p>{order.billingAddressSnapshot.line1}</p>
-              <p>{order.billingAddressSnapshot.line2}</p>
+              <p>{order.billingAddressSnapshot?.fullName || "-"}</p>
+              <p>{order.billingAddressSnapshot?.line1 || "-"}</p>
+              <p>{order.billingAddressSnapshot?.line2 || ""}</p>
               <p>
-                {order.billingAddressSnapshot.city},{" "}
-                {order.billingAddressSnapshot.state} -{" "}
-                {order.billingAddressSnapshot.pincode}
+                {order.billingAddressSnapshot?.city || "-"},{" "}
+                {order.billingAddressSnapshot?.state || "-"} -{" "}
+                {order.billingAddressSnapshot?.pincode || "-"}
               </p>
             </div>
           </div>
         </div>
 
-        {/* ITEMS */}
+        {/* ITEMS (UPDATED FOR productSnapshot) */}
         <div className="bg-white p-6 rounded-xl shadow space-y-6">
           <h2 className="text-xl font-semibold flex items-center gap-2 mb-4">
             <Package size={20} /> Order Items
           </h2>
 
-          {order.items.map((item, index) => (
-            <div key={index} className="border-b pb-4">
-              <p className="font-semibold">{item.name}</p>
-              <p className="text-gray-600">Qty: {item.quantity}</p>
-              <p className="text-gray-600">Price: ₹{item.price}</p>
-              <p className="font-semibold">Subtotal: ₹{item.subtotal}</p>
-            </div>
-          ))}
+          {(order.items || []).map((item, index) => {
+            const snap = item?.productSnapshot || {};
+            const title = snap.title || item?.productId?.title || "Unnamed product";
+            const thumb = snap.thumbnail || item?.productId?.thumbnail || "";
+            const variantAttrs = Array.isArray(item?.variant?.attributes)
+              ? item.variant.attributes
+              : [];
+
+            return (
+              <div
+                key={item?._id || index}
+                className="border-b last:border-b-0 pb-4 last:pb-0 flex gap-4"
+              >
+                {/* thumbnail */}
+                <div className="w-16 h-16 rounded-lg bg-gray-100 overflow-hidden flex items-center justify-center shrink-0">
+                  {thumb ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={thumb}
+                      alt={title}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-xs text-gray-400">No image</span>
+                  )}
+                </div>
+
+                <div className="flex-1">
+                  <p className="font-semibold">{title}</p>
+
+                  {/* variant info */}
+                  {variantAttrs.length > 0 && (
+                    <p className="text-gray-600 text-sm mt-1">
+                      Variant:{" "}
+                      {variantAttrs
+                        .map((a) => `${a.key}: ${a.value}`)
+                        .join(", ")}
+                    </p>
+                  )}
+
+                  {/* sku */}
+                  {(snap.variantSku || snap.sku) && (
+                    <p className="text-gray-500 text-sm">
+                      SKU: {snap.variantSku || snap.sku}
+                    </p>
+                  )}
+
+                  <div className="mt-2 space-y-1">
+                    <p className="text-gray-600">Qty: {item.quantity}</p>
+                    <p className="text-gray-600">Price: ₹{item.price}</p>
+                    <p className="font-semibold">Subtotal: ₹{item.subtotal}</p>
+                  </div>
+
+                  {/* tags */}
+                  {Array.isArray(snap.tags) && snap.tags.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {snap.tags.slice(0, 8).map((t) => (
+                        <span
+                          key={t}
+                          className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-700"
+                        >
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         {/* PRICING */}
@@ -218,9 +318,7 @@ export default function OrderDetailsClient({ id }) {
           <p>Shipping Fee: ₹{order.shippingFee}</p>
           <p>Tax: ₹{order.tax}</p>
 
-          <p className="text-xl font-bold mt-2">
-            Total: ₹{order.finalPayable}
-          </p>
+          <p className="text-xl font-bold mt-2">Total: ₹{order.finalPayable}</p>
         </div>
 
         {/* STATUS */}
@@ -244,7 +342,8 @@ export default function OrderDetailsClient({ id }) {
 
             <button
               onClick={updateStatus}
-              className="px-5 py-3 bg-blue-600 text-white rounded-xl"
+              disabled={statusUpdating}
+              className="px-5 py-3 bg-blue-600 text-white rounded-xl disabled:opacity-60"
             >
               {statusUpdating ? "Updating..." : "Update"}
             </button>
@@ -289,7 +388,8 @@ export default function OrderDetailsClient({ id }) {
 
           <button
             onClick={updateRemarks}
-            className="px-5 py-3 bg-purple-600 text-white rounded-xl"
+            disabled={remarksSaving}
+            className="px-5 py-3 bg-purple-600 text-white rounded-xl disabled:opacity-60"
           >
             {remarksSaving ? "Saving..." : "Save Remarks"}
           </button>

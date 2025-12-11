@@ -82,6 +82,13 @@ export const sidebarMenus = {
     { label: "Folders", href: "/media/folders" },
   ],
 
+  // ✅ NEW: REELS SECTION
+  reels: [
+    { label: "Reels Dashboard", href: "/reels" },
+    { label: "Add Reels", href: "/reels/add" },
+    { label: "Manage Reels", href: "/reels/manage" },
+  ],
+
   blogs: [
     { label: "Blogs Dashboard", href: "/blogs" },
     { label: "All Blogs", href: "/blogs/all" },
@@ -202,18 +209,34 @@ export const sidebarMenus = {
     { label: "Change Password", href: "/account/password" },
     { label: "Logout", href: "/logout" },
   ],
+
+  // ✅ NEW: SUPERADMIN SECTION
+  // (Add/remove items as you create pages)
+  superadmin: [
+    { label: "Vault", href: "/superadmin" },
+    { label: "Manage Users", href: "/superadmin/manage" },
+    { label: "Add User", href: "/superadmin/add" },
+    { label: "Activity", href: "/superadmin/activity" },
+  ],
 };
 
 // ------------------------------
 // ROUTE → SIDEBAR CATEGORY MAP
 // ------------------------------
 // ✅ Add "/analytics" → analytics menu
+// ✅ Add "/reels" → reels menu
+// ✅ Add "/superadmin" → superadmin menu
 // ✅ Keep the most-specific prefixes earlier (future-safe)
 
 export const routeSidebarMap = [
+  // ✅ superadmin first (more specific than "/support-tickets" etc is fine either way,
+  // but keep "most-specific prefixes earlier" rule in mind across your app)
+  { prefix: "/superadmin", key: "superadmin" },
+
   { prefix: "/support-tickets", key: "support_tickets" },
   { prefix: "/inventory", key: "inventory" },
-  { prefix: "/analytics", key: "analytics" }, // ✅ NEW
+  { prefix: "/analytics", key: "analytics" },
+  { prefix: "/reels", key: "reels" },
   { prefix: "/marketing", key: "marketing" },
   { prefix: "/dashboard", key: "dashboard" },
   { prefix: "/designing", key: "designing" },

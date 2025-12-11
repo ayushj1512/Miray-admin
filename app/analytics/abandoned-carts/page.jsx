@@ -9,6 +9,10 @@ import {
   Timer,
   AlertTriangle,
   ArrowRight,
+  ExternalLink,
+  Mail,
+  Phone,
+  Hash,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -61,8 +65,7 @@ const Chip = ({ children }) => (
 );
 
 const Card = ({ children, href, className = "" }) => {
-  const base =
-    "rounded-2xl bg-white shadow-sm ring-1 ring-black/5 p-5 hover:shadow-md transition";
+  const base = "rounded-2xl bg-white shadow-sm ring-1 ring-black/5 p-5 hover:shadow-md transition";
   if (!href) return <div className={`${base} ${className}`}>{children}</div>;
   return (
     <Link href={href} className={`${base} ${className}`}>
@@ -104,33 +107,25 @@ function asArray(payload) {
   return [];
 }
 
-function pickCartValue(c) {
-  const keys = ["total", "totalAmount", "total_amount", "amount", "grandTotal", "grand_total", "value"];
+function pickCartTotal(c) {
+  // your AbandonedCart model will likely have one of these
+  const keys = ["total", "grandTotal", "totalAmount", "value", "amount", "subtotal"];
   for (const k of keys) {
     const v = safeNum(c?.[k]);
     if (v != null) return v;
   }
-  // sometimes cart has pricing
   return safeNum(c?.pricing?.total) ?? safeNum(c?.pricing?.grandTotal) ?? null;
 }
 
 function pickCartItemsCount(c) {
-  if (Array.isArray(c?.items)) return c.items.length;
+  if (Array.isArray(c?.items)) return c.items.reduce((s, it) => s + (safeNum(it?.qty) ?? 1), 0);
   if (Array.isArray(c?.products)) return c.products.length;
   if (Array.isArray(c?.lines)) return c.lines.length;
   return safeNum(c?.itemsCount) ?? safeNum(c?.qty) ?? 0;
 }
 
 function pickCartAgeHours(c) {
-  const t =
-    c?.updatedAt ||
-    c?.updated_at ||
-    c?.lastUpdatedAt ||
-    c?.last_updated_at ||
-    c?.createdAt ||
-    c?.created_at ||
-    null;
-
+  const t = c?.abandonedAt || c?.updatedAt || c?.createdAt || null;
   if (!t) return null;
   const dt = new Date(t);
   if (Number.isNaN(dt.getTime())) return null;
@@ -139,16 +134,74 @@ function pickCartAgeHours(c) {
 }
 
 function pickCustomerKey(c) {
-  const email = (c?.email || c?.customerEmail || c?.customer?.email || "").toString().trim().toLowerCase();
+  const email = (c?.email || c?.customerEmail || c?.customer?.email || c?.customer?.email || "").toString().trim().toLowerCase();
   if (email) return email;
   const phone = (c?.phone || c?.customerPhone || c?.customer?.phone || "").toString().trim();
   if (phone) return phone;
-  const id = c?.customerId || c?.customer?._id || c?.userId || c?.user?._id;
+  const uid = (c?.firebaseUID || c?.customerFirebaseUID || c?.customer?.firebaseUID || "").toString().trim();
+  if (uid) return uid;
+  const id = c?.customerId || c?.customer?._id;
   return id ? String(id) : "unknown";
+}
+
+function pickCustomerIdForLink(c) {
+  // If your AbandonedCart stores customerId (ObjectId of Customer), we can deep link
+  return c?.customerId || c?.customer?._id || null;
 }
 
 function sortDesc(list, getVal) {
   return [...list].sort((a, b) => (getVal(b) || 0) - (getVal(a) || 0));
+}
+
+function fmtDate(d) {
+  if (!d) return "—";
+  const dt = new Date(d);
+  if (Number.isNaN(dt.getTime())) return "—";
+  return dt.toLocaleString("en-IN");
+}
+
+function maybeStr(v) {
+  const s = String(v ?? "").trim();
+  return s ? s : "—";
+}
+
+function ItemMiniList({ cart }) {
+  const items = Array.isArray(cart?.items) ? cart.items : [];
+  if (!items.length) return <div className="text-xs text-gray-500">No items payload.</div>;
+
+  return (
+    <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
+      {items.slice(0, 6).map((it, idx) => {
+        const title = it?.title || it?.productTitle || it?.name || "Item";
+        const sku = it?.sku || it?.variantSku || it?.productSku || "";
+        const code = it?.productCode || "";
+        const qty = safeNum(it?.qty) ?? safeNum(it?.quantity) ?? 1;
+        const price = safeNum(it?.price) ?? safeNum(it?.unitPrice) ?? null;
+        return (
+          <div key={idx} className="rounded-xl border border-black/5 bg-white p-3">
+            <div className="text-sm font-semibold text-gray-900 line-clamp-1">{maybeStr(title)}</div>
+            <div className="mt-1 text-xs text-gray-600 flex flex-wrap gap-2">
+              {code ? (
+                <span className="inline-flex items-center gap-1 rounded-full border border-black/10 bg-gray-50 px-2 py-0.5">
+                  <Hash className="w-3 h-3" /> {code}
+                </span>
+              ) : null}
+              {sku ? (
+                <span className="inline-flex items-center rounded-full border border-black/10 bg-gray-50 px-2 py-0.5">SKU: {sku}</span>
+              ) : null}
+              <span className="inline-flex items-center rounded-full border border-black/10 bg-gray-50 px-2 py-0.5">Qty: {qty}</span>
+              {price != null ? (
+                <span className="inline-flex items-center rounded-full border border-black/10 bg-gray-50 px-2 py-0.5">
+                  {formatINR(price)}
+                </span>
+              ) : null}
+            </div>
+          </div>
+        );
+      })}
+      {items.length > 6 ? <div className="text-xs text-gray-500">Showing first 6 items…</div> : null}
+    </div>
+  );
 }
 
 export default async function AnalyticsAbandonedCartsPage() {
@@ -160,8 +213,7 @@ export default async function AnalyticsAbandonedCartsPage() {
           <p className="text-sm text-gray-600 mt-2">
             Missing API base URL. Set{" "}
             <code className="px-2 py-1 bg-gray-50 rounded">NEXT_PUBLIC_API_URL</code>{" "}
-            (or{" "}
-            <code className="px-2 py-1 bg-gray-50 rounded">API_URL</code>).
+            (or <code className="px-2 py-1 bg-gray-50 rounded">API_URL</code>).
           </p>
         </div>
       </div>
@@ -171,34 +223,30 @@ export default async function AnalyticsAbandonedCartsPage() {
   const AUTO_REFRESH_SECONDS = 10;
   const now = new Date();
 
-  // Try most likely endpoints
-  const r1 = await safeJson(`${API}/api/carts/abandoned?limit=200`);
-  const r2 = r1.ok ? null : await safeJson(`${API}/api/customers/carts?limit=200`);
+  // ✅ NEW: your AbandonedCart API
+  // Expected shape: { success:true, items:[...], total, page, pages } OR { carts:[...] }
+  const r = await safeJson(`${API}/api/abandoned-carts?page=1&limit=200`);
 
-  const dataRes = r1.ok ? r1 : r2;
+  const dataRes = r;
   const carts = dataRes?.ok ? asArray(dataRes.json) : [];
 
-  // Metrics (best-effort)
-  const totalCarts = dataRes?.ok ? carts.length : null;
+  // Metrics
+  const totalCarts = dataRes?.ok ? (safeNum(dataRes.json?.total) ?? carts.length) : null;
 
-  const uniqueCustomers = dataRes?.ok
-    ? new Set(carts.map(pickCustomerKey).filter(Boolean)).size
-    : null;
+  const uniqueCustomers = dataRes?.ok ? new Set(carts.map(pickCustomerKey).filter(Boolean)).size : null;
 
   const totalValue = dataRes?.ok
     ? carts
-        .map((c) => pickCartValue(c))
+        .map((c) => pickCartTotal(c))
         .filter((v) => v != null)
         .reduce((s, v) => s + v, 0)
     : null;
 
-  const avgCartValue =
-    dataRes?.ok && totalCarts && totalValue != null ? totalValue / totalCarts : null;
+  const avgCartValue = dataRes?.ok && totalCarts && totalValue != null ? totalValue / totalCarts : null;
 
   const hotCarts = dataRes?.ok
     ? carts.filter((c) => {
         const h = pickCartAgeHours(c);
-        // "hot" = updated within last 2 hours
         return h != null && h <= 2;
       }).length
     : null;
@@ -206,7 +254,6 @@ export default async function AnalyticsAbandonedCartsPage() {
   const staleCarts = dataRes?.ok
     ? carts.filter((c) => {
         const h = pickCartAgeHours(c);
-        // "stale" = older than 24 hours
         return h != null && h >= 24;
       }).length
     : null;
@@ -214,8 +261,15 @@ export default async function AnalyticsAbandonedCartsPage() {
   const hotRate = dataRes?.ok ? percent(hotCarts, totalCarts) : "—";
 
   // Lists
-  const topValue = sortDesc(carts, (c) => pickCartValue(c) ?? 0).slice(0, 10);
+  const topValue = sortDesc(carts, (c) => pickCartTotal(c) ?? 0).slice(0, 10);
   const mostItems = sortDesc(carts, (c) => pickCartItemsCount(c) ?? 0).slice(0, 10);
+
+  // Latest details list
+  const latest = sortDesc(carts, (c) => {
+    const t = c?.abandonedAt || c?.updatedAt || c?.createdAt;
+    const dt = t ? new Date(t) : null;
+    return dt && !Number.isNaN(dt.getTime()) ? dt.getTime() : 0;
+  }).slice(0, 12);
 
   return (
     <div className="p-6 w-full">
@@ -225,9 +279,7 @@ export default async function AnalyticsAbandonedCartsPage() {
       <div className="mb-6 flex flex-col md:flex-row md:items-end md:justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold text-blue-700">Abandoned Carts</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Real-time snapshot · Auto refresh every {AUTO_REFRESH_SECONDS}s
-          </p>
+          <p className="text-sm text-gray-500 mt-1">Real-time snapshot · Auto refresh every {AUTO_REFRESH_SECONDS}s</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -245,17 +297,13 @@ export default async function AnalyticsAbandonedCartsPage() {
       {/* Endpoint warning */}
       {!dataRes?.ok && (
         <div className="mb-6 rounded-2xl bg-amber-50 ring-1 ring-amber-200 p-4">
-          <p className="text-sm font-semibold text-amber-900">
-            Abandoned carts endpoint not found.
-          </p>
+          <p className="text-sm font-semibold text-amber-900">Abandoned carts endpoint not found.</p>
           <p className="text-sm text-amber-800 mt-1">
             Tried:
-            <code className="ml-2 px-2 py-0.5 bg-white/70 rounded">/api/carts/abandoned</code>
-            <span className="mx-2">and</span>
-            <code className="px-2 py-0.5 bg-white/70 rounded">/api/customers/carts</code>
+            <code className="ml-2 px-2 py-0.5 bg-white/70 rounded">/api/abandoned-carts</code>
           </p>
           <p className="text-xs text-amber-800 mt-2">
-            If you tell me your real route (or paste the carts response shape), I’ll wire 100% accurate metrics.
+            Ensure your server mounts it like: <code className="px-2 py-0.5 bg-white/70 rounded">app.use("/api/abandoned-carts", ...)</code>
           </p>
         </div>
       )}
@@ -266,39 +314,19 @@ export default async function AnalyticsAbandonedCartsPage() {
           icon={ShoppingCart}
           label="Abandoned Carts (sample)"
           value={totalCarts != null ? formatInt(totalCarts) : "—"}
-          hint={dataRes?.ok ? "From carts endpoint (limit=200)" : "Endpoint missing"}
-          href="/customers/carts"
+          hint={dataRes?.ok ? "From /api/abandoned-carts (limit=200)" : "Endpoint missing"}
+          href="/analytics/abandoned-carts"
         />
         <Stat
           icon={Users}
           label="Unique Customers (sample)"
           value={uniqueCustomers != null ? formatInt(uniqueCustomers) : "—"}
-          hint="Derived from email/phone/customerId (best-effort)"
+          hint="Derived from email/phone/firebaseUID/customerId"
         />
-        <Stat
-          icon={IndianRupee}
-          label="Total Cart Value (sample)"
-          value={totalValue != null ? formatINR(totalValue) : "—"}
-          hint="Sum of cart totals (best-effort fields)"
-        />
-        <Stat
-          icon={IndianRupee}
-          label="Avg Cart Value (sample)"
-          value={avgCartValue != null ? formatINR(avgCartValue) : "—"}
-          hint="total value ÷ carts"
-        />
-        <Stat
-          icon={Timer}
-          label="Hot Carts (≤ 2 hrs)"
-          value={hotCarts != null ? formatInt(hotCarts) : "—"}
-          hint={dataRes?.ok ? `Hot rate: ${hotRate}` : "Needs updatedAt/createdAt"}
-        />
-        <Stat
-          icon={AlertTriangle}
-          label="Stale Carts (≥ 24 hrs)"
-          value={staleCarts != null ? formatInt(staleCarts) : "—"}
-          hint="Older carts to retarget first"
-        />
+        <Stat icon={IndianRupee} label="Total Cart Value (sample)" value={totalValue != null ? formatINR(totalValue) : "—"} hint="Sum of totals (best-effort)" />
+        <Stat icon={IndianRupee} label="Avg Cart Value (sample)" value={avgCartValue != null ? formatINR(avgCartValue) : "—"} hint="total value ÷ carts" />
+        <Stat icon={Timer} label="Hot Carts (≤ 2 hrs)" value={hotCarts != null ? formatInt(hotCarts) : "—"} hint={dataRes?.ok ? `Hot rate: ${hotRate}` : "Needs abandonedAt/updatedAt"} />
+        <Stat icon={AlertTriangle} label="Stale Carts (≥ 24 hrs)" value={staleCarts != null ? formatInt(staleCarts) : "—"} hint="Older carts to retarget first" />
       </div>
 
       {/* Tables */}
@@ -320,14 +348,22 @@ export default async function AnalyticsAbandonedCartsPage() {
                 {topValue.length ? (
                   topValue.map((c, idx) => {
                     const hrs = pickCartAgeHours(c);
+                    const custKey = pickCustomerKey(c);
+                    const custId = pickCustomerIdForLink(c);
                     return (
-                      <tr key={`${pickCustomerKey(c)}-${idx}`} className="border-b border-black/5 last:border-b-0">
-                        <td className="py-3 pr-4 font-semibold">{pickCustomerKey(c)}</td>
-                        <td className="py-3 pr-4">{formatInt(pickCartItemsCount(c))}</td>
-                        <td className="py-3 pr-4">{formatINR(pickCartValue(c) ?? 0)}</td>
-                        <td className="py-3 pr-4">
-                          {hrs == null ? "—" : `${Math.round(hrs)}h`}
+                      <tr key={`${custKey}-${idx}`} className="border-b border-black/5 last:border-b-0">
+                        <td className="py-3 pr-4 font-semibold">
+                          {custId ? (
+                            <Link href={`/customers/${encodeURIComponent(String(custId))}`} className="text-blue-700 hover:underline inline-flex items-center gap-2">
+                              {custKey} <ExternalLink className="w-4 h-4" />
+                            </Link>
+                          ) : (
+                            custKey
+                          )}
                         </td>
+                        <td className="py-3 pr-4">{formatInt(pickCartItemsCount(c))}</td>
+                        <td className="py-3 pr-4">{formatINR(pickCartTotal(c) ?? 0)}</td>
+                        <td className="py-3 pr-4">{hrs == null ? "—" : `${Math.round(hrs)}h`}</td>
                       </tr>
                     );
                   })
@@ -361,7 +397,7 @@ export default async function AnalyticsAbandonedCartsPage() {
                     <tr key={`${pickCustomerKey(c)}-items-${idx}`} className="border-b border-black/5 last:border-b-0">
                       <td className="py-3 pr-4 font-semibold">{pickCustomerKey(c)}</td>
                       <td className="py-3 pr-4">{formatInt(pickCartItemsCount(c))}</td>
-                      <td className="py-3 pr-4">{formatINR(pickCartValue(c) ?? 0)}</td>
+                      <td className="py-3 pr-4">{formatINR(pickCartTotal(c) ?? 0)}</td>
                     </tr>
                   ))
                 ) : (
@@ -376,10 +412,104 @@ export default async function AnalyticsAbandonedCartsPage() {
           </div>
 
           <p className="text-xs text-gray-500 mt-4">
-            If you expose cart <code className="px-2 py-0.5 bg-gray-50 rounded">items</code>,{" "}
+            Tip: make sure each abandoned cart stores <code className="px-2 py-0.5 bg-gray-50 rounded">items</code>,{" "}
             <code className="px-2 py-0.5 bg-gray-50 rounded">total</code>, and{" "}
-            <code className="px-2 py-0.5 bg-gray-50 rounded">updatedAt</code>, this becomes perfect.
+            <code className="px-2 py-0.5 bg-gray-50 rounded">abandonedAt</code>.
           </p>
+        </div>
+      </div>
+
+      {/* Details list */}
+      <div className="mt-6 rounded-2xl bg-white shadow-sm ring-1 ring-black/5 p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-gray-900">Latest Abandoned Carts (Details)</p>
+            <p className="text-xs text-gray-500 mt-1">Shows customer identifiers + items snapshot (if your API returns items).</p>
+          </div>
+          <Chip>
+            <ShoppingCart className="w-4 h-4 text-gray-600" />
+            {formatInt(latest.length)} shown
+          </Chip>
+        </div>
+
+        <div className="mt-4 space-y-3">
+          {latest.length ? (
+            latest.map((c, idx) => {
+              const cartId = c?.cartId || c?._id || `cart-${idx}`;
+              const email = (c?.email || c?.customerEmail || c?.customer?.email || "").toString().trim().toLowerCase();
+              const phone = (c?.phone || c?.customerPhone || c?.customer?.phone || "").toString().trim();
+              const uid = (c?.firebaseUID || c?.customerFirebaseUID || c?.customer?.firebaseUID || "").toString().trim();
+              const custId = pickCustomerIdForLink(c);
+
+              const total = pickCartTotal(c);
+              const itemsCount = pickCartItemsCount(c);
+              const ageH = pickCartAgeHours(c);
+
+              return (
+                <div key={String(cartId)} className="rounded-2xl border border-black/5 bg-white p-4 hover:bg-gray-50 transition">
+                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-semibold text-blue-700 break-all">{String(cartId)}</span>
+                        <span className="text-xs text-gray-500">
+                          Abandoned: <span className="font-semibold">{fmtDate(c?.abandonedAt || c?.updatedAt || c?.createdAt)}</span>
+                        </span>
+                        {ageH != null ? (
+                          <span className="text-xs text-gray-500">
+                            · Age: <span className="font-semibold">{Math.round(ageH)}h</span>
+                          </span>
+                        ) : null}
+                      </div>
+
+                      <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-700">
+                        <span className="inline-flex items-center gap-2 rounded-full bg-gray-50 ring-1 ring-black/5 px-3 py-1">
+                          <ShoppingCart className="w-4 h-4 text-gray-600" /> Items: <span className="font-semibold">{formatInt(itemsCount)}</span>
+                        </span>
+                        <span className="inline-flex items-center gap-2 rounded-full bg-gray-50 ring-1 ring-black/5 px-3 py-1">
+                          <IndianRupee className="w-4 h-4 text-gray-600" /> Total: <span className="font-semibold">{total != null ? formatINR(total) : "—"}</span>
+                        </span>
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                        {email ? (
+                          <span className="inline-flex items-center gap-2 rounded-full bg-white ring-1 ring-black/10 px-3 py-1 text-gray-700">
+                            <Mail className="w-4 h-4 text-gray-600" /> {email}
+                          </span>
+                        ) : null}
+                        {phone ? (
+                          <span className="inline-flex items-center gap-2 rounded-full bg-white ring-1 ring-black/10 px-3 py-1 text-gray-700">
+                            <Phone className="w-4 h-4 text-gray-600" /> {phone}
+                          </span>
+                        ) : null}
+                        {uid ? (
+                          <span className="inline-flex items-center gap-2 rounded-full bg-white ring-1 ring-black/10 px-3 py-1 text-gray-700">
+                            <Users className="w-4 h-4 text-gray-600" /> UID: {uid}
+                          </span>
+                        ) : null}
+                      </div>
+
+                      <ItemMiniList cart={c} />
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {custId ? (
+                        <Link
+                          href={`/customers/${encodeURIComponent(String(custId))}`}
+                          className="inline-flex items-center gap-2 rounded-xl bg-black px-3 py-2 text-xs font-semibold text-white hover:opacity-90 transition"
+                        >
+                          Open Customer <ExternalLink className="w-4 h-4" />
+                        </Link>
+                      ) : (
+                        <span className="text-xs text-gray-500">No customerId link</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="py-10 text-center text-gray-500">{dataRes?.ok ? "No abandoned carts found." : "No carts endpoint."}</div>
+          )}
         </div>
       </div>
 

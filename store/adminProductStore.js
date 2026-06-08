@@ -1910,6 +1910,48 @@ fetchProductTypeList: async ({
   }
 },
 
+/* ============================================================
+   AVAILABLE INVENTORY (BARTER)
+   GET /api/products/inventory/available
+============================================================ */
+fetchAvailableInventory: async (params = {}) => {
+  try {
+    set({ loading: true, error: null });
+
+    const query = buildProductQuery({
+      search: params.search,
+      category: params.category,
+      onlyAvailable: true,
+      page: params.page || 1,
+      limit: params.limit || 500,
+    });
+
+    const res = await fetch(
+      `${API}/inventory/available?${query}`,
+      {
+        credentials: "include",
+        cache: "no-store",
+      }
+    );
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(
+        data.message || "Failed to fetch available inventory"
+      );
+    }
+
+    return data;
+  } catch (e) {
+    console.error(e);
+    toast.error(e.message);
+    return null;
+  } finally {
+    set({ loading: false });
+  }
+},
+
 
 
 }));

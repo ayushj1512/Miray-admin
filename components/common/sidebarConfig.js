@@ -89,14 +89,15 @@ reviews: [
   ],
 
   inventory: [
-    { label: "Inventory Dashboard", href: "/inventory" },
-    { label: "Modify Inventory", href: "/inventory/modify-inventory" },
-    { label: "Stock Update", href: "/inventory/stock-update" },
-    { label: "In-Stock Inventory", href: "/inventory/in-stock-inventory" },
-    { label: "Reserved Inventory", href: "/inventory/reserved-inventory" },
-    { label: "On Demand Inventory", href: "/inventory/on-demand-inventory" },
-    { label: "Zero Inventory", href: "/inventory/zero-inventory" },
-  ],
+  { label: "Inventory Dashboard", href: "/inventory" },
+  { label: "Modify Inventory", href: "/inventory/modify-inventory" },
+  { label: "Stock Update", href: "/inventory/stock-update" },
+  { label: "Available Inventory", href: "/inventory/available-inventory" },
+  { label: "In-Stock Inventory", href: "/inventory/in-stock-inventory" },
+  { label: "Reserved Inventory", href: "/inventory/reserved-inventory" },
+  { label: "On Demand Inventory", href: "/inventory/on-demand-inventory" },
+  { label: "Zero Inventory", href: "/inventory/zero-inventory" },
+],
 
   fabrics: [
     { label: "Fabric Dashboard", href: "/fabrics" },
@@ -231,7 +232,7 @@ orders: [
     { label: "NDR Follow-ups", href: "/operations/ndr" },
   ],
 
-  marketing: [
+marketing: [
   { label: "Dashboard", href: "/marketing" },
   { label: "Campaigns", href: "/marketing/campaigns" },
   { label: "Create Campaign", href: "/marketing/campaigns/create" },
@@ -239,6 +240,7 @@ orders: [
   { label: "Marketing Spend", href: "/marketing/marketingSpend" },
   { label: "ROAS", href: "/marketing/ROAS" },
   { label: "Commerce Manager", href: "/marketing/commerceManager" },
+  { label: "Available Inventory", href: "/marketing/available-inventory" },
 ],
 
   customers: [

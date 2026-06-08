@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import { useAdminProductStore } from "@/store/adminProductStore";
 
-const SIZE_COLUMNS = ["XS", "S", "M", "L", "XL", "XXL"];
+const SIZE_COLUMNS = ["XS", "S", "M", "L", "XL"];
 
 const normalizeSize = (v) =>
   String(v || "")

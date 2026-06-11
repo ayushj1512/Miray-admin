@@ -614,6 +614,30 @@ export default function ExchangeRequestedOrdersPage() {
     URL.revokeObjectURL(url);
   };
 
+  const loadMore = useCallback(async () => {
+  if (!ordersMeta?.hasMore || loadingMore) return;
+
+  try {
+    setLoadingMore(true);
+    await fetchNextOrdersPage({
+      ...backendFilters,
+      page: Number(ordersMeta?.page || 1) + 1,
+      limit: pageSize,
+    });
+  } catch (e) {
+    console.log("Exchange Requested Load More Error:", e);
+  } finally {
+    setLoadingMore(false);
+  }
+}, [
+  ordersMeta?.hasMore,
+  ordersMeta?.page,
+  loadingMore,
+  fetchNextOrdersPage,
+  backendFilters,
+  pageSize,
+]);
+
   const quickDateChips = [
     { key: "", label: "All Dates" },
     { key: "today", label: "Today" },

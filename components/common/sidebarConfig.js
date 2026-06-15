@@ -49,34 +49,34 @@ export const sidebarMenus = {
   ],
 
   fast2sms: [
-  { label: "Fast2SMS Dashboard", href: "/fast2sms" },
-  {
-    label: "WhatsApp Logs",
-    href: "/fast2sms/whatsapp-confirmation-message",
-  },
-  {
-    label: "Send Test Message",
-    href: "/fast2sms/whatsapp-confirmation-message/send",
-  },
-  {
-    label: "Analytics",
-    href: "/fast2sms/whatsapp-confirmation-message/analytics",
-  },
-  {
-    label: "Settings",
-    href: "/fast2sms/whatsapp-confirmation-message/settings",
-  },
-],
+    { label: "Fast2SMS Dashboard", href: "/fast2sms" },
+    {
+      label: "WhatsApp Logs",
+      href: "/fast2sms/whatsapp-confirmation-message",
+    },
+    {
+      label: "Send Test Message",
+      href: "/fast2sms/whatsapp-confirmation-message/send",
+    },
+    {
+      label: "Analytics",
+      href: "/fast2sms/whatsapp-confirmation-message/analytics",
+    },
+    {
+      label: "Settings",
+      href: "/fast2sms/whatsapp-confirmation-message/settings",
+    },
+  ],
 
-reviews: [
-  { label: "Reviews Dashboard", href: "/reviews" },
-  { label: "Manage Reviews", href: "/reviews/manage" },
-  { label: "Add Review", href: "/reviews/add" },
-  { label: "Pending Reviews", href: "/reviews/pending" },
-  { label: "Approved Reviews", href: "/reviews/approved" },
-  { label: "Rejected Reviews", href: "/reviews/rejected" },
-  { label: "Order Reviews", href: "/reviews/order" },
-],
+  reviews: [
+    { label: "Reviews Dashboard", href: "/reviews" },
+    { label: "Manage Reviews", href: "/reviews/manage" },
+    { label: "Add Review", href: "/reviews/add" },
+    { label: "Pending Reviews", href: "/reviews/pending" },
+    { label: "Approved Reviews", href: "/reviews/approved" },
+    { label: "Rejected Reviews", href: "/reviews/rejected" },
+    { label: "Order Reviews", href: "/reviews/order" },
+  ],
 
   accounts: [
     { label: "Accounts Dashboard", href: "/accounts" },
@@ -89,15 +89,15 @@ reviews: [
   ],
 
   inventory: [
-  { label: "Inventory Dashboard", href: "/inventory" },
-  { label: "Modify Inventory", href: "/inventory/modify-inventory" },
-  { label: "Stock Update", href: "/inventory/stock-update" },
-  { label: "Available Inventory", href: "/inventory/available-inventory" },
-  { label: "In-Stock Inventory", href: "/inventory/in-stock-inventory" },
-  { label: "Reserved Inventory", href: "/inventory/reserved-inventory" },
-  { label: "On Demand Inventory", href: "/inventory/on-demand-inventory" },
-  { label: "Zero Inventory", href: "/inventory/zero-inventory" },
-],
+    { label: "Inventory Dashboard", href: "/inventory" },
+    { label: "Modify Inventory", href: "/inventory/modify-inventory" },
+    { label: "Stock Update", href: "/inventory/stock-update" },
+    { label: "Available Inventory", href: "/inventory/available-inventory" },
+    { label: "In-Stock Inventory", href: "/inventory/in-stock-inventory" },
+    { label: "Reserved Inventory", href: "/inventory/reserved-inventory" },
+    { label: "On Demand Inventory", href: "/inventory/on-demand-inventory" },
+    { label: "Zero Inventory", href: "/inventory/zero-inventory" },
+  ],
 
   fabrics: [
     { label: "Fabric Dashboard", href: "/fabrics" },
@@ -158,56 +158,56 @@ reviews: [
     { label: "Media Library", href: "/media" },
   ],
 
-orders: [
-  { label: "Orders Dashboard", href: "/orders" },
-  { label: "All Orders", href: "/orders/all" },
+  orders: [
+    { label: "Orders Dashboard", href: "/orders" },
+    { label: "All Orders", href: "/orders/all" },
 
-  // ✅ confirmation
-  
+    // ✅ confirmation
 
-  { label: "Order Search", href: "/orders/search" },
 
-  {
-    label: "Product → Order Search",
-    href: "/orders/search-order-by-name-or-code",
-  },
+    { label: "Order Search", href: "/orders/search" },
 
-  {
-    label: "Order Search by Location",
-    href: "/orders/getOrderbyLocation",
-  },
-  { label: "Confirmed Orders", href: "/orders/confirmed-orders" },
-  { label: "Unconfirmed Orders", href: "/orders/unconfirmed-orders" },
+    {
+      label: "Product → Order Search",
+      href: "/orders/search-order-by-name-or-code",
+    },
 
-  { label: "Duplicate Orders", href: "/orders/duplicate-orders" },
-  { label: "Refund Escalation", href: "/orders/refund-escalation" },
-  { label: "Order Analytics", href: "/orders/report" },
+    {
+      label: "Order Search by Location",
+      href: "/orders/getOrderbyLocation",
+    },
+    { label: "Confirmed Orders", href: "/orders/confirmed-orders" },
+    { label: "Unconfirmed Orders", href: "/orders/unconfirmed-orders" },
 
-  // ✅ fulfillment
-  { label: "Processing", href: "/orders/processing" },
-  { label: "Packed", href: "/orders/packed" },
-  { label: "Shipped", href: "/orders/shipped" },
-  { label: "Out for Delivery", href: "/orders/out-for-delivery" },
-  { label: "Delivered", href: "/orders/delivered" },
+    { label: "Duplicate Orders", href: "/orders/duplicate-orders" },
+    { label: "Refund Escalation", href: "/orders/refund-escalation" },
+    { label: "Order Analytics", href: "/orders/report" },
 
-  // ✅ reverse flow
-  { label: "Return Requested", href: "/orders/return_requested" },
-  { label: "Returned", href: "/orders/returned" },
-  { label: "Exchange Requested", href: "/orders/exchange_requested" },
-  { label: "Exchanged", href: "/orders/exchanged" },
-  { label: "Pickup Initiated", href: "/orders/pickup_initiated" },
+    // ✅ fulfillment
+    { label: "Processing", href: "/orders/processing" },
+    { label: "Packed", href: "/orders/packed" },
+    { label: "Shipped", href: "/orders/shipped" },
+    { label: "Out for Delivery", href: "/orders/out-for-delivery" },
+    { label: "Delivered", href: "/orders/delivered" },
 
-  // ✅ failure states
-  { label: "Failed", href: "/orders/failed" },
-  { label: "Cancelled", href: "/orders/cancelled" },
-  { label: "Refunded", href: "/orders/refunded" },
-  { label: "RTO / NDR", href: "/orders/rto" },
+    // ✅ reverse flow
+    { label: "Return Requested", href: "/orders/return_requested" },
+    { label: "Returned", href: "/orders/returned" },
+    { label: "Exchange Requested", href: "/orders/exchange_requested" },
+    { label: "Exchanged", href: "/orders/exchanged" },
+    { label: "Pickup Initiated", href: "/orders/pickup_initiated" },
 
-  // ✅ misc
-  { label: "Order Remark", href: "/orders/remark" },
-  { label: "Invoice", href: "/orders/invoices" },
-  { label: "RMA Requests", href: "/orders/rma" },
-],
+    // ✅ failure states
+    { label: "Failed", href: "/orders/failed" },
+    { label: "Cancelled", href: "/orders/cancelled" },
+    { label: "Refunded", href: "/orders/refunded" },
+    { label: "RTO / NDR", href: "/orders/rto" },
+
+    // ✅ misc
+    { label: "Order Remark", href: "/orders/remark" },
+    { label: "Invoice", href: "/orders/invoices" },
+    { label: "RMA Requests", href: "/orders/rma" },
+  ],
 
   rma: [
     { label: "RMA Requests", href: "/rma" },
@@ -232,40 +232,40 @@ orders: [
     { label: "NDR Follow-ups", href: "/operations/ndr" },
   ],
 
-marketing: [
-  { label: "Dashboard", href: "/marketing" },
-  { label: "Campaigns", href: "/marketing/campaigns" },
-  { label: "Create Campaign", href: "/marketing/campaigns/create" },
-  { label: "Email", href: "/marketing/email" },
-  { label: "Marketing Spend", href: "/marketing/marketingSpend" },
-  { label: "ROAS", href: "/marketing/ROAS" },
-  { label: "Commerce Manager", href: "/marketing/commerceManager" },
-  { label: "Available Inventory", href: "/marketing/available-inventory" },
-],
+  marketing: [
+    { label: "Dashboard", href: "/marketing" },
+    { label: "Campaigns", href: "/marketing/campaigns" },
+    { label: "Create Campaign", href: "/marketing/campaigns/create" },
+    { label: "Email", href: "/marketing/email" },
+    { label: "Marketing Spend", href: "/marketing/marketingSpend" },
+    { label: "ROAS", href: "/marketing/ROAS" },
+    { label: "Commerce Manager", href: "/marketing/commerceManager" },
+    { label: "Available Inventory", href: "/marketing/available-inventory" },
+  ],
 
   customers: [
-  { label: "Customer Dashboard", href: "/customers/dashboard" },
-  { label: "Customer List", href: "/customers" },
-  { label: "Customer Search", href: "/customers/search" },
+    { label: "Customer Dashboard", href: "/customers/dashboard" },
+    { label: "Customer List", href: "/customers" },
+    { label: "Customer Search", href: "/customers/search" },
 
-  { label: "Customer Analytics", href: "/customers/analytics" },
-  { label: "Segments Analytics", href: "/customers/analytics/segments" },
-  { label: "Risk / RTO Analytics", href: "/customers/analytics/risk" },
-  { label: "Revenue Analytics", href: "/customers/analytics/revenue" },
-  { label: "Retention Analytics", href: "/customers/analytics/retention" },
-  { label: "Analytics Reports", href: "/customers/analytics/reports" },
+    { label: "Customer Analytics", href: "/customers/analytics" },
+    { label: "Segments Analytics", href: "/customers/analytics/segments" },
+    { label: "Risk / RTO Analytics", href: "/customers/analytics/risk" },
+    { label: "Revenue Analytics", href: "/customers/analytics/revenue" },
+    { label: "Retention Analytics", href: "/customers/analytics/retention" },
+    { label: "Analytics Reports", href: "/customers/analytics/reports" },
 
-  { label: "Customer Credits", href: "/customers/credits" },
+    { label: "Customer Credits", href: "/customers/credits" },
 
-  { label: "Banking / Refund Details", href: "/customers/bankingDetails" },
-  { label: "Customer / Address", href: "/customers/address" },
-  { label: "Customer Carts", href: "/customers/carts" },
-  { label: "Cart Adds", href: "/customers/cart-adds" },
-  { label: "Abandoned Carts", href: "/customers/abandoned-carts" },
-  { label: "Wishlist", href: "/customers/wishlist" },
-  { label: "Tickets & Support", href: "/customers/support" },
-  { label: "Newsletter Subscribers", href: "/customers/newsletter" },
-],
+    { label: "Banking / Refund Details", href: "/customers/bankingDetails" },
+    { label: "Customer / Address", href: "/customers/address" },
+    { label: "Customer Carts", href: "/customers/carts" },
+    { label: "Cart Adds", href: "/customers/cart-adds" },
+    { label: "Abandoned Carts", href: "/customers/abandoned-carts" },
+    { label: "Wishlist", href: "/customers/wishlist" },
+    { label: "Tickets & Support", href: "/customers/support" },
+    { label: "Newsletter Subscribers", href: "/customers/newsletter" },
+  ],
   customer_support: [
     { label: "Support Dashboard", href: "/customer-support" },
     { label: "Search", href: "/customer-support/search" },
@@ -301,21 +301,21 @@ marketing: [
     { label: "Not Deliverables", href: "/shiprocket/not-deliverables" },
   ],
 
- bluedart: [
-  { label: "BlueDart Dashboard", href: "/bluedart" },
+  bluedart: [
+    { label: "BlueDart Dashboard", href: "/bluedart" },
 
-  { label: "Create Shipment", href: "/bluedart/create" },
+    { label: "Create Shipment", href: "/bluedart/create" },
 
-  { label: "Service Check", href: "/bluedart/service-check" },
+    { label: "Service Check", href: "/bluedart/service-check" },
 
-  { label: "All Shipments", href: "/bluedart/shipments" },
+    { label: "All Shipments", href: "/bluedart/shipments" },
 
-  { label: "External Orders", href: "/bluedart/external-orders" },
+    { label: "External Orders", href: "/bluedart/external-orders" },
 
-  { label: "EDD Prediction", href: "/bluedart/edd" },
+    { label: "EDD Prediction", href: "/bluedart/edd" },
 
-  { label: "Analytics", href: "/bluedart/analytics" },
-],
+    { label: "Analytics", href: "/bluedart/analytics" },
+  ],
 
   reports: [
     { label: "Reports Home", href: "/reports" },
@@ -336,29 +336,29 @@ marketing: [
     { label: "Products RMA Insights", href: "/reports/products-rma-insights" },
   ],
 
-    refunds: [
-  { label: "Dashboard", href: "/refunds" },
+  refunds: [
+    { label: "Dashboard", href: "/refunds" },
 
-  // 🎯 Entry point (important)
-  { label: "Eligible Orders", href: "/refunds/eligible-orders" },
+    // 🎯 Entry point (important)
+    { label: "Eligible Orders", href: "/refunds/eligible-orders" },
 
-  // 🧾 Core
-  { label: "All Refunds", href: "/refunds/list" },
-  { label: "Create Refund", href: "/refunds/create" },
+    // 🧾 Core
+    { label: "All Refunds", href: "/refunds/list" },
+    { label: "Create Refund", href: "/refunds/create" },
 
-  // ⚙️ Processing queues
-  { label: "Razorpay Queue", href: "/refunds/razorpay" },
-  { label: "Manual Refunds", href: "/refunds/manual" },
+    // ⚙️ Processing queues
+    { label: "Razorpay Queue", href: "/refunds/razorpay" },
+    { label: "Manual Refunds", href: "/refunds/manual" },
 
-  // ⚠️ Monitoring
-  { label: "Failed Refunds", href: "/refunds/failed" },
+    // ⚠️ Monitoring
+    { label: "Failed Refunds", href: "/refunds/failed" },
 
-  // 📊 Insights
-  { label: "Reports", href: "/refunds/reports" },
+    // 📊 Insights
+    { label: "Reports", href: "/refunds/reports" },
 
-  // ⚙️ Config
-  { label: "Settings", href: "/refunds/settings" },
-],
+    // ⚙️ Config
+    { label: "Settings", href: "/refunds/settings" },
+  ],
 
 
   account_user: [
@@ -366,17 +366,17 @@ marketing: [
     { label: "Change Password", href: "/account/password" },
     { label: "Logout", href: "/logout" },
   ],
-superadmin: [
-  { label: "Vault", href: "/superadmin" },
-  { label: "Manage Users", href: "/superadmin/manage" },
-  { label: "Add User", href: "/superadmin/add" },
+  superadmin: [
+    { label: "Vault", href: "/superadmin" },
+    { label: "Manage Users", href: "/superadmin/manage" },
+    { label: "Add User", href: "/superadmin/add" },
 
-  // ✅ New session control page
-  { label: "Manage Sessions", href: "/superadmin/manage-session" },
+    // ✅ New session control page
+    { label: "Manage Sessions", href: "/superadmin/manage-session" },
 
-  { label: "Activity", href: "/superadmin/activity" },
-  { label: "Meta XML Sync", href: "/superadmin/xml-sync" },
-],
+    { label: "Activity", href: "/superadmin/activity" },
+    { label: "Meta XML Sync", href: "/superadmin/xml-sync" },
+  ],
 
   collaboration: [
     { label: "Influencer Program", href: "/influencer-collaboration-program" },
@@ -393,6 +393,14 @@ superadmin: [
   ],
 
   wordpress: [{ label: "WP Orders", href: "/wordpress/orders" }],
+
+  shopify: [
+    { label: "Shopify Dashboard", href: "/shopify" },
+    { label: "Orders & Invoicing", href: "/shopify/orders" },
+    { label: "Products", href: "/shopify/products" },
+    { label: "Customers", href: "/shopify/customers" },
+    { label: "Inventory", href: "/shopify/inventory" },
+  ],
 };
 
 export const routeSidebarMap = [
@@ -428,5 +436,6 @@ export const routeSidebarMap = [
   { prefix: "/customers", key: "customers" },
   { prefix: "/sales", key: "sales" },
   { prefix: "/account", key: "account_user" },
-  { prefix: "/fast2sms", key: "fast2sms" }, 
+  { prefix: "/fast2sms", key: "fast2sms" },
+  { prefix: "/shopify", key: "shopify" },
 ];

@@ -1,287 +1,259 @@
 // app/orders/rma/RmaClient.jsx
 "use client";
 
-import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { ChevronDown } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { ChevronDown, Search, RefreshCcw } from "lucide-react";
 
-import OrderStatusDropdown from "@/components/orders/OrderStatusDropdown"; // ✅ use this
-import { useRmaStore } from "@/store/useRmaStore";
-import { useOrderStore } from "@/store/orderStore";
-import { useAdminProductStore } from "@/store/adminProductStore";
+import OrderStatusDropdown from "@/components/orders/OrderStatusDropdown";
+import { useOrderRmaStore } from "@/store/orderRmaStore";
 
-/* ----------------------------
-   Tiny helpers (safe)
----------------------------- */
 const toStr = (v) => (v == null ? "" : String(v));
 const norm = (v) => toStr(v).trim().toLowerCase();
+
 const parseDate = (d) => {
   const dt = d ? new Date(d) : null;
   return dt && !Number.isNaN(dt.getTime()) ? dt : null;
 };
-const fmtDate = (d) => (d ? d.toLocaleDateString("en-IN") : "-");
-const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-const endOfDay = (d) => {
-  const x = new Date(d);
-  x.setHours(23, 59, 59, 999);
-  return x;
+
+const fmtDate = (d) => {
+  const dt = parseDate(d);
+  return dt ? dt.toLocaleDateString("en-IN") : "-";
+};
+
+const todayInput = () => new Date().toISOString().slice(0, 10);
+
+const daysAgoInput = (days) => {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString().slice(0, 10);
+};
+
+const STATUS_OPTIONS = [
+  "all",
+  "requested",
+  "approved",
+  "rejected",
+  "pickup_scheduled",
+  "picked",
+  "in_transit",
+  "received",
+  "qc_pass",
+  "qc_fail",
+  "refund_initiated",
+  "refund_completed",
+  "replacement_shipped",
+  "closed",
+];
+
+const TYPE_OPTIONS = ["all", "return", "exchange"];
+
+const FEE_OPTIONS = ["all", "waived", "unpaid", "paid"];
+
+const statusBadge = (statusRaw) => {
+  const st = norm(statusRaw);
+  if (st === "requested") return "bg-purple-50 text-purple-700 ring-purple-100";
+  if (st === "approved") return "bg-green-50 text-green-700 ring-green-100";
+  if (st === "rejected") return "bg-red-50 text-red-700 ring-red-100";
+  if (st === "pickup_scheduled") return "bg-blue-50 text-blue-700 ring-blue-100";
+  if (st === "replacement_shipped") return "bg-amber-50 text-amber-800 ring-amber-100";
+  if (st === "closed") return "bg-gray-900 text-white ring-gray-900";
+  return "bg-gray-100 text-gray-700 ring-gray-200";
+};
+
+const typeBadge = (typeRaw) => {
+  const tp = norm(typeRaw);
+  if (tp === "exchange") return "bg-amber-50 text-amber-800 ring-amber-100";
+  if (tp === "return") return "bg-sky-50 text-sky-700 ring-sky-100";
+  return "bg-gray-100 text-gray-700 ring-gray-200";
 };
 
 export default function RmaClient() {
   const [expanded, setExpanded] = useState(null);
+  const [draftSearch, setDraftSearch] = useState("");
 
-  /* ----------------------------
-     Filters + Sorting
-  ---------------------------- */
-  const [search, setSearch] = useState("");
-  const [fromDate, setFromDate] = useState(""); // YYYY-MM-DD
-  const [toDate, setToDate] = useState(""); // YYYY-MM-DD
-  const [quickRange, setQuickRange] = useState("all"); // all | today | 7d | 30d
-
-  // ✅ easy filters
-  const [statusFilter, setStatusFilter] = useState("all"); // requested | approved | rejected | ...
-  const [typeFilter, setTypeFilter] = useState("all"); // exchange | return | ...
-  const [sortDir, setSortDir] = useState("desc"); // createdAt
-
-  const { rmas, loading: rmaLoading, error: rmaError, fetchAllRmas } = useRmaStore();
   const {
-    orders,
-    loading: orderLoading,
-    error: orderError,
-    fetchAllOrders,
-  } = useOrderStore();
-  const {
-    products,
-    loading: productLoading,
-    error: productError,
-    fetchProducts,
-  } = useAdminProductStore();
+    rmas,
+    loadingRmas,
+    rmasError,
+    rmaFilters,
+    rmaMeta,
+    getAdminRmaList,
+    refreshAdminRmaList,
+  } = useOrderRmaStore();
 
-  /* ----------------------------
-     Fetch data
-  ---------------------------- */
+  const loading = loadingRmas;
+  const error = rmasError;
+
+  const fetchWith = useCallback(
+    (updates = {}) => {
+      return getAdminRmaList({
+        ...rmaFilters,
+        ...updates,
+      });
+    },
+    [getAdminRmaList, rmaFilters]
+  );
+
   useEffect(() => {
-    fetchAllRmas();
-    fetchAllOrders();
-    fetchProducts({ limit: 500 });
+    getAdminRmaList();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ----------------------------
-     Maps for fast lookup
-  ---------------------------- */
-  const orderMap = useMemo(() => {
-    const map = new Map();
-    (orders || []).forEach((o) => o?._id && map.set(String(o._id), o));
-    return map;
-  }, [orders]);
-
-  const productMap = useMemo(() => {
-    const map = new Map();
-    (products || []).forEach((p) => p?._id && map.set(String(p._id), p));
-    return map;
-  }, [products]);
-
-  const loading = rmaLoading || orderLoading || productLoading;
-  const error = rmaError || orderError || productError;
-
-  /* ----------------------------
-     Expand / Collapse row
-  ---------------------------- */
   const toggleExpand = useCallback((key) => {
     setExpanded((prev) => (prev === key ? null : key));
   }, []);
 
-  /* ----------------------------
-     Quick range start
-  ---------------------------- */
-  const quickFrom = useMemo(() => {
-    const now = new Date();
-    const today = startOfDay(now);
-    if (quickRange === "today") return today;
-
-    if (quickRange === "7d") {
-      const d = new Date(today);
-      d.setDate(d.getDate() - 7);
-      return d;
-    }
-
-    if (quickRange === "30d") {
-      const d = new Date(today);
-      d.setDate(d.getDate() - 30);
-      return d;
-    }
-
-    return null;
-  }, [quickRange]);
-
-  /* ----------------------------
-     Badge styles (requested/exchange updated)
----------------------------- */
-  const statusBadge = (statusRaw) => {
-    const st = norm(statusRaw);
-    if (st === "requested") return "bg-purple-50 text-purple-700 ring-purple-100";
-    if (st === "approved") return "bg-green-50 text-green-700 ring-green-100";
-    if (st === "rejected") return "bg-red-50 text-red-700 ring-red-100";
-    return "bg-gray-100 text-gray-700 ring-gray-200";
+  const handleSearch = () => {
+    fetchWith({
+      page: 1,
+      search: draftSearch.trim(),
+    });
   };
 
-  const typeBadge = (typeRaw) => {
-    const tp = norm(typeRaw);
-    if (tp === "exchange") return "bg-amber-50 text-amber-800 ring-amber-100";
-    if (tp === "return") return "bg-sky-50 text-sky-700 ring-sky-100";
-    return "bg-gray-100 text-gray-700 ring-gray-200";
+  const handleSearchKeyDown = (e) => {
+    if (e.key === "Enter") handleSearch();
   };
 
-  /* ============================================================
-     ✅ FILTER + SORT (createdAt)
-  ============================================================ */
-  const filteredRmas = useMemo(() => {
-    if (!Array.isArray(rmas)) return [];
-
-    const q = norm(search);
-    const from = fromDate ? parseDate(fromDate) : null;
-    const to = toDate ? endOfDay(parseDate(toDate) || new Date(toDate)) : null;
-
-    return rmas
-      .filter((rma) => {
-        const linkedOrder = orderMap.get(String(rma?.orderId)) || null;
-
-        const orderNumber = toStr(linkedOrder?.orderNumber || rma?.orderNumber);
-        const rmaNumber = toStr(rma?.rmaNumber);
-        const customerName = toStr(
-          linkedOrder?.shippingAddressSnapshot?.fullName ||
-            linkedOrder?.customerId?.name ||
-            rma?.customer?.name
-        );
-
-        const createdAt = parseDate(rma?.createdAt);
-
-        // ✅ search
-        const matchesSearch =
-          !q ||
-          norm(orderNumber).includes(q) ||
-          norm(rmaNumber).includes(q) ||
-          norm(customerName).includes(q);
-
-        // ✅ status filter (RMA status)
-        const st = norm(rma?.status);
-        const matchesStatus = statusFilter === "all" || st === norm(statusFilter);
-
-        // ✅ type filter
-        const tp = norm(rma?.type);
-        const matchesType = typeFilter === "all" || tp === norm(typeFilter);
-
-        // ✅ date filter
-        let matchesDate = true;
-        if (createdAt) {
-          if (quickFrom) matchesDate = createdAt >= quickFrom;
-          if (from) matchesDate = matchesDate && createdAt >= from;
-          if (to) matchesDate = matchesDate && createdAt <= to;
-        } else {
-          if (quickFrom || from || to) matchesDate = false;
-        }
-
-        return matchesSearch && matchesStatus && matchesType && matchesDate;
-      })
-      .sort((a, b) => {
-        const ta = parseDate(a?.createdAt)?.getTime?.() ?? 0;
-        const tb = parseDate(b?.createdAt)?.getTime?.() ?? 0;
-        return sortDir === "asc" ? ta - tb : tb - ta;
+  const handleQuickRange = (value) => {
+    if (value === "today") {
+      fetchWith({
+        page: 1,
+        fromDate: todayInput(),
+        toDate: todayInput(),
       });
-  }, [rmas, orderMap, search, fromDate, toDate, quickFrom, statusFilter, typeFilter, sortDir]);
+      return;
+    }
 
-  /* ----------------------------
-     Filter options (from data)
-  ---------------------------- */
-  const statusOptions = useMemo(() => {
-    const set = new Set();
-    (rmas || []).forEach((r) => {
-      const v = norm(r?.status);
-      if (v) set.add(v);
-    });
-    return ["all", ...Array.from(set).sort()];
-  }, [rmas]);
+    if (value === "7d") {
+      fetchWith({
+        page: 1,
+        fromDate: daysAgoInput(7),
+        toDate: todayInput(),
+      });
+      return;
+    }
 
-  const typeOptions = useMemo(() => {
-    const set = new Set();
-    (rmas || []).forEach((r) => {
-      const v = norm(r?.type);
-      if (v) set.add(v);
+    if (value === "30d") {
+      fetchWith({
+        page: 1,
+        fromDate: daysAgoInput(30),
+        toDate: todayInput(),
+      });
+      return;
+    }
+
+    fetchWith({
+      page: 1,
+      fromDate: "",
+      toDate: "",
     });
-    return ["all", ...Array.from(set).sort()];
-  }, [rmas]);
+  };
 
   const clearFilters = () => {
-    setSearch("");
-    setFromDate("");
-    setToDate("");
-    setQuickRange("all");
-    setStatusFilter("all");
-    setTypeFilter("all");
-    setSortDir("desc");
+    setDraftSearch("");
+    getAdminRmaList({
+      page: 1,
+      limit: 20,
+      search: "",
+      type: "all",
+      status: "all",
+      feeStatus: "all",
+      fromDate: "",
+      toDate: "",
+      sortBy: "createdAt",
+      sortDir: "desc",
+    });
   };
+
+  const pageStart = useMemo(() => {
+    if (!rmaMeta?.total) return 0;
+    return (Number(rmaMeta.page || 1) - 1) * Number(rmaMeta.limit || 20) + 1;
+  }, [rmaMeta]);
+
+  const pageEnd = useMemo(() => {
+    const page = Number(rmaMeta?.page || 1);
+    const limit = Number(rmaMeta?.limit || 20);
+    const total = Number(rmaMeta?.total || 0);
+    return Math.min(page * limit, total);
+  }, [rmaMeta]);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">RMA Requests</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Click any row to view full order + RMA details. You can also set order status to{" "}
-            <b>Pickup Initiated</b>.
+          <p className="mt-1 text-sm text-gray-500">
+            Search, filter and manage return/exchange requests.
           </p>
         </div>
 
-        <div className="text-sm text-gray-600">
-          <span className="font-medium text-gray-900">{filteredRmas.length}</span>{" "}
-          requests
+        <div className="flex items-center gap-2 text-sm text-gray-600">
+          <span className="rounded-full bg-gray-100 px-3 py-1 font-medium text-gray-900">
+            {rmaMeta?.total || 0} requests
+          </span>
+
+          <button
+            type="button"
+            onClick={refreshAdminRmaList}
+            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+          >
+            <RefreshCcw size={14} />
+            Refresh
+          </button>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 p-4">
-        <div className="grid lg:grid-cols-8 gap-3">
-          {/* Search */}
-          <div className="lg:col-span-2">
+      <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
+        <div className="grid gap-3 lg:grid-cols-12">
+          <div className="lg:col-span-3">
             <label className="text-xs text-gray-500">Search</label>
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Order #, RMA #, Customer..."
-              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200"
-            />
+            <div className="mt-1 flex rounded-xl border border-gray-200 bg-white focus-within:ring-2 focus-within:ring-blue-100">
+              <input
+                value={draftSearch}
+                onChange={(e) => setDraftSearch(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
+                placeholder="Order #, RMA #, customer, AWB..."
+                className="w-full rounded-l-xl px-3 py-2 text-sm outline-none"
+              />
+              <button
+                type="button"
+                onClick={handleSearch}
+                className="inline-flex items-center justify-center rounded-r-xl bg-gray-900 px-3 text-white hover:bg-black"
+                title="Search"
+              >
+                <Search size={16} />
+              </button>
+            </div>
           </div>
 
-          {/* From */}
-          <div>
+          <div className="lg:col-span-2">
             <label className="text-xs text-gray-500">From</label>
             <input
               type="date"
-              value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200"
+              value={rmaFilters.fromDate || ""}
+              onChange={(e) =>
+                fetchWith({ page: 1, fromDate: e.target.value })
+              }
+              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
             />
           </div>
 
-          {/* To */}
-          <div>
+          <div className="lg:col-span-2">
             <label className="text-xs text-gray-500">To</label>
             <input
               type="date"
-              value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200"
+              value={rmaFilters.toDate || ""}
+              onChange={(e) => fetchWith({ page: 1, toDate: e.target.value })}
+              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
             />
           </div>
 
-          {/* Quick */}
           <div>
             <label className="text-xs text-gray-500">Quick</label>
             <select
-              value={quickRange}
-              onChange={(e) => setQuickRange(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200"
+              onChange={(e) => handleQuickRange(e.target.value)}
+              defaultValue="all"
+              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
             >
               <option value="all">All</option>
               <option value="today">Today</option>
@@ -290,118 +262,135 @@ export default function RmaClient() {
             </select>
           </div>
 
-          {/* Status (RMA) */}
-          <div>
-            <label className="text-xs text-gray-500">RMA Status</label>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm capitalize outline-none focus:ring-2 focus:ring-blue-200"
-            >
-              {statusOptions.map((s) => (
-                <option key={s} value={s} className="capitalize">
-                  {s}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Type */}
           <div>
             <label className="text-xs text-gray-500">Type</label>
             <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm capitalize outline-none focus:ring-2 focus:ring-blue-200"
+              value={rmaFilters.type || "all"}
+              onChange={(e) => fetchWith({ page: 1, type: e.target.value })}
+              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm capitalize outline-none focus:ring-2 focus:ring-blue-100"
             >
-              {typeOptions.map((t) => (
-                <option key={t} value={t} className="capitalize">
-                  {t}
+              {TYPE_OPTIONS.map((item) => (
+                <option key={item} value={item} className="capitalize">
+                  {item}
                 </option>
               ))}
             </select>
           </div>
 
-          {/* Sort */}
+          <div>
+            <label className="text-xs text-gray-500">Status</label>
+            <select
+              value={rmaFilters.status || "all"}
+              onChange={(e) => fetchWith({ page: 1, status: e.target.value })}
+              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm capitalize outline-none focus:ring-2 focus:ring-blue-100"
+            >
+              {STATUS_OPTIONS.map((item) => (
+                <option key={item} value={item} className="capitalize">
+                  {item.replaceAll("_", " ")}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs text-gray-500">Fee</label>
+            <select
+              value={rmaFilters.feeStatus || "all"}
+              onChange={(e) =>
+                fetchWith({ page: 1, feeStatus: e.target.value })
+              }
+              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm capitalize outline-none focus:ring-2 focus:ring-blue-100"
+            >
+              {FEE_OPTIONS.map((item) => (
+                <option key={item} value={item} className="capitalize">
+                  {item}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div>
             <label className="text-xs text-gray-500">Sort</label>
             <select
-              value={sortDir}
-              onChange={(e) => setSortDir(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200"
+              value={rmaFilters.sortDir || "desc"}
+              onChange={(e) =>
+                fetchWith({
+                  page: 1,
+                  sortBy: "createdAt",
+                  sortDir: e.target.value,
+                })
+              }
+              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
             >
-              <option value="desc">Created: Newest</option>
-              <option value="asc">Created: Oldest</option>
+              <option value="desc">Newest</option>
+              <option value="asc">Oldest</option>
             </select>
           </div>
         </div>
 
-        {/* Clear */}
         <div className="mt-3 flex justify-end">
           <button
+            type="button"
             onClick={clearFilters}
-            className="text-xs rounded-lg px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700"
+            className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-200"
           >
             Clear Filters
           </button>
         </div>
       </div>
 
-      {/* States */}
       {loading && (
         <div className="flex items-center gap-2 text-sm text-gray-600">
-          <span className="h-4 w-4 rounded-full border-2 border-gray-300 border-t-blue-600 animate-spin" />
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-gray-900" />
           Loading RMA requests...
         </div>
       )}
 
       {error && (
-        <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           ❌ {toStr(error)}
         </div>
       )}
 
-      {!loading && filteredRmas.length === 0 && (
-        <div className="rounded-xl bg-gray-50 border border-gray-100 px-5 py-10 text-center">
-          <p className="text-gray-600 font-medium">No RMA requests found</p>
-          <p className="text-sm text-gray-500 mt-1">Try changing filters or search.</p>
+      {!loading && !rmas?.length && (
+        <div className="rounded-xl border border-gray-100 bg-gray-50 px-5 py-10 text-center">
+          <p className="font-medium text-gray-600">No RMA requests found</p>
+          <p className="mt-1 text-sm text-gray-500">
+            Try changing filters or search.
+          </p>
         </div>
       )}
 
-      {/* Table */}
-      {!loading && filteredRmas.length > 0 && (
-        <div className="rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 overflow-hidden">
+      {!loading && rmas?.length > 0 && (
+        <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-100">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-gray-600">
                 <tr className="border-b border-gray-100">
-                  <th className="p-4 text-left font-semibold w-10" />
+                  <th className="w-10 p-4 text-left font-semibold" />
                   <th className="p-4 text-left font-semibold">Order #</th>
                   <th className="p-4 text-left font-semibold">RMA #</th>
                   <th className="p-4 text-left font-semibold">Type</th>
-                  <th className="p-4 text-left font-semibold">RMA Status</th>
+                  <th className="p-4 text-left font-semibold">Status</th>
                   <th className="p-4 text-left font-semibold">Customer</th>
+                  <th className="p-4 text-left font-semibold">Fee</th>
                   <th className="p-4 text-left font-semibold">Created</th>
                 </tr>
               </thead>
 
               <tbody className="divide-y divide-gray-100">
-                {filteredRmas.map((rma, index) => {
-                  const linkedOrder = orderMap.get(String(rma?.orderId)) || null;
-
-                  const customerName =
-                    linkedOrder?.shippingAddressSnapshot?.fullName ||
-                    linkedOrder?.customerId?.name ||
-                    rma?.customer?.name ||
-                    "-";
-
+                {rmas.map((rma, index) => {
+                  const order = rma?.order || {};
+                  const customer = rma?.customer || {};
+                  const shipping = rma?.shippingAddress || {};
                   const rowKey =
-                    rma?.rmaNumber || rma?._id || `${rma?.orderId || "order"}-${index}`;
+                    rma?.rmaNumber ||
+                    `${rma?.orderId || "order"}-${index}`;
+
                   const isOpen = expanded === rowKey;
 
                   return (
                     <React.Fragment key={rowKey}>
-                      {/* MAIN ROW */}
                       <tr
                         onClick={() => toggleExpand(rowKey)}
                         className={`cursor-pointer transition ${
@@ -418,14 +407,16 @@ export default function RmaClient() {
                         </td>
 
                         <td className="p-4 font-medium text-gray-900">
-                          {linkedOrder?.orderNumber || rma?.orderNumber || "-"}
+                          {rma?.orderNumber || order?.orderNumber || "-"}
                         </td>
 
-                        <td className="p-4 text-gray-700">{rma?.rmaNumber || "-"}</td>
+                        <td className="p-4 text-gray-700">
+                          {rma?.rmaNumber || "-"}
+                        </td>
 
                         <td className="p-4">
                           <span
-                            className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1 capitalize ${typeBadge(
+                            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium capitalize ring-1 ${typeBadge(
                               rma?.type
                             )}`}
                           >
@@ -435,161 +426,120 @@ export default function RmaClient() {
 
                         <td className="p-4">
                           <span
-                            className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1 capitalize ${statusBadge(
+                            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium capitalize ring-1 ${statusBadge(
                               rma?.status
                             )}`}
                           >
-                            {rma?.status || "-"}
+                            {toStr(rma?.status).replaceAll("_", " ") || "-"}
                           </span>
                         </td>
 
-                        <td className="p-4 text-gray-700">{customerName}</td>
+                        <td className="p-4 text-gray-700">
+                          {customer?.name || "-"}
+                        </td>
+
+                        <td className="p-4 text-gray-700">
+                          {Number(rma?.fee?.amount || 0) > 0
+                            ? `₹${rma.fee.amount} (${rma.fee.status})`
+                            : rma?.fee?.status || "waived"}
+                        </td>
 
                         <td className="p-4 text-gray-500">
-                          {fmtDate(parseDate(rma?.createdAt))}
+                          {fmtDate(rma?.createdAt)}
                         </td>
                       </tr>
 
-                      {/* EXPANDED ROW */}
                       {isOpen && (
                         <tr className="bg-white">
-                          <td colSpan={7} className="px-6 py-5">
+                          <td colSpan={8} className="px-6 py-5">
                             <div className="space-y-5">
-                              <div className="flex items-center justify-between">
+                              <div className="flex items-center justify-between gap-3">
                                 <p className="text-sm font-semibold text-gray-900">
-                                  Order, RMA & Pickup Status
+                                  Order, RMA & Pickup Details
                                 </p>
                                 <span className="text-xs text-gray-500">
                                   Click row again to collapse
                                 </span>
                               </div>
 
-                              {/* Summary cards */}
-                              <div className="grid lg:grid-cols-4 gap-4 text-xs">
-                                {/* Order */}
-                                <div className="rounded-xl bg-gray-50 ring-1 ring-gray-100 p-4">
+                              <div className="grid gap-4 text-xs lg:grid-cols-4">
+                                <div className="rounded-xl bg-gray-50 p-4 ring-1 ring-gray-100">
                                   <p className="text-gray-500">Order</p>
                                   <p className="mt-2 text-gray-900">
-                                    <b>Order #:</b> {linkedOrder?.orderNumber || "-"}
+                                    <b>Order #:</b>{" "}
+                                    {order?.orderNumber || rma?.orderNumber || "-"}
                                   </p>
                                   <p className="text-gray-700">
-                                    <b>Fulfillment:</b> {linkedOrder?.fulfillmentStatus || "-"}
+                                    <b>Fulfillment:</b>{" "}
+                                    {order?.fulfillmentStatus || "-"}
                                   </p>
-                                  <p className="text-gray-900 mt-1">
+                                  <p className="text-gray-700">
+                                    <b>Payment:</b>{" "}
+                                    {order?.paymentMethod || "-"} /{" "}
+                                    {order?.paymentStatus || "-"}
+                                  </p>
+                                  <p className="mt-1 text-gray-900">
                                     <b>Total:</b>{" "}
-                                    {linkedOrder?.finalPayable != null
-                                      ? `₹${linkedOrder.finalPayable}`
+                                    {order?.finalPayable != null
+                                      ? `₹${order.finalPayable}`
                                       : "-"}
                                   </p>
                                 </div>
 
-                                {/* ✅ UPDATE ORDER STATUS (Pickup Initiated available) */}
-                                <div className="rounded-xl bg-gray-50 ring-1 ring-gray-100 p-4">
-                                  <p className="text-gray-500">Update Order Status</p>
+                                <div className="rounded-xl bg-gray-50 p-4 ring-1 ring-gray-100">
+                                  <p className="text-gray-500">
+                                    Update Order Status
+                                  </p>
                                   <div className="mt-2">
                                     <OrderStatusDropdown
-                                      orderId={linkedOrder?._id}
-                                      currentStatus={linkedOrder?.fulfillmentStatus}
-                                      onUpdated={() => {
-                                        // ✅ refresh list so UI shows updated fulfillmentStatus
-                                        fetchAllOrders();
-                                      }}
+                                      orderId={order?._id || rma?.orderId}
+                                      currentStatus={order?.fulfillmentStatus}
+                                      onUpdated={refreshAdminRmaList}
                                     />
                                   </div>
                                   <p className="mt-2 text-[11px] text-gray-500">
-                                    Set this to <b>pickup initiated</b> when reverse pickup is started.
+                                    Set to <b>pickup initiated</b> when reverse
+                                    pickup starts.
                                   </p>
                                 </div>
 
-                                {/* Shipping */}
-                                <div className="rounded-xl bg-gray-50 ring-1 ring-gray-100 p-4">
-                                  <p className="text-gray-500">Shipping</p>
-                                  <p className="mt-2 text-gray-900 font-medium">
-                                    {linkedOrder?.shippingAddressSnapshot?.fullName || "-"}
+                                <div className="rounded-xl bg-gray-50 p-4 ring-1 ring-gray-100">
+                                  <p className="text-gray-500">Customer</p>
+                                  <p className="mt-2 font-medium text-gray-900">
+                                    {customer?.name || shipping?.fullName || "-"}
                                   </p>
                                   <p className="text-gray-700">
-                                    {linkedOrder?.shippingAddressSnapshot?.phone || "-"}
+                                    {customer?.phone || shipping?.phone || "-"}
                                   </p>
                                   <p className="text-gray-700">
-                                    {linkedOrder?.shippingAddressSnapshot?.line1 || "-"}
-                                  </p>
-                                  <p className="text-gray-700">
-                                    {linkedOrder?.shippingAddressSnapshot?.city || "-"}{" "}
-                                    {linkedOrder?.shippingAddressSnapshot?.state || "-"}{" "}
-                                    {linkedOrder?.shippingAddressSnapshot?.pincode || "-"}
+                                    {customer?.email || shipping?.email || "-"}
                                   </p>
                                 </div>
 
-                                {/* RMA */}
-                                <div className="rounded-xl bg-gray-50 ring-1 ring-gray-100 p-4">
+                                <div className="rounded-xl bg-gray-50 p-4 ring-1 ring-gray-100">
                                   <p className="text-gray-500">RMA</p>
                                   <p className="mt-2 text-gray-900">
                                     <b>Reason:</b> {rma?.reason || "-"}
                                   </p>
                                   <p className="text-gray-700">
+                                    <b>Resolution:</b>{" "}
+                                    {rma?.resolution || "-"}
+                                  </p>
+                                  <p className="text-gray-700">
                                     <b>Note:</b> {rma?.customerNote || "-"}
                                   </p>
-
-                                  {rma?.fee?.amount > 0 && (
-                                    <p className="mt-2 text-blue-700 font-medium">
-                                      Exchange Fee: ₹{rma.fee.amount} ({rma.fee.status})
+                                  {Number(rma?.fee?.amount || 0) > 0 && (
+                                    <p className="mt-2 font-medium text-blue-700">
+                                      Exchange Fee: ₹{rma.fee.amount} (
+                                      {rma.fee.status})
                                     </p>
                                   )}
                                 </div>
                               </div>
 
-                              {/* Items */}
-                              <div className="grid md:grid-cols-2 gap-4">
-                                {/* Order items */}
-                                <div className="rounded-xl bg-white ring-1 ring-gray-100 p-4">
-                                  <p className="text-xs font-semibold text-gray-900 mb-3">
-                                    Order Items
-                                  </p>
-
-                                  {!linkedOrder?.items?.length ? (
-                                    <p className="text-xs text-gray-500">
-                                      No order items found.
-                                    </p>
-                                  ) : (
-                                    <div className="space-y-2">
-                                      {linkedOrder.items.map((it, idx) => {
-                                        const pid = it?.productId;
-                                        const prod = pid ? productMap.get(String(pid)) : null;
-
-                                        const title =
-                                          it?.productSnapshot?.title ||
-                                          prod?.title ||
-                                          "Item";
-
-                                        const itemKey =
-                                          it?.lineId ||
-                                          it?._id ||
-                                          `${rowKey}-orderItem-${idx}`;
-
-                                        return (
-                                          <div
-                                            key={itemKey}
-                                            className="flex items-start justify-between rounded-lg bg-gray-50 px-3 py-2"
-                                          >
-                                            <div>
-                                              <p className="text-gray-900 font-medium">{title}</p>
-                                              <p className="text-gray-500 text-xs">
-                                                Qty: {it?.quantity || 1}
-                                              </p>
-                                            </div>
-                                            <p className="text-gray-900 font-semibold">
-                                              ₹{it?.subtotal ?? it?.price ?? 0}
-                                            </p>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
-                                </div>
-
-                                {/* RMA items */}
-                                <div className="rounded-xl bg-white ring-1 ring-gray-100 p-4">
-                                  <p className="text-xs font-semibold text-gray-900 mb-3">
+                              <div className="grid gap-4 md:grid-cols-2">
+                                <div className="rounded-xl bg-white p-4 ring-1 ring-gray-100">
+                                  <p className="mb-3 text-xs font-semibold text-gray-900">
                                     RMA Items
                                   </p>
 
@@ -599,26 +549,106 @@ export default function RmaClient() {
                                     </p>
                                   ) : (
                                     <div className="space-y-2">
-                                      {rma.items.map((it, idx) => (
-                                        <div
-                                          key={`${rowKey}-rmaItem-${idx}`}
-                                          className="flex items-start justify-between rounded-lg bg-gray-50 px-3 py-2"
-                                        >
-                                          <div>
-                                            <p className="text-gray-900 font-medium">
-                                              {it?.title || "Item"}
-                                            </p>
-                                            <p className="text-gray-500 text-xs">
-                                              Qty: {it?.quantity || 1}
-                                            </p>
+                                      {rma.items.map((it, idx) => {
+                                        const original = it?.orderItem || {};
+                                        const title =
+                                          it?.title ||
+                                          original?.productSnapshot?.title ||
+                                          "Item";
+
+                                        const image =
+                                          original?.productSnapshot?.thumbnail ||
+                                          original?.productSnapshot?.images?.[0] ||
+                                          "";
+
+                                        return (
+                                          <div
+                                            key={`${rowKey}-rmaItem-${idx}`}
+                                            className="flex gap-3 rounded-lg bg-gray-50 px-3 py-2"
+                                          >
+                                            {image ? (
+                                              // eslint-disable-next-line @next/next/no-img-element
+                                              <img
+                                                src={image}
+                                                alt={title}
+                                                className="h-14 w-11 rounded-lg object-cover"
+                                              />
+                                            ) : null}
+
+                                            <div className="min-w-0 flex-1">
+                                              <p className="font-medium text-gray-900">
+                                                {title}
+                                              </p>
+                                              <p className="text-xs text-gray-500">
+                                                RMA Qty: {it?.quantity || 1}
+                                              </p>
+                                              <p className="text-xs text-gray-500">
+                                                Size:{" "}
+                                                {original?.selectedSize || "-"} ·
+                                                Color:{" "}
+                                                {original?.selectedColor || "-"}
+                                              </p>
+                                            </div>
+
+                                            <div className="text-right text-xs text-gray-600">
+                                              <p>
+                                                {it?.variantSku
+                                                  ? `SKU: ${it.variantSku}`
+                                                  : "-"}
+                                              </p>
+                                              <p className="mt-1 font-semibold text-gray-900">
+                                                ₹
+                                                {original?.subtotal ??
+                                                  original?.price ??
+                                                  0}
+                                              </p>
+                                            </div>
                                           </div>
-                                          <p className="text-gray-600 text-xs">
-                                            {it?.variantSku ? `SKU: ${it.variantSku}` : "-"}
-                                          </p>
-                                        </div>
-                                      ))}
+                                        );
+                                      })}
                                     </div>
                                   )}
+                                </div>
+
+                                <div className="rounded-xl bg-white p-4 ring-1 ring-gray-100">
+                                  <p className="mb-3 text-xs font-semibold text-gray-900">
+                                    Pickup / Exchange / Refund
+                                  </p>
+
+                                  <div className="space-y-2 rounded-lg bg-gray-50 p-3 text-xs text-gray-700">
+                                    <p>
+                                      <b>AWB:</b>{" "}
+                                      {rma?.reverseShipment?.awb || "-"}
+                                    </p>
+                                    <p>
+                                      <b>Courier:</b>{" "}
+                                      {rma?.reverseShipment?.courierName || "-"}
+                                    </p>
+                                    <p>
+                                      <b>Tracking:</b>{" "}
+                                      {rma?.reverseShipment?.trackingUrl ? (
+                                        <a
+                                          href={rma.reverseShipment.trackingUrl}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="text-blue-700 underline"
+                                        >
+                                          Open
+                                        </a>
+                                      ) : (
+                                        "-"
+                                      )}
+                                    </p>
+                                    <p>
+                                      <b>Refund:</b>{" "}
+                                      {rma?.refund?.status || "not_started"} /{" "}
+                                      {rma?.refund?.mode || "-"}
+                                    </p>
+                                    <p>
+                                      <b>Exchange SKU:</b>{" "}
+                                      {rma?.exchangeRequest?.variantSku || "-"}
+                                    </p>
+                                  </div>
                                 </div>
                               </div>
                             </div>
@@ -630,6 +660,49 @@ export default function RmaClient() {
                 })}
               </tbody>
             </table>
+          </div>
+
+          <div className="flex flex-col gap-3 border-t border-gray-100 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-gray-500">
+              Showing{" "}
+              <span className="font-medium text-gray-900">{pageStart}</span>-
+              <span className="font-medium text-gray-900">{pageEnd}</span> of{" "}
+              <span className="font-medium text-gray-900">
+                {rmaMeta?.total || 0}
+              </span>
+            </p>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={Number(rmaMeta?.page || 1) <= 1 || loading}
+                onClick={() =>
+                  fetchWith({
+                    page: Math.max(1, Number(rmaMeta?.page || 1) - 1),
+                  })
+                }
+                className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Prev
+              </button>
+
+              <span className="text-xs text-gray-500">
+                Page {rmaMeta?.page || 1} / {rmaMeta?.totalPages || 1}
+              </span>
+
+              <button
+                type="button"
+                disabled={!rmaMeta?.hasMore || loading}
+                onClick={() =>
+                  fetchWith({
+                    page: Number(rmaMeta?.page || 1) + 1,
+                  })
+                }
+                className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
           </div>
         </div>
       )}

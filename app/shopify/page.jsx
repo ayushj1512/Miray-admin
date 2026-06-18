@@ -135,13 +135,22 @@ export default function ShopifyDashboardPage() {
         </header>
 
         {error && (
-          <div className="rounded-2xl bg-[#fff3f6] px-4 py-3 text-sm font-semibold text-[#800020]">
-            {error}
-            <button onClick={clearError} className="ml-3 underline">
-              Dismiss
-            </button>
-          </div>
-        )}
+  <div className="rounded-2xl bg-[#fff3f6] px-4 py-3 text-sm font-semibold text-[#800020]">
+    {typeof error === "string"
+      ? error
+      : error?.message
+      ? error.message
+      : error?.errors
+      ? Array.isArray(error.errors)
+        ? error.errors.join(", ")
+        : JSON.stringify(error.errors)
+      : JSON.stringify(error)}
+
+    <button onClick={clearError} className="ml-3 underline">
+      Dismiss
+    </button>
+  </div>
+)}
 
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <Stat icon={<Package size={18} />} title="Products" value={productCount} />

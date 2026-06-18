@@ -18,6 +18,30 @@ const buildQuery = (params = {}) => {
   return query.toString();
 };
 
+const getRequest = async (endpoint, params = {}) => {
+  const query = buildQuery(params);
+  const url = `${API_URL}/api/shopify/${endpoint}${query ? `?${query}` : ""}`;
+  const { data } = await axios.get(url);
+  return data;
+};
+
+const getProductionSummary = (rows = []) =>
+  rows.reduce(
+    (acc, item) => {
+      acc.totalRequired += Number(item.totalRequired || 0);
+      acc.totalAvailable += Number(item.totalAvailable || 0);
+      acc.totalToProduce += Number(item.totalToProduce || item.totalUnits || 0);
+      acc.totalProducts += 1;
+      return acc;
+    },
+    {
+      totalProducts: 0,
+      totalRequired: 0,
+      totalAvailable: 0,
+      totalToProduce: 0,
+    }
+  );
+
 const adminShopifyStore = create((set, get) => ({
   loading: false,
   error: null,
@@ -27,6 +51,20 @@ const adminShopifyStore = create((set, get) => ({
   products: [],
   orders: [],
   customers: [],
+
+  selectedShopifyProduct: null,
+
+  productMappings: [],
+  productionDemand: [],
+  productionRequirements: [],
+  productionQueue: [],
+
+  productionSummary: {
+    totalProducts: 0,
+    totalRequired: 0,
+    totalAvailable: 0,
+    totalToProduce: 0,
+  },
 
   productCount: 0,
   orderCount: 0,
@@ -66,35 +104,31 @@ const adminShopifyStore = create((set, get) => ({
 
   clearError: () => set({ error: null }),
 
+  clearSelectedShopifyProduct: () =>
+    set({
+      selectedShopifyProduct: null,
+    }),
+
   setProductFilters: (filters) =>
     set((state) => ({
-      productFilters: {
-        ...state.productFilters,
-        ...filters,
-      },
+      productFilters: { ...state.productFilters, ...filters },
     })),
 
   setOrderFilters: (filters) =>
     set((state) => ({
-      orderFilters: {
-        ...state.orderFilters,
-        ...filters,
-      },
+      orderFilters: { ...state.orderFilters, ...filters },
     })),
 
   setCustomerFilters: (filters) =>
     set((state) => ({
-      customerFilters: {
-        ...state.customerFilters,
-        ...filters,
-      },
+      customerFilters: { ...state.customerFilters, ...filters },
     })),
 
   fetchShopifyShop: async () => {
     try {
       set({ loading: true, error: null });
 
-      const { data } = await axios.get(`${API_URL}/api/shopify/test`);
+      const data = await getRequest("test");
 
       set({
         shop: data.data || data.shop || null,
@@ -114,10 +148,7 @@ const adminShopifyStore = create((set, get) => ({
     try {
       set({ loading: true, error: null });
 
-      const { data } = await axios.get(
-        `${API_URL}/api/shopify/dashboard?limit=${limit}`
-      );
-
+      const data = await getRequest("dashboard", { limit });
       const dashboard = data.data || {};
 
       set({
@@ -148,16 +179,8 @@ const adminShopifyStore = create((set, get) => ({
     try {
       set({ loading: true, error: null });
 
-      const filters = {
-        ...get().productFilters,
-        ...params,
-      };
-
-      const query = buildQuery(filters);
-
-      const { data } = await axios.get(
-        `${API_URL}/api/shopify/products?${query}`
-      );
+      const filters = { ...get().productFilters, ...params };
+      const data = await getRequest("products", filters);
 
       set({
         products: data.data || [],
@@ -176,7 +199,7 @@ const adminShopifyStore = create((set, get) => ({
     }
   },
 
-  fetchNextProducts: async () => {
+  fetchNextProducts: () => {
     const { productPageInfo, fetchShopifyProducts } = get();
 
     if (!productPageInfo?.hasNextPage || !productPageInfo?.endCursor) return;
@@ -186,24 +209,17 @@ const adminShopifyStore = create((set, get) => ({
     });
   },
 
-  resetProductPagination: async () => {
-    return get().fetchShopifyProducts({
+  resetProductPagination: () =>
+    get().fetchShopifyProducts({
       after: "",
-    });
-  },
+    }),
 
   fetchShopifyOrders: async (params = {}) => {
     try {
       set({ loading: true, error: null });
 
-      const filters = {
-        ...get().orderFilters,
-        ...params,
-      };
-
-      const query = buildQuery(filters);
-
-      const { data } = await axios.get(`${API_URL}/api/shopify/orders?${query}`);
+      const filters = { ...get().orderFilters, ...params };
+      const data = await getRequest("orders", filters);
 
       set({
         orders: data.data || [],
@@ -222,7 +238,7 @@ const adminShopifyStore = create((set, get) => ({
     }
   },
 
-  fetchNextOrders: async () => {
+  fetchNextOrders: () => {
     const { orderPageInfo, fetchShopifyOrders } = get();
 
     if (!orderPageInfo?.hasNextPage || !orderPageInfo?.endCursor) return;
@@ -232,26 +248,17 @@ const adminShopifyStore = create((set, get) => ({
     });
   },
 
-  resetOrderPagination: async () => {
-    return get().fetchShopifyOrders({
+  resetOrderPagination: () =>
+    get().fetchShopifyOrders({
       after: "",
-    });
-  },
+    }),
 
   fetchShopifyCustomers: async (params = {}) => {
     try {
       set({ loading: true, error: null });
 
-      const filters = {
-        ...get().customerFilters,
-        ...params,
-      };
-
-      const query = buildQuery(filters);
-
-      const { data } = await axios.get(
-        `${API_URL}/api/shopify/customers?${query}`
-      );
+      const filters = { ...get().customerFilters, ...params };
+      const data = await getRequest("customers", filters);
 
       set({
         customers: data.data || [],
@@ -270,7 +277,7 @@ const adminShopifyStore = create((set, get) => ({
     }
   },
 
-  fetchNextCustomers: async () => {
+  fetchNextCustomers: () => {
     const { customerPageInfo, fetchShopifyCustomers } = get();
 
     if (!customerPageInfo?.hasNextPage || !customerPageInfo?.endCursor) return;
@@ -280,10 +287,137 @@ const adminShopifyStore = create((set, get) => ({
     });
   },
 
-  resetCustomerPagination: async () => {
-    return get().fetchShopifyCustomers({
+  resetCustomerPagination: () =>
+    get().fetchShopifyCustomers({
       after: "",
-    });
+    }),
+
+  fetchProductMappings: async () => {
+    try {
+      set({ loading: true, error: null });
+
+      const data = await getRequest("product-mappings");
+
+      set({
+        productMappings: data.data || [],
+        loading: false,
+      });
+
+      return data;
+    } catch (error) {
+      set({
+        loading: false,
+        error: getErrorMessage(error, "Failed to fetch product mappings"),
+      });
+    }
+  },
+
+  fetchProductByCode: async (code) => {
+    try {
+      set({ loading: true, error: null });
+
+      const data = await getRequest(`product-code/${code}`);
+
+      set({
+        selectedShopifyProduct: data.data || null,
+        loading: false,
+      });
+
+      return data;
+    } catch (error) {
+      set({
+        selectedShopifyProduct: null,
+        loading: false,
+        error: getErrorMessage(error, "Failed to fetch product by code"),
+      });
+    }
+  },
+
+  fetchProductBySku: async (sku) => {
+    try {
+      set({ loading: true, error: null });
+
+      const data = await getRequest(`product-sku/${sku}`);
+
+      set({
+        selectedShopifyProduct: data.data || null,
+        loading: false,
+      });
+
+      return data;
+    } catch (error) {
+      set({
+        selectedShopifyProduct: null,
+        loading: false,
+        error: getErrorMessage(error, "Failed to fetch product by SKU"),
+      });
+    }
+  },
+
+  fetchProductionDemand: async () => {
+    try {
+      set({ loading: true, error: null });
+
+      const data = await getRequest("production-demand");
+      const rows = data.data || [];
+
+      set({
+        productionDemand: rows,
+        productionSummary: getProductionSummary(rows),
+        loading: false,
+      });
+
+      return data;
+    } catch (error) {
+      set({
+        loading: false,
+        error: getErrorMessage(error, "Failed to fetch production demand"),
+      });
+    }
+  },
+
+  fetchProductionRequirements: async () => {
+    try {
+      set({ loading: true, error: null });
+
+      const data = await getRequest("production-requirements");
+      const rows = data.data || [];
+
+      set({
+        productionRequirements: rows,
+        productionSummary: getProductionSummary(rows),
+        loading: false,
+      });
+
+      return data;
+    } catch (error) {
+      set({
+        loading: false,
+        error: getErrorMessage(error, "Failed to fetch production requirements"),
+      });
+    }
+  },
+
+  fetchProductionQueue: async () => {
+    try {
+      set({ loading: true, error: null });
+
+      const data = await getRequest("production-queue");
+      const rows = data.data || [];
+
+      set({
+        productionQueue: rows,
+        productionSummary: getProductionSummary(rows),
+        loading: false,
+      });
+
+      return data;
+    } catch (error) {
+      set({
+        loading: false,
+        error: getErrorMessage(error, "Failed to fetch production queue"),
+      });
+    }
   },
 }));
 

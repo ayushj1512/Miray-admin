@@ -394,13 +394,16 @@ export const sidebarMenus = {
 
   wordpress: [{ label: "WP Orders", href: "/wordpress/orders" }],
 
-  shopify: [
-    { label: "Shopify Dashboard", href: "/shopify" },
-    { label: "Orders & Invoicing", href: "/shopify/orders" },
-    { label: "Products", href: "/shopify/products" },
-    { label: "Customers", href: "/shopify/customers" },
-    { label: "Inventory", href: "/shopify/inventory" },
-  ],
+ shopify: [
+  { label: "Dashboard", href: "/shopify" },
+  { label: "Orders & Invoicing", href: "/shopify/orders" },
+  { label: "Unfulfilled Orders", href: "/shopify/unfulfilled-orders" },
+  { label: "Fulfilled Orders", href: "/shopify/fulfilled-orders" },
+  { label: "Products", href: "/shopify/products" },
+  { label: "Customers", href: "/shopify/customers" },
+  { label: "Inventory", href: "/shopify/inventory" },
+  { label: "Production Queue", href: "/shopify/production" },
+],
 };
 
 export const routeSidebarMap = [

@@ -648,6 +648,20 @@ export default function RmaClient() {
                                       <b>Exchange SKU:</b>{" "}
                                       {rma?.exchangeRequest?.variantSku || "-"}
                                     </p>
+
+                                    {rma?.type === "exchange" && (
+  <>
+    <p>
+      <b>Ordered Size:</b>{" "}
+      {rma?.items?.[0]?.orderItem?.selectedSize || "-"}
+    </p>
+
+    <p className="font-semibold text-blue-700">
+      <b>Requested Size:</b>{" "}
+      {rma?.exchangeRequest?.attributes?.[0]?.value?.toUpperCase() || "-"}
+    </p>
+  </>
+)}
                                   </div>
                                 </div>
                               </div>

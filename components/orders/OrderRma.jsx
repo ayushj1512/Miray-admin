@@ -5,18 +5,31 @@ import Link from "next/link";
 import {
   Undo2,
   RefreshCcw,
-  ImageIcon,
   Package,
   Calendar,
   User,
   Phone,
   MapPin,
   BadgeIndianRupee,
+  ImageIcon,
 } from "lucide-react";
 import { useRmaStore } from "@/store/useRmaStore";
 
+const small = (v) => (v === null || v === undefined || v === "" ? "-" : v);
+
+const norm = (v) => String(v || "").trim().toLowerCase();
+
+const getAttr = (attrs = [], keys = []) =>
+  attrs.find((a) => keys.includes(norm(a?.key)))?.value || "";
+
+const formatDate = (date) => {
+  if (!date) return "-";
+  const d = new Date(date);
+  return Number.isNaN(d.getTime()) ? "-" : d.toLocaleString("en-IN");
+};
+
 const badgeStyle = (status) => {
-  const s = String(status || "").toLowerCase();
+  const s = norm(status);
   if (s === "requested") return "bg-blue-50 text-blue-700 ring-blue-100";
   if (s === "approved") return "bg-green-50 text-green-700 ring-green-100";
   if (s === "rejected") return "bg-red-50 text-red-700 ring-red-100";
@@ -24,7 +37,15 @@ const badgeStyle = (status) => {
   return "bg-gray-100 text-gray-700 ring-gray-200";
 };
 
-const small = (v) => (v === null || v === undefined || v === "" ? "-" : v);
+const InfoCard = ({ title, icon, children }) => (
+  <div className="rounded-xl bg-gray-50 p-4 ring-1 ring-gray-100">
+    <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+      {icon}
+      {title}
+    </p>
+    <div className="space-y-1.5 text-xs text-gray-700">{children}</div>
+  </div>
+);
 
 export default function OrderRmaDetailsFull({
   orderId,
@@ -35,66 +56,63 @@ export default function OrderRmaDetailsFull({
   const { rmas, fetchAllRmas, loading } = useRmaStore();
   const [expanded, setExpanded] = useState(true);
 
-  // ✅ Ensure RMAs are loaded
   useEffect(() => {
     if (!Array.isArray(rmas) || rmas.length === 0) fetchAllRmas();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ✅ Find latest RMA for this order (if multiple exist)
   const rma = useMemo(() => {
     if (!orderId || !Array.isArray(rmas)) return null;
-    const list = rmas
-      .filter((x) => String(x?.orderId) === String(orderId))
-      .sort((a, b) => new Date(b?.createdAt || 0) - new Date(a?.createdAt || 0));
-    return list[0] || null;
+
+    return (
+      rmas
+        .filter((x) => String(x?.orderId) === String(orderId))
+        .sort(
+          (a, b) =>
+            new Date(b?.createdAt || 0).getTime() -
+            new Date(a?.createdAt || 0).getTime()
+        )[0] || null
+    );
   }, [rmas, orderId]);
 
   if (loading) return null;
 
-  // ✅ No RMA found
   if (!rma) {
     if (!showIfNone) return null;
+
     return (
-      <div className="bg-white/90 backdrop-blur rounded-2xl shadow-sm border border-gray-100 p-5">
+      <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
         <p className="text-sm text-gray-600">No RMA raised for this order.</p>
       </div>
     );
   }
 
+  const shipping = order?.shippingAddressSnapshot || {};
   const customerName =
-    order?.shippingAddressSnapshot?.fullName ||
-    order?.customerId?.name ||
-    rma?.customer?.name ||
-    "-";
+    shipping?.fullName || order?.customerId?.name || rma?.customer?.name || "-";
 
   const customerPhone =
-    order?.shippingAddressSnapshot?.phone ||
-    order?.customerId?.phone ||
-    rma?.customer?.phone ||
-    "-";
+    shipping?.phone || order?.customerId?.phone || rma?.customer?.phone || "-";
 
-  const shipping = order?.shippingAddressSnapshot || {};
-
-  const createdAt = rma?.createdAt ? new Date(rma.createdAt).toLocaleString() : "-";
-  const updatedAt = rma?.updatedAt ? new Date(rma.updatedAt).toLocaleString() : "-";
+  const exchangeAttrs = rma?.exchangeRequest?.attributes || [];
+  const requestedSize = getAttr(exchangeAttrs, ["size", "sizes"]);
+  const requestedColor = getAttr(exchangeAttrs, ["color", "colour"]);
 
   return (
-    <div className="bg-white/90 backdrop-blur rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-      {/* Header */}
-      <div className="p-5 flex items-start justify-between gap-3">
+    <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+      <div className="flex items-start justify-between gap-4 border-b border-gray-100 p-5">
         <div>
-          <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+          <h2 className="flex items-center gap-2 text-base font-semibold text-gray-900">
             <Undo2 size={18} /> RMA Details
           </h2>
-          <p className="text-xs text-gray-500 mt-1">
-            Full customer-submitted RMA information for this order.
+          <p className="mt-1 text-xs text-gray-500">
+            Submitted return/exchange details for this order.
           </p>
         </div>
 
         <div className="flex flex-col items-end gap-2">
           <span
-            className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1 capitalize ${badgeStyle(
+            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium capitalize ring-1 ${badgeStyle(
               rma?.status
             )}`}
           >
@@ -104,7 +122,7 @@ export default function OrderRmaDetailsFull({
           <div className="flex items-center gap-2">
             <button
               onClick={() => fetchAllRmas()}
-              className="px-3 py-2 rounded-lg border border-gray-200 bg-white text-xs font-semibold hover:bg-gray-50 flex items-center gap-2"
+              className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold hover:bg-gray-50"
             >
               <RefreshCcw size={14} /> Refresh
             </button>
@@ -113,14 +131,13 @@ export default function OrderRmaDetailsFull({
               href={rmaPanelHref}
               className="text-xs font-semibold text-blue-600 hover:underline"
             >
-              View in RMA Panel →
+              RMA Panel →
             </Link>
           </div>
         </div>
       </div>
 
-      {/* Collapse */}
-      <div className="px-5 pb-5">
+      <div className="px-5 py-3">
         <button
           onClick={() => setExpanded((p) => !p)}
           className="text-xs font-semibold text-gray-700 hover:text-black"
@@ -130,79 +147,168 @@ export default function OrderRmaDetailsFull({
       </div>
 
       {expanded && (
-        <div className="px-5 pb-6 space-y-5">
-          {/* Top Summary */}
-          <div className="grid md:grid-cols-3 gap-4 text-xs">
-            {/* RMA Meta */}
-            <div className="rounded-xl bg-gray-50 ring-1 ring-gray-100 p-4">
-              <p className="text-gray-500 flex items-center gap-2">
-                <Package size={14} /> RMA
-              </p>
-              <p className="mt-2 text-gray-900">
+        <div className="space-y-5 px-5 pb-6">
+          <div className="grid gap-4 md:grid-cols-3">
+            <InfoCard title="RMA" icon={<Package size={14} />}>
+              <p>
                 <b>RMA #:</b> {small(rma?.rmaNumber)}
               </p>
-              <p className="text-gray-700">
+              <p>
                 <b>Type:</b> {small(rma?.type)}
               </p>
-              <p className="text-gray-700">
-                <b>Reference Code:</b> {small(rma?.referenceCode)}
-              </p>
-              <p className="text-gray-700">
-                <b>Order ID:</b> {small(rma?.orderId)}
-              </p>
-            </div>
-
-            {/* Customer Inputs */}
-            <div className="rounded-xl bg-gray-50 ring-1 ring-gray-100 p-4">
-              <p className="text-gray-500 flex items-center gap-2">
-                <User size={14} /> Customer
-              </p>
-              <p className="mt-2 text-gray-900 font-medium">{small(customerName)}</p>
-              <p className="text-gray-700 flex items-center gap-2 mt-1">
-                <Phone size={14} /> {small(customerPhone)}
-              </p>
-              <p className="text-gray-700 mt-2">
+              <p>
                 <b>Reason:</b> {small(rma?.reason)}
               </p>
-              <p className="text-gray-700 mt-1">
-                <b>Customer Note:</b> {small(rma?.customerNote)}
+              <p>
+                <b>Note:</b> {small(rma?.customerNote)}
               </p>
-            </div>
+            </InfoCard>
 
-            {/* Dates & Fee */}
-            <div className="rounded-xl bg-gray-50 ring-1 ring-gray-100 p-4">
-              <p className="text-gray-500 flex items-center gap-2">
-                <Calendar size={14} /> Timeline
+            <InfoCard title="Customer" icon={<User size={14} />}>
+              <p className="font-medium text-gray-900">{small(customerName)}</p>
+              <p className="flex items-center gap-2">
+                <Phone size={13} /> {small(customerPhone)}
               </p>
-              <p className="mt-2 text-gray-900">
-                <b>Created:</b> {createdAt}
+              <p>
+                <b>Email:</b> {small(shipping?.email || rma?.customer?.email)}
               </p>
-              <p className="text-gray-700">
-                <b>Updated:</b> {updatedAt}
-              </p>
+            </InfoCard>
 
-              <div className="mt-3">
-                <p className="text-gray-500 flex items-center gap-2">
-                  <BadgeIndianRupee size={14} /> Fee
-                </p>
-
-                {rma?.fee?.amount > 0 ? (
-                  <p className="mt-1 text-blue-700 font-medium">
-                    Exchange Fee: ₹{rma.fee.amount} ({small(rma.fee.status)})
-                  </p>
-                ) : (
-                  <p className="mt-1 text-gray-700">No extra fee</p>
-                )}
-              </div>
-            </div>
+            <InfoCard title="Timeline & Fee" icon={<Calendar size={14} />}>
+              <p>
+                <b>Created:</b> {formatDate(rma?.createdAt)}
+              </p>
+              <p>
+                <b>Updated:</b> {formatDate(rma?.updatedAt)}
+              </p>
+              <p className="flex items-center gap-1">
+                <BadgeIndianRupee size={13} />
+                {Number(rma?.fee?.amount || 0) > 0
+                  ? `₹${rma.fee.amount} (${small(rma.fee.status)})`
+                  : "No extra fee"}
+              </p>
+            </InfoCard>
           </div>
 
-          {/* Shipping Snapshot (from order) */}
-          <div className="rounded-xl bg-white ring-1 ring-gray-100 p-4">
-            <p className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-              <MapPin size={16} /> Shipping (Order Snapshot)
+          {rma?.type === "exchange" && (
+            <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+              <p className="text-sm font-semibold text-blue-900">
+                Exchange Requested
+              </p>
+
+              <div className="mt-3 grid gap-3 text-xs text-blue-800 md:grid-cols-3">
+                <p>
+                  <b>Requested Size:</b>{" "}
+                  {requestedSize ? String(requestedSize).toUpperCase() : "-"}
+                </p>
+                <p>
+                  <b>Requested Color:</b> {small(requestedColor)}
+                </p>
+                <p>
+                  <b>New SKU:</b> {small(rma?.exchangeRequest?.variantSku)}
+                </p>
+              </div>
+
+              {rma?.exchangeRequest?.note && (
+                <p className="mt-2 text-xs text-blue-700">
+                  <b>Note:</b> {rma.exchangeRequest.note}
+                </p>
+              )}
+            </div>
+          )}
+
+          <div className="rounded-xl bg-white p-4 ring-1 ring-gray-100">
+            <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900">
+              <Package size={16} /> RMA Items
             </p>
-            <div className="grid md:grid-cols-2 gap-3 text-xs text-gray-700">
+
+            {!Array.isArray(rma?.items) || rma.items.length === 0 ? (
+              <p className="text-xs text-gray-500">No RMA items attached.</p>
+            ) : (
+              <div className="space-y-3">
+                {rma.items.map((it, idx) => {
+                  const original = it?.orderItem || {};
+                  const attrs = original?.variant?.attributes || [];
+
+                  const orderedSize =
+                    original?.selectedSize ||
+                    getAttr(attrs, ["size", "sizes"]) ||
+                    it?.selectedSize ||
+                    "";
+
+                  const orderedColor =
+                    original?.selectedColor ||
+                    getAttr(attrs, ["color", "colour"]) ||
+                    it?.selectedColor ||
+                    "";
+
+                  const image =
+                    original?.productSnapshot?.thumbnail ||
+                    original?.productSnapshot?.images?.[0] ||
+                    "";
+
+                  return (
+                    <div
+                      key={`${rma?.rmaNumber || "rma"}-item-${idx}`}
+                      className="flex gap-3 rounded-xl bg-gray-50 p-3"
+                    >
+                      {image ? (
+                        <img
+                          src={image}
+                          alt={it?.title || "RMA item"}
+                          className="h-20 w-16 rounded-lg object-cover"
+                        />
+                      ) : null}
+
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-gray-900">
+                          {small(it?.title || original?.productSnapshot?.title)}
+                        </p>
+
+                        <div className="mt-2 grid gap-1 text-xs text-gray-600 sm:grid-cols-2">
+                          <p>
+                            <b>RMA Qty:</b> {small(it?.quantity || 1)}
+                          </p>
+                          <p>
+                            <b>Original SKU:</b> {small(it?.variantSku)}
+                          </p>
+                          <p>
+                            <b>Ordered Size:</b>{" "}
+                            {orderedSize ? String(orderedSize).toUpperCase() : "-"}
+                          </p>
+                          <p>
+                            <b>Ordered Color:</b> {small(orderedColor)}
+                          </p>
+
+                          {rma?.type === "exchange" && (
+                            <>
+                              <p className="font-semibold text-blue-700">
+                                <b>Exchange Size:</b>{" "}
+                                {requestedSize
+                                  ? String(requestedSize).toUpperCase()
+                                  : "-"}
+                              </p>
+                              <p className="font-semibold text-blue-700">
+                                <b>Exchange SKU:</b>{" "}
+                                {small(rma?.exchangeRequest?.variantSku)}
+                              </p>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-xl bg-white p-4 ring-1 ring-gray-100">
+            <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900">
+              <MapPin size={16} /> Shipping Snapshot
+            </p>
+
+            <div className="grid gap-2 text-xs text-gray-700 md:grid-cols-2">
               <p>
                 <b>Name:</b> {small(shipping?.fullName)}
               </p>
@@ -210,84 +316,79 @@ export default function OrderRmaDetailsFull({
                 <b>Phone:</b> {small(shipping?.phone)}
               </p>
               <p>
-                <b>Line 1:</b> {small(shipping?.line1)}
+                <b>Address:</b>{" "}
+                {[shipping?.line1, shipping?.line2].filter(Boolean).join(", ") ||
+                  "-"}
               </p>
               <p>
-                <b>Line 2:</b> {small(shipping?.line2)}
-              </p>
-              <p>
-                <b>City:</b> {small(shipping?.city)}
-              </p>
-              <p>
-                <b>State:</b> {small(shipping?.state)}
+                <b>City/State:</b>{" "}
+                {[shipping?.city, shipping?.state].filter(Boolean).join(", ") ||
+                  "-"}
               </p>
               <p>
                 <b>Pincode:</b> {small(shipping?.pincode)}
               </p>
+              <p>
+                <b>Country:</b> {small(shipping?.country)}
+              </p>
             </div>
           </div>
 
-          {/* RMA Items */}
-          <div className="rounded-xl bg-white ring-1 ring-gray-100 p-4">
-            <p className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-              <Package size={16} /> RMA Items
-            </p>
+          {(rma?.reverseShipment?.awb ||
+            rma?.reverseShipment?.courierName ||
+            rma?.reverseShipment?.trackingUrl) && (
+            <div className="rounded-xl bg-white p-4 ring-1 ring-gray-100">
+              <p className="mb-3 text-sm font-semibold text-gray-900">
+                Pickup / Reverse Shipment
+              </p>
 
-            {!Array.isArray(rma?.items) || rma.items.length === 0 ? (
-              <p className="text-xs text-gray-500">No RMA items attached.</p>
-            ) : (
-              <div className="space-y-2">
-                {rma.items.map((it, idx) => (
-                  <div
-                    key={`${rma._id}-rma-item-${idx}`}
-                    className="flex items-start justify-between rounded-lg bg-gray-50 px-3 py-3"
-                  >
-                    <div>
-                      <p className="text-gray-900 font-medium">{small(it?.title) || "Item"}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        Qty: {small(it?.quantity || 1)}
-                      </p>
-                      {it?.variantSku && (
-                        <p className="text-xs text-gray-500">SKU: {it.variantSku}</p>
-                      )}
-                      {it?.productId && (
-                        <p className="text-xs text-gray-500">Product ID: {it.productId}</p>
-                      )}
-                    </div>
-
-                    <div className="text-xs text-gray-600 text-right">
-                      {it?.selectedSize && <p>Size: {it.selectedSize}</p>}
-                      {it?.selectedColor && <p>Color: {it.selectedColor}</p>}
-                      {it?.variantId && <p>Variant: {it.variantId}</p>}
-                    </div>
-                  </div>
-                ))}
+              <div className="grid gap-2 text-xs text-gray-700 md:grid-cols-3">
+                <p>
+                  <b>AWB:</b> {small(rma?.reverseShipment?.awb)}
+                </p>
+                <p>
+                  <b>Courier:</b> {small(rma?.reverseShipment?.courierName)}
+                </p>
+                <p>
+                  <b>Tracking:</b>{" "}
+                  {rma?.reverseShipment?.trackingUrl ? (
+                    <a
+                      href={rma.reverseShipment.trackingUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-blue-700 underline"
+                    >
+                      Open
+                    </a>
+                  ) : (
+                    "-"
+                  )}
+                </p>
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
-          {/* Customer Images */}
-          <div className="rounded-xl bg-white ring-1 ring-gray-100 p-4">
-            <p className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+          <div className="rounded-xl bg-white p-4 ring-1 ring-gray-100">
+            <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900">
               <ImageIcon size={16} /> Customer Proof Images
             </p>
 
             {!Array.isArray(rma?.images) || rma.images.length === 0 ? (
-              <p className="text-xs text-gray-500">No images uploaded by customer.</p>
+              <p className="text-xs text-gray-500">No images uploaded.</p>
             ) : (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                 {rma.images.map((img, idx) => (
                   <a
                     href={img}
                     target="_blank"
                     rel="noreferrer"
-                    key={`${rma._id}-img-${idx}`}
-                    className="group relative block overflow-hidden rounded-xl border border-gray-100"
+                    key={`${rma?.rmaNumber || "rma"}-img-${idx}`}
+                    className="overflow-hidden rounded-xl border border-gray-100"
                   >
                     <img
                       src={img}
-                      alt="RMA Proof"
-                      className="h-28 w-full object-cover group-hover:scale-105 transition"
+                      alt="RMA proof"
+                      className="h-28 w-full object-cover transition hover:scale-105"
                     />
                   </a>
                 ))}
@@ -295,28 +396,12 @@ export default function OrderRmaDetailsFull({
             )}
           </div>
 
-          {/* Pickup details (if exists on rma) */}
-          {(rma?.pickupCourier || rma?.pickupAwb || rma?.pickupDate) && (
-            <div className="rounded-xl bg-white ring-1 ring-gray-100 p-4">
-              <p className="text-sm font-semibold text-gray-900 mb-3">Pickup / Logistics</p>
-              <div className="grid md:grid-cols-3 gap-3 text-xs text-gray-700">
-                <p>
-                  <b>Pickup Date:</b> {small(rma?.pickupDate)}
-                </p>
-                <p>
-                  <b>Courier:</b> {small(rma?.pickupCourier)}
-                </p>
-                <p>
-                  <b>Pickup AWB:</b> {small(rma?.pickupAwb)}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Admin/QC/Notes (if exists on rma) */}
           {(rma?.qcResult || rma?.adminNote || rma?.adminRemarks) && (
-            <div className="rounded-xl bg-white ring-1 ring-gray-100 p-4">
-              <p className="text-sm font-semibold text-gray-900 mb-3">Internal Notes</p>
+            <div className="rounded-xl bg-white p-4 ring-1 ring-gray-100">
+              <p className="mb-3 text-sm font-semibold text-gray-900">
+                Internal Notes
+              </p>
+
               <div className="space-y-2 text-xs text-gray-700">
                 {rma?.qcResult && (
                   <p>
@@ -336,11 +421,6 @@ export default function OrderRmaDetailsFull({
               </div>
             </div>
           )}
-
-          {/* Raw fallback for debugging */}
-          {/*
-          <pre className="text-xs bg-gray-50 p-3 rounded-lg overflow-auto">{JSON.stringify(rma, null, 2)}</pre>
-          */}
         </div>
       )}
     </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, RotateCcw, Repeat2, Info } from "lucide-react";
+import { Loader2, RotateCcw, Repeat2, Info, Lock } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useRmaStore } from "@/store/useRmaStore";
 
@@ -70,13 +70,34 @@ const getProductIdForLine = (order, lineId) => {
   );
 };
 
+const getExchangeSize = (rma) =>
+  rma?.exchangeRequest?.attributes?.find((a) =>
+    ["size", "sizes"].includes(lower(a?.key))
+  )?.value || "";
+
 export default function OrderCreateRmaPanel({ order, onCreated }) {
-  const { createRma, loading } = useRmaStore();
+  const { createRma, fetchAllRmas, rmas, loading } = useRmaStore();
 
   const items = useMemo(
     () => (Array.isArray(order?.items) ? order.items : []),
     [order?.items]
   );
+
+  const existingRma = useMemo(() => {
+    if (!order?._id || !Array.isArray(rmas)) return null;
+
+    return (
+      rmas
+        .filter((r) => String(r?.orderId) === String(order._id))
+        .sort(
+          (a, b) =>
+            new Date(b?.createdAt || 0).getTime() -
+            new Date(a?.createdAt || 0).getTime()
+        )[0] || null
+    );
+  }, [rmas, order?._id]);
+
+  const isRmaAlreadyCreated = Boolean(existingRma);
 
   const [type, setType] = useState("return");
   const [reason, setReason] = useState("other");
@@ -85,6 +106,13 @@ export default function OrderCreateRmaPanel({ order, onCreated }) {
 
   const [qtyByLine, setQtyByLine] = useState({});
   const [exchangeSizeByLine, setExchangeSizeByLine] = useState({});
+
+  useEffect(() => {
+    if (!Array.isArray(rmas) || rmas.length === 0) {
+      fetchAllRmas?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const q = {};
@@ -103,7 +131,7 @@ export default function OrderCreateRmaPanel({ order, onCreated }) {
     setReason("other");
     setRefundPreference("source");
     setNote("");
-  }, [order?._id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [order?._id, items]);
 
   const selectedLines = useMemo(() => {
     const out = [];
@@ -116,9 +144,11 @@ export default function OrderCreateRmaPanel({ order, onCreated }) {
     return out;
   }, [qtyByLine]);
 
-  const canSubmit = selectedLines.length > 0;
+  const canSubmit = selectedLines.length > 0 && !isRmaAlreadyCreated;
 
   const reset = () => {
+    if (isRmaAlreadyCreated) return;
+
     const q = {};
     const ex = {};
 
@@ -138,6 +168,10 @@ export default function OrderCreateRmaPanel({ order, onCreated }) {
   };
 
   const submit = async () => {
+    if (isRmaAlreadyCreated) {
+      return toast.error("RMA already created for this order");
+    }
+
     if (!order?._id) return toast.error("Order missing");
     if (!canSubmit) return toast.error("Select quantity first");
 
@@ -185,16 +219,74 @@ export default function OrderCreateRmaPanel({ order, onCreated }) {
       await createRma(order._id, payload);
       toast.success("RMA created ✅");
       reset();
+      await fetchAllRmas?.();
       onCreated?.();
     } catch (e) {
       toast.error(e?.message || "Failed to create RMA");
     }
   };
 
+  if (isRmaAlreadyCreated) {
+    const exchangeSize = getExchangeSize(existingRma);
+
+    return (
+      <div className="rounded-2xl border border-amber-100 bg-amber-50 p-5 shadow-sm">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 rounded-full bg-amber-100 p-2 text-amber-800">
+            <Lock size={18} />
+          </div>
+
+          <div className="flex-1">
+            <p className="text-base font-semibold text-amber-950">
+              RMA already created
+            </p>
+            <p className="mt-1 text-sm text-amber-800">
+              New return/exchange request is disabled for this order.
+            </p>
+
+            <div className="mt-4 grid gap-3 text-xs text-amber-950 sm:grid-cols-2 lg:grid-cols-4">
+              <p>
+                <b>RMA #:</b> {existingRma?.rmaNumber || "-"}
+              </p>
+              <p>
+                <b>Type:</b> {labelize(existingRma?.type)}
+              </p>
+              <p>
+                <b>Status:</b> {labelize(existingRma?.status)}
+              </p>
+              <p>
+                <b>Reason:</b> {labelize(existingRma?.reason)}
+              </p>
+
+              {existingRma?.type === "exchange" && (
+                <>
+                  <p>
+                    <b>Exchange SKU:</b>{" "}
+                    {existingRma?.exchangeRequest?.variantSku || "-"}
+                  </p>
+                  <p>
+                    <b>Requested Size:</b>{" "}
+                    {exchangeSize ? s(exchangeSize).toUpperCase() : "-"}
+                  </p>
+                </>
+              )}
+            </div>
+
+            {existingRma?.customerNote && (
+              <p className="mt-3 text-xs text-amber-900">
+                <b>Customer Note:</b> {existingRma.customerNote}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-white/90 backdrop-blur rounded-2xl shadow-sm border border-gray-100 p-5">
+    <div className="rounded-2xl border border-gray-100 bg-white/90 p-5 shadow-sm backdrop-blur">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="text-base font-semibold flex items-center gap-2">
+        <div className="flex items-center gap-2 text-base font-semibold">
           {type === "exchange" ? <Repeat2 size={18} /> : <RotateCcw size={18} />}
           Create RMA
         </div>
@@ -207,7 +299,7 @@ export default function OrderCreateRmaPanel({ order, onCreated }) {
               setType(next);
               if (next === "exchange") setRefundPreference("source");
             }}
-            className="px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-black/10"
+            className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/10"
           >
             <option value="return">Return</option>
             <option value="exchange">Exchange (Size only)</option>
@@ -216,7 +308,7 @@ export default function OrderCreateRmaPanel({ order, onCreated }) {
           <select
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            className="px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-black/10"
+            className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/10"
           >
             <option value="other">Other</option>
             <option value="wrong_size">Size issue</option>
@@ -230,7 +322,7 @@ export default function OrderCreateRmaPanel({ order, onCreated }) {
           <button
             type="button"
             onClick={reset}
-            className="px-3 py-2 rounded-lg bg-white border border-gray-200 text-sm font-semibold hover:bg-gray-50"
+            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold hover:bg-gray-50"
           >
             Reset
           </button>
@@ -252,7 +344,7 @@ export default function OrderCreateRmaPanel({ order, onCreated }) {
             <select
               value={refundPreference}
               onChange={(e) => setRefundPreference(e.target.value)}
-              className="sm:ml-auto min-w-[230px] px-3 py-2 rounded-lg bg-white border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-black/10"
+              className="min-w-[230px] rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/10 sm:ml-auto"
             >
               {REFUND_OPTIONS.map((op) => (
                 <option key={op.value} value={op.value}>
@@ -268,7 +360,7 @@ export default function OrderCreateRmaPanel({ order, onCreated }) {
           </p>
         </div>
       ) : (
-        <div className="mt-3 flex items-start gap-2 text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-xl p-3">
+        <div className="mt-3 flex items-start gap-2 rounded-xl border border-gray-200 bg-gray-50 p-3 text-xs text-gray-600">
           <Info size={14} className="mt-0.5" />
           <div>
             Exchange rule: <b>same product</b>, only size XS/S/M/L/XL, and only{" "}
@@ -279,15 +371,14 @@ export default function OrderCreateRmaPanel({ order, onCreated }) {
 
       <div className="mt-4 overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="text-gray-500 border-b border-gray-100">
+          <thead className="border-b border-gray-100 text-gray-500">
             <tr>
-              <th className="py-3 px-3 text-left font-semibold">Item</th>
-              <th className="py-3 px-3 text-left font-semibold">LineId</th>
-              <th className="py-3 px-3 text-left font-semibold">Bought</th>
-              <th className="py-3 px-3 text-left font-semibold">Req Qty</th>
-              {type === "exchange" ? (
-                <th className="py-3 px-3 text-left font-semibold">New Size</th>
-              ) : null}
+              <th className="px-3 py-3 text-left font-semibold">Item</th>
+              <th className="px-3 py-3 text-left font-semibold">Bought</th>
+              <th className="px-3 py-3 text-left font-semibold">Req Qty</th>
+              {type === "exchange" && (
+                <th className="px-3 py-3 text-left font-semibold">New Size</th>
+              )}
             </tr>
           </thead>
 
@@ -301,34 +392,35 @@ export default function OrderCreateRmaPanel({ order, onCreated }) {
               const currentSize = pickSize(it);
 
               return (
-                <tr key={`${lid}-${idx}`} className="hover:bg-gray-50 transition">
-                  <td className="py-4 px-3">
+                <tr key={`${lid}-${idx}`} className="transition hover:bg-gray-50">
+                  <td className="px-3 py-4">
                     <div className="flex items-center gap-3">
                       <img
                         src={thumb || "/placeholder.png"}
                         alt={title}
-                        className="w-12 h-12 rounded-xl object-cover border border-gray-100"
+                        className="h-12 w-12 rounded-xl border border-gray-100 object-cover"
                       />
 
                       <div className="min-w-0">
-                        <p className="font-semibold text-gray-900 truncate max-w-[420px]">
+                        <p className="max-w-[420px] truncate font-semibold text-gray-900">
                           {title}
                         </p>
                         <p className="text-xs text-gray-500">
                           SKU: {sku} • Current size:{" "}
                           {(currentSize || "-").toUpperCase()}
                         </p>
+                        <p className="text-[11px] text-gray-400">
+                          Line: {lid || "-"}
+                        </p>
                       </div>
                     </div>
                   </td>
 
-                  <td className="py-4 px-3 text-gray-700">{lid || "-"}</td>
-
-                  <td className="py-4 px-3 font-semibold text-gray-900">
+                  <td className="px-3 py-4 font-semibold text-gray-900">
                     {bought}
                   </td>
 
-                  <td className="py-4 px-3">
+                  <td className="px-3 py-4">
                     <input
                       type="number"
                       min={0}
@@ -341,12 +433,12 @@ export default function OrderCreateRmaPanel({ order, onCreated }) {
                           [lid]: Math.max(0, Math.min(bought, v)),
                         }));
                       }}
-                      className="w-24 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-black/10"
+                      className="w-24 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/10"
                     />
                   </td>
 
-                  {type === "exchange" ? (
-                    <td className="py-4 px-3">
+                  {type === "exchange" && (
+                    <td className="px-3 py-4">
                       <select
                         value={exchangeSizeByLine?.[lid] || ""}
                         onChange={(e) =>
@@ -355,7 +447,7 @@ export default function OrderCreateRmaPanel({ order, onCreated }) {
                             [lid]: e.target.value,
                           }))
                         }
-                        className="w-40 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-black/10"
+                        className="w-40 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/10"
                       >
                         <option value="">Select size</option>
                         {SIZE_OPTIONS.map((sz) => (
@@ -369,7 +461,7 @@ export default function OrderCreateRmaPanel({ order, onCreated }) {
                         ))}
                       </select>
                     </td>
-                  ) : null}
+                  )}
                 </tr>
               );
             })}
@@ -382,18 +474,18 @@ export default function OrderCreateRmaPanel({ order, onCreated }) {
           Customer Note (optional)
         </label>
         <textarea
-          className="mt-2 px-3 py-3 rounded-lg bg-gray-50 border border-gray-200 w-full h-24 text-sm outline-none focus:ring-2 focus:ring-black/10"
+          className="mt-2 h-24 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-black/10"
           value={note}
           onChange={(e) => setNote(e.target.value)}
           placeholder="Reason details / note..."
         />
       </div>
 
-      <div className="mt-4 flex flex-col sm:flex-row gap-3 sm:items-center">
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
         <button
           onClick={submit}
           disabled={!canSubmit || loading}
-          className="px-6 py-2.5 rounded-lg bg-black text-white text-sm font-semibold disabled:opacity-50 hover:opacity-90 transition"
+          className="rounded-lg bg-black px-6 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
         >
           {loading ? (
             <span className="inline-flex items-center gap-2">

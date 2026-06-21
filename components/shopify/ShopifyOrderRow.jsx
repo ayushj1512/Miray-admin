@@ -33,6 +33,15 @@ const formatDate = (date) =>
       })
     : "-";
 
+const formatTime = (date) =>
+  date
+    ? new Date(date).toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      })
+    : "-";
+
 function getCustomerName(order) {
   if (order.customer) {
     return `${order.customer.firstName || ""} ${order.customer.lastName || ""}`.trim();
@@ -221,9 +230,15 @@ export default function ShopifyOrderRow({
           </div>
         </td>
 
-        <td className="px-5 py-4 text-sm font-semibold text-neutral-600">
-          {formatDate(order.createdAt)}
-        </td>
+        <td className="px-5 py-4">
+  <div className="font-bold text-neutral-700">
+    {formatDate(order.createdAt)}
+  </div>
+
+  <div className="mt-1 text-xs font-semibold text-neutral-400">
+    {formatTime(order.createdAt)}
+  </div>
+</td>
 
         <td className="px-5 py-4">
           <StatusBadge type="payment" value={order.displayFinancialStatus} />

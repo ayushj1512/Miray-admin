@@ -397,12 +397,16 @@ export const sidebarMenus = {
  shopify: [
   { label: "Dashboard", href: "/shopify" },
   { label: "Orders & Invoicing", href: "/shopify/orders" },
+  { label: "All Shopify Orders", href: "/shopify/all-orders" },
+  { label: "Reserved Inventory", href: "/shopify/reserved-inventory" },
   { label: "Unfulfilled Orders", href: "/shopify/unfulfilled-orders" },
   { label: "Fulfilled Orders", href: "/shopify/fulfilled-orders" },
   { label: "Products", href: "/shopify/products" },
   { label: "Customers", href: "/shopify/customers" },
   { label: "Inventory", href: "/shopify/inventory" },
-  { label: "Production Queue", href: "/shopify/production" },
+  
+  { label: "Production Matrix", href: "/shopify/production-matrix" },
+  { label: "Production Queue", href: "/shopify/shopify-production" },
 ],
 };
 

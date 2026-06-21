@@ -10,6 +10,7 @@ import {
   Search,
 } from "lucide-react";
 import adminShopifyStore from "@/store/adminshopifystore";
+import ImportShopifyOrdersButton from "@/components/shopify/ImportShopifyOrdersButton";
 
 const accent = "#800020";
 const tabs = ["Overview", "Products", "Orders", "Customers", "Inventory"];
@@ -79,19 +80,19 @@ export default function ShopifyDashboardPage() {
   const formatDate = (date) =>
     date
       ? new Date(date).toLocaleDateString("en-IN", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        })
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
       : "-";
 
   const money = (amount, currency = "INR") =>
     amount || amount === 0
       ? new Intl.NumberFormat("en-IN", {
-          style: "currency",
-          currency,
-          maximumFractionDigits: 0,
-        }).format(Number(amount))
+        style: "currency",
+        currency,
+        maximumFractionDigits: 0,
+      }).format(Number(amount))
       : "-";
 
   const handleTab = async (tab) => {
@@ -122,35 +123,46 @@ export default function ShopifyDashboardPage() {
                 Live Shopify products, orders, customers and inventory.
               </p>
             </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <ImportShopifyOrdersButton
+                refreshAfterImport
+                size="md"
+                label="Import Orders"
+                params={{
+                  limit: 50,
+                  fulfillmentStatus: "UNFULFILLED",
+                }}
+              />
 
-            <button
-              onClick={() => fetchShopifyDashboard(10)}
-              disabled={loading}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-black px-5 py-3 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50"
-            >
-              <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-              Refresh
-            </button>
+              <button
+                onClick={() => fetchShopifyDashboard(10)}
+                disabled={loading}
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-black px-5 py-3 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50"
+              >
+                <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+                Refresh
+              </button>
+            </div>
           </div>
         </header>
 
         {error && (
-  <div className="rounded-2xl bg-[#fff3f6] px-4 py-3 text-sm font-semibold text-[#800020]">
-    {typeof error === "string"
-      ? error
-      : error?.message
-      ? error.message
-      : error?.errors
-      ? Array.isArray(error.errors)
-        ? error.errors.join(", ")
-        : JSON.stringify(error.errors)
-      : JSON.stringify(error)}
+          <div className="rounded-2xl bg-[#fff3f6] px-4 py-3 text-sm font-semibold text-[#800020]">
+            {typeof error === "string"
+              ? error
+              : error?.message
+                ? error.message
+                : error?.errors
+                  ? Array.isArray(error.errors)
+                    ? error.errors.join(", ")
+                    : JSON.stringify(error.errors)
+                  : JSON.stringify(error)}
 
-    <button onClick={clearError} className="ml-3 underline">
-      Dismiss
-    </button>
-  </div>
-)}
+            <button onClick={clearError} className="ml-3 underline">
+              Dismiss
+            </button>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <Stat icon={<Package size={18} />} title="Products" value={productCount} />
@@ -570,9 +582,8 @@ function OrdersTable({ orders, money, formatDate }) {
             </Td>
             <Td>
               {order.customer
-                ? `${order.customer.firstName || ""} ${
-                    order.customer.lastName || ""
-                  }`
+                ? `${order.customer.firstName || ""} ${order.customer.lastName || ""
+                }`
                 : "-"}
             </Td>
             <Td>{formatDate(order.createdAt)}</Td>
@@ -743,9 +754,8 @@ function Input({ icon, className = "", ...props }) {
       )}
       <input
         {...props}
-        className={`h-11 w-full rounded-full bg-[#faf9f8] px-4 text-sm font-semibold text-black outline-none placeholder:text-neutral-400 ${
-          icon ? "pl-9" : ""
-        }`}
+        className={`h-11 w-full rounded-full bg-[#faf9f8] px-4 text-sm font-semibold text-black outline-none placeholder:text-neutral-400 ${icon ? "pl-9" : ""
+          }`}
       />
     </div>
   );

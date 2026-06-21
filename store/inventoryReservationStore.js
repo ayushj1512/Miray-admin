@@ -113,6 +113,38 @@ export const useInventoryReservationStore = create((set, get) => ({
     }
   },
 
+  // add this inside store, after fetchReservations
+
+fetchShopifyReservations: async (overrideFilters = null) => {
+  const filters = overrideFilters ?? get().filters;
+
+  set({ loading: true, error: null });
+  invLog("fetchShopifyReservations ->", filters);
+
+  try {
+    const { data } = await api.get(
+      `/api/inventory-reservations/shopify${qs(filters)}`
+    );
+
+    set({
+      reservations: data?.data || [],
+      total: Number(data?.count || data?.total || 0),
+      loading: false,
+    });
+
+    invLog("fetchShopifyReservations <-", {
+      count: data?.count || data?.total || 0,
+    });
+
+    return data;
+  } catch (e) {
+    const m = msg(e, "Failed to fetch Shopify reservations");
+    set({ loading: false, error: m });
+    invLog("fetchShopifyReservations ERROR", m);
+    throw e;
+  }
+},
+
   /* ---------------- get single ---------------- */
   getReservation: async (id) => {
     if (!id) throw new Error("Reservation id required");

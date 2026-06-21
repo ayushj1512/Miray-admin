@@ -13,10 +13,8 @@ import { useOrderStore } from "@/store/orderStore";
 
 const IST_TZ = "Asia/Kolkata";
 const IST_OFFSET = "+05:30";
+const SHOPIFY_SOURCE = "shopify";
 
-/* ---------------------------------------------
-   ✅ Small UI helpers
---------------------------------------------- */
 const Card = ({ children, className = "" }) => (
   <div
     className={`bg-white/90 backdrop-blur rounded-2xl shadow-sm border border-gray-100 p-6 ${className}`}
@@ -25,9 +23,6 @@ const Card = ({ children, className = "" }) => (
   </div>
 );
 
-/* ---------------------------------------------
-   ✅ IST-safe date helpers
---------------------------------------------- */
 const ymdInTZ = (date = new Date(), timeZone = IST_TZ) => {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone,
@@ -39,6 +34,7 @@ const ymdInTZ = (date = new Date(), timeZone = IST_TZ) => {
   const y = parts.find((p) => p.type === "year")?.value || "1970";
   const m = parts.find((p) => p.type === "month")?.value || "01";
   const d = parts.find((p) => p.type === "day")?.value || "01";
+
   return `${y}-${m}-${d}`;
 };
 
@@ -55,9 +51,18 @@ const istEndISO = (ymd) => (ymd ? `${ymd}T23:59:59.999${IST_OFFSET}` : "");
 
 const norm = (v) => String(v ?? "").trim().toLowerCase();
 
-/* ---------------------------------------------
-   ✅ CSV helpers
---------------------------------------------- */
+const toNumber = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const safe = (v) => (v === null || v === undefined ? "" : v);
+
+const money = (n) => {
+  const x = Number(n);
+  return Number.isFinite(x) ? x : "";
+};
+
 const escapeCSV = (value) => {
   if (value === null || value === undefined) return "";
   const s = String(value);
@@ -70,49 +75,28 @@ const formatDateISO = (d) => {
   return Number.isNaN(dt.getTime()) ? "" : dt.toISOString();
 };
 
-const money = (n) => {
-  const x = Number(n);
-  return Number.isFinite(x) ? x : "";
-};
-
-const safe = (v) => (v === null || v === undefined ? "" : v);
-
-const toNumber = (v) => {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
-};
-
-const getOrderRevenue = (order) => {
-  // Keep this aligned with whatever "Amount" column actually shows in OrderRow
-  return toNumber(
+const getOrderRevenue = (order) =>
+  toNumber(
     order?.finalPayable ??
-    order?.totalAmount ??
-    order?.grandTotal ??
-    order?.amount ??
-    0
+      order?.totalAmount ??
+      order?.grandTotal ??
+      order?.amount ??
+      0
   );
-};
 
-const formatINR = (value) => {
-  const n = toNumber(value);
-  return new Intl.NumberFormat("en-IN", {
+const formatINR = (value) =>
+  new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
     maximumFractionDigits: 0,
-  }).format(n);
-};
+  }).format(toNumber(value));
 
-/* ---------------------------------------------
-   ✅ Pagination helpers
---------------------------------------------- */
 const getPaginationItems = (currentPage, totalPages) => {
   if (totalPages <= 7) {
     return Array.from({ length: totalPages }, (_, i) => i + 1);
   }
 
-  if (currentPage <= 4) {
-    return [1, 2, 3, 4, 5, "...", totalPages];
-  }
+  if (currentPage <= 4) return [1, 2, 3, 4, 5, "...", totalPages];
 
   if (currentPage >= totalPages - 3) {
     return [
@@ -126,20 +110,9 @@ const getPaginationItems = (currentPage, totalPages) => {
     ];
   }
 
-  return [
-    1,
-    "...",
-    currentPage - 1,
-    currentPage,
-    currentPage + 1,
-    "...",
-    totalPages,
-  ];
+  return [1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages];
 };
 
-/* ---------------------------------------------
-   ✅ Shared Pagination UI
---------------------------------------------- */
 function PaginationBar({
   currentPage,
   totalPages,
@@ -163,7 +136,7 @@ function PaginationBar({
           {totalCount > 0 ? (
             <>
               {" "}
-              • Total <span className="font-semibold">{totalCount}</span> orders
+              • Total <span className="font-semibold">{totalCount}</span> Shopify orders
             </>
           ) : null}
           {" • "}
@@ -175,10 +148,11 @@ function PaginationBar({
           <button
             onClick={onRefresh}
             disabled={loading}
-            className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${loading
+            className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${
+              loading
                 ? "bg-gray-200 text-gray-500 cursor-not-allowed"
                 : "bg-white border border-gray-200 hover:bg-gray-50 active:scale-[0.98]"
-              }`}
+            }`}
           >
             {loading ? (
               <span className="inline-flex items-center gap-2">
@@ -193,10 +167,11 @@ function PaginationBar({
           <button
             disabled={!canGoPrev || loading}
             onClick={() => onPageChange(Math.max(currentPage - 1, 1))}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition ${!canGoPrev || loading
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition ${
+              !canGoPrev || loading
                 ? "bg-gray-200 text-gray-500 cursor-not-allowed"
                 : "bg-white border border-gray-200 hover:bg-gray-50 active:scale-[0.98]"
-              }`}
+            }`}
           >
             <ChevronLeft size={16} />
             Prev
@@ -205,10 +180,11 @@ function PaginationBar({
           <button
             disabled={!canGoNext || loading}
             onClick={() => onPageChange(Math.min(currentPage + 1, totalPages))}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition ${!canGoNext || loading
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition ${
+              !canGoNext || loading
                 ? "bg-gray-200 text-gray-500 cursor-not-allowed"
                 : "bg-black text-white hover:opacity-90 active:scale-[0.98]"
-              }`}
+            }`}
           >
             Next
             <ChevronRight size={16} />
@@ -219,10 +195,7 @@ function PaginationBar({
       <div className="flex flex-wrap items-center gap-2">
         {paginationItems.map((item, idx) =>
           item === "..." ? (
-            <span
-              key={`dots-${idx}`}
-              className="px-3 py-2 text-sm text-gray-500"
-            >
+            <span key={`dots-${idx}`} className="px-3 py-2 text-sm text-gray-500">
               ...
             </span>
           ) : (
@@ -230,12 +203,13 @@ function PaginationBar({
               key={item}
               onClick={() => onPageChange(item)}
               disabled={loading}
-              className={`min-w-[42px] px-3 py-2 rounded-xl text-sm font-semibold transition ${currentPage === item
+              className={`min-w-[42px] px-3 py-2 rounded-xl text-sm font-semibold transition ${
+                currentPage === item
                   ? "bg-black text-white shadow-sm"
                   : loading
                     ? "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"
                     : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
-                }`}
+              }`}
             >
               {item}
             </button>
@@ -246,14 +220,10 @@ function PaginationBar({
   );
 }
 
-
-const applyClientFiltersToOrders = ({
-  orders,
-  confirmFilter,
-  priority,
-  search,
-}) => {
+const applyClientFiltersToOrders = ({ orders, confirmFilter, priority, search }) => {
   let data = Array.isArray(orders) ? [...orders] : [];
+
+  data = data.filter((o) => norm(o?.source) === SHOPIFY_SOURCE);
 
   if (confirmFilter === "confirmed") {
     data = data.filter((o) => o?.isConfirmed === true);
@@ -271,7 +241,7 @@ const applyClientFiltersToOrders = ({
   if (!q) return data;
 
   return data.filter((o) => {
-    const orderNumber = String(o?.orderNumber || "").toLowerCase();
+    const orderNumber = String(o?.orderNumber || o?.shopifyOrderName || "").toLowerCase();
     const name = String(
       o?.customerId?.name || o?.shippingAddressSnapshot?.fullName || ""
     ).toLowerCase();
@@ -291,44 +261,33 @@ const applyClientFiltersToOrders = ({
   });
 };
 
-/* ---------------------------------------------
-   Page
---------------------------------------------- */
-export default function OrdersListPage() {
+export default function ShopifyAllOrdersPage() {
   const orders = useOrderStore((s) => s.orders);
   const loading = useOrderStore((s) => s.loading);
   const ordersMeta = useOrderStore((s) => s.ordersMeta);
 
   const fetchAllOrders = useOrderStore((s) => s.fetchAllOrders);
   const syncOrderInList = useOrderStore((s) => s._syncOrderInList);
+
   const [exportLoading, setExportLoading] = useState(false);
-  // Search
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
 
-  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
-
-  // Filters
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [minAmount, setMinAmount] = useState("");
   const [maxAmount, setMaxAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
-  const [source, setSource] = useState("");
-
-  // Status + confirmation
   const [status, setStatus] = useState("");
   const [confirmFilter, setConfirmFilter] = useState("");
-
-  // Priority + quick date
   const [priority, setPriority] = useState("");
   const [quickDate, setQuickDate] = useState("");
 
-  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 100;
 
-    // ✅ Update only changed order in list, avoid full page refresh feel
   const handleOrderUpdated = useCallback(
     (updatedOrder) => {
       if (!updatedOrder?._id) return;
@@ -355,14 +314,13 @@ export default function OrdersListPage() {
     setPriority("");
     setQuickDate("");
     setCurrentPage(1);
-    setSource("");
   }, []);
 
   useEffect(() => {
     if (quickDate === "today") {
       const t = todayYMD_IST();
       setStartDate(t);
-    setEndDate(t);
+      setEndDate(t);
       return;
     }
 
@@ -380,7 +338,11 @@ export default function OrdersListPage() {
   }, [quickDate]);
 
   const backendFilters = useMemo(() => {
-    const f = {};
+    const f = {
+      source: SHOPIFY_SOURCE,
+      page: currentPage,
+      limit: pageSize,
+    };
 
     if (search) f.customerName = search;
 
@@ -399,13 +361,9 @@ export default function OrdersListPage() {
     if (minAmount) f.minAmount = minAmount;
     if (maxAmount) f.maxAmount = maxAmount;
     if (paymentMethod) f.paymentMethod = paymentMethod;
-
     if (status) f.fulfillmentStatus = status;
     if (confirmFilter) f.confirmFilter = confirmFilter;
     if (priority) f.priority = priority;
-if (source) f.source = source;
-    f.page = currentPage;
-    f.limit = pageSize;
 
     return f;
   }, [
@@ -419,18 +377,17 @@ if (source) f.source = source;
     confirmFilter,
     priority,
     currentPage,
-    source,
   ]);
 
- const loadOrders = useCallback(async () => {
-  try {
-    await fetchAllOrders(backendFilters);
-  } catch (e) {
-    console.log("Orders Fetch Error:", e);
-  } finally {
-    setHasLoadedOnce(true);
-  }
-}, [fetchAllOrders, backendFilters]);
+  const loadOrders = useCallback(async () => {
+    try {
+      await fetchAllOrders(backendFilters);
+    } catch (e) {
+      console.log("Shopify Orders Fetch Error:", e);
+    } finally {
+      setHasLoadedOnce(true);
+    }
+  }, [fetchAllOrders, backendFilters]);
 
   useEffect(() => {
     loadOrders();
@@ -446,15 +403,13 @@ if (source) f.source = source;
   }, [orders, confirmFilter, priority, search]);
 
   const totalRevenue = useMemo(() => {
-    return filteredOrders.reduce((sum, order) => {
-      return sum + getOrderRevenue(order);
-    }, 0);
+    return filteredOrders.reduce((sum, order) => sum + getOrderRevenue(order), 0);
   }, [filteredOrders]);
 
-    // ✅ stable sorted list so table work stays neat
   const sortedOrders = useMemo(() => {
     const getNum = (o) => {
-      const m = String(o?.orderNumber || "").match(/(\d+)$/);
+      const val = String(o?.orderNumber || o?.shopifyOrderName || "");
+      const m = val.match(/(\d+)$/);
       return m ? Number(m[1]) : 0;
     };
 
@@ -474,7 +429,7 @@ if (source) f.source = source;
 
     for (const order of ordersArr || []) {
       const orderId = safe(order?._id || order?.id);
-      const orderNumber = safe(order?.orderNumber);
+      const orderNumber = safe(order?.orderNumber || order?.shopifyOrderName);
       const orderDate = formatDateISO(order?.createdAt || order?.orderDate);
 
       const customerName = safe(
@@ -493,8 +448,9 @@ if (source) f.source = source;
       const tax = money(order?.tax);
       const totalAmount = money(order?.totalAmount);
       const finalPayable = money(order?.finalPayable);
-
       const fulfillmentStatus = safe(order?.fulfillmentStatus);
+      const paymentMethod = safe(order?.paymentMethod);
+      const paymentStatus = safe(order?.paymentStatus);
       const isConfirmed = order?.isConfirmed === true ? "YES" : "NO";
 
       const items = Array.isArray(order?.items) ? order.items : [];
@@ -507,6 +463,8 @@ if (source) f.source = source;
           customerName,
           customerEmail,
           customerPhone,
+          paymentStatus,
+          paymentMethod,
           isConfirmed,
           fulfillmentStatus,
           subtotal,
@@ -528,20 +486,14 @@ if (source) f.source = source;
 
       items.forEach((item, idx) => {
         const snap = item?.productSnapshot || {};
-        const itemProductCode = safe(snap?.productCode || "");
         const attrs = Array.isArray(item?.variant?.attributes)
           ? item.variant.attributes
           : [];
 
         const attrSize =
-          attrs.find((a) => String(a?.key || "").toLowerCase() === "size")
-            ?.value ||
-          attrs.find((a) => String(a?.key || "").toLowerCase() === "sizes")
-            ?.value ||
+          attrs.find((a) => String(a?.key || "").toLowerCase() === "size")?.value ||
+          attrs.find((a) => String(a?.key || "").toLowerCase() === "sizes")?.value ||
           "";
-
-        const itemSku = safe(item?.variant?.sku || snap?.sku || "");
-        const itemSize = safe(item?.selectedSize || attrSize || "");
 
         rows.push({
           orderId,
@@ -550,6 +502,8 @@ if (source) f.source = source;
           customerName,
           customerEmail,
           customerPhone,
+          paymentStatus,
+          paymentMethod,
           isConfirmed,
           fulfillmentStatus,
           subtotal,
@@ -559,10 +513,10 @@ if (source) f.source = source;
           totalAmount,
           finalPayable,
           itemIndex: idx + 1,
-          itemTitle: safe(snap?.title),
-          itemProductCode,
-          itemSku,
-          itemSize,
+          itemTitle: safe(snap?.title || item?.title),
+          itemProductCode: safe(snap?.productCode || ""),
+          itemSku: safe(item?.variant?.sku || snap?.sku || item?.sku || ""),
+          itemSize: safe(item?.selectedSize || attrSize || item?.size || ""),
           itemQuantity: money(item?.quantity),
           itemPrice: money(item?.price),
         });
@@ -580,8 +534,8 @@ if (source) f.source = source;
 
     try {
       originalFilters = { ...backendFilters };
-      const exportLimit = 500;
 
+      const exportLimit = 500;
       const baseFilters = { ...backendFilters };
       delete baseFilters.page;
       delete baseFilters.limit;
@@ -593,6 +547,7 @@ if (source) f.source = source;
       do {
         await fetchAllOrders({
           ...baseFilters,
+          source: SHOPIFY_SOURCE,
           page,
           limit: exportLimit,
         });
@@ -615,7 +570,7 @@ if (source) f.source = source;
       const uniqueOrdersMap = new Map();
 
       for (const order of allOrders) {
-        const key = order?._id || order?.id || order?.orderNumber;
+        const key = order?._id || order?.id || order?.orderNumber || order?.shopifyOrderId;
         if (key && !uniqueOrdersMap.has(key)) {
           uniqueOrdersMap.set(key, order);
         }
@@ -631,7 +586,7 @@ if (source) f.source = source;
       });
 
       if (!exportOrders.length) {
-        alert("No orders found to export for the applied filters.");
+        alert("No Shopify orders found to export for the applied filters.");
         return;
       }
 
@@ -640,10 +595,12 @@ if (source) f.source = source;
       const headers = [
         "Order DB Id",
         "Order #",
-        "Order Date (ISO)",
+        "Order Date ISO",
         "Customer Name",
         "Customer Email",
         "Customer Phone",
+        "Payment Status",
+        "Payment Method",
         "Is Confirmed",
         "Fulfillment Status",
         "Subtotal",
@@ -671,6 +628,8 @@ if (source) f.source = source;
             r.customerName,
             r.customerEmail,
             r.customerPhone,
+            r.paymentStatus,
+            r.paymentMethod,
             r.isConfirmed,
             r.fulfillmentStatus,
             r.subtotal,
@@ -701,25 +660,23 @@ if (source) f.source = source;
       const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
 
       link.href = url;
-      link.setAttribute("download", `orders-all-pages-${ts}.csv`);
+      link.setAttribute("download", `shopify-orders-${ts}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error("CSV export failed:", error);
-      alert("Failed to export all orders.");
+      console.error("Shopify CSV export failed:", error);
+      alert("Failed to export Shopify orders.");
     } finally {
       if (originalFilters) {
         try {
           await fetchAllOrders(originalFilters);
         } catch (restoreError) {
-          console.error(
-            "Failed to restore current page after export:",
-            restoreError
-          );
+          console.error("Failed to restore Shopify orders after export:", restoreError);
         }
       }
+
       setExportLoading(false);
     }
   }, [
@@ -737,7 +694,7 @@ if (source) f.source = source;
   const currentMetaPage = toNumber(ordersMeta?.page) || currentPage;
 
   const chips = [
-    { key: "", label: "All", type: "all" },
+    { key: "", label: "All Shopify", type: "all" },
     { key: "processing", label: "Processing", type: "status" },
     { key: "packed", label: "Packed", type: "status" },
     { key: "picked", label: "Picked", type: "status" },
@@ -746,36 +703,32 @@ if (source) f.source = source;
     { key: "delivered", label: "Delivered", type: "status" },
     { key: "return_requested", label: "Return Requested", type: "status" },
     { key: "exchange_requested", label: "Exchange Requested", type: "status" },
-    { key: "pickup_initiated", label: "Pickup Initiated", type: "status" },
     { key: "returned", label: "Returned", type: "status" },
     { key: "rto", label: "RTO", type: "status" },
     { key: "cancelled", label: "Cancelled", type: "status" },
-    { key: "refunded", label: "Refunded", type: "status" },
     { key: "confirmed", label: "Confirmed", type: "confirm" },
     { key: "not_confirmed", label: "Not Confirmed", type: "confirm" },
-    { key: "normal", label: "Priority: Normal", type: "priority" },
-    { key: "medium", label: "Priority: Medium", type: "priority" },
-    { key: "high", label: "Priority: High", type: "priority" },
     { key: "today", label: "Today", type: "quickDate" },
     { key: "yesterday", label: "Yesterday", type: "quickDate" },
-    { key: "shopify", label: "Shopify Orders", type: "source" },
-{ key: "website", label: "Website Orders", type: "source" },
   ];
 
   return (
     <section className="min-h-screen bg-[#f6f7fb] px-4 sm:px-6 lg:px-10 py-10">
       <div className="mx-auto space-y-8">
-        {/* Header */}
         <div className="flex flex-col md:flex-row justify-between md:items-center gap-6">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-gray-900">
-              All Orders
+              Shopify Orders
             </h1>
             <p className="text-gray-500 mt-1">
-              View, filter and manage all customer orders.
+              View, filter, export and manage only Shopify synced orders.
             </p>
 
             <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-gray-600">
+              <span className="px-3 py-1 rounded-full bg-black text-white font-semibold">
+                Source: Shopify
+              </span>
+
               <span className="px-3 py-1 rounded-full bg-blue-50 text-blue-700 font-semibold">
                 {totalCount || filteredOrders.length} Orders
               </span>
@@ -795,7 +748,7 @@ if (source) f.source = source;
               <Search size={18} className="text-gray-400" />
               <input
                 type="text"
-                placeholder="Search order # / name / email / phone..."
+                placeholder="Search Shopify order / name / email / phone..."
                 className="outline-none w-full bg-transparent text-sm placeholder:text-gray-400"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
@@ -820,15 +773,16 @@ if (source) f.source = source;
             <button
               onClick={exportToCSV}
               disabled={exportLoading || loading}
-              className={`inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl text-sm font-semibold shadow-sm active:scale-[0.98] transition ${exportLoading || loading
+              className={`inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl text-sm font-semibold shadow-sm active:scale-[0.98] transition ${
+                exportLoading || loading
                   ? "bg-gray-300 text-gray-600 cursor-not-allowed"
                   : "bg-black text-white hover:opacity-90"
-                }`}
+              }`}
             >
               {exportLoading ? (
                 <>
                   <Loader2 size={18} className="animate-spin" />
-                  Exporting All...
+                  Exporting...
                 </>
               ) : (
                 <>
@@ -839,13 +793,10 @@ if (source) f.source = source;
           </div>
         </div>
 
-        {/* Filters */}
         <Card>
           <div className="grid md:grid-cols-4 gap-5">
             <div>
-              <label className="text-sm font-semibold text-gray-700">
-                Quick Date
-              </label>
+              <label className="text-sm font-semibold text-gray-700">Quick Date</label>
               <select
                 className="w-full mt-2 px-3 py-2.5 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-black/10 transition"
                 value={quickDate}
@@ -858,15 +809,10 @@ if (source) f.source = source;
                 <option value="today">Today</option>
                 <option value="yesterday">Yesterday</option>
               </select>
-              <p className="mt-1 text-xs text-gray-500">
-                Selecting this auto-fills start/end date (IST).
-              </p>
             </div>
 
             <div>
-              <label className="text-sm font-semibold text-gray-700">
-                Start Date
-              </label>
+              <label className="text-sm font-semibold text-gray-700">Start Date</label>
               <input
                 type="date"
                 className="w-full mt-2 px-3 py-2.5 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-black/10 transition"
@@ -880,9 +826,7 @@ if (source) f.source = source;
             </div>
 
             <div>
-              <label className="text-sm font-semibold text-gray-700">
-                End Date
-              </label>
+              <label className="text-sm font-semibold text-gray-700">End Date</label>
               <input
                 type="date"
                 className="w-full mt-2 px-3 py-2.5 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-black/10 transition"
@@ -896,9 +840,24 @@ if (source) f.source = source;
             </div>
 
             <div>
-              <label className="text-sm font-semibold text-gray-700">
-                Min Amount
-              </label>
+              <label className="text-sm font-semibold text-gray-700">Payment Method</label>
+              <select
+                className="w-full mt-2 px-3 py-2.5 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-black/10 transition"
+                value={paymentMethod}
+                onChange={(e) => {
+                  setCurrentPage(1);
+                  setPaymentMethod(e.target.value);
+                }}
+              >
+                <option value="">All</option>
+                <option value="cod">COD</option>
+                <option value="razorpay">Razorpay</option>
+                <option value="shopify_payments">Shopify Payments</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-sm font-semibold text-gray-700">Min Amount</label>
               <input
                 type="number"
                 className="w-full mt-2 px-3 py-2.5 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-black/10 transition"
@@ -912,9 +871,7 @@ if (source) f.source = source;
             </div>
 
             <div>
-              <label className="text-sm font-semibold text-gray-700">
-                Max Amount
-              </label>
+              <label className="text-sm font-semibold text-gray-700">Max Amount</label>
               <input
                 type="number"
                 className="w-full mt-2 px-3 py-2.5 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-black/10 transition"
@@ -928,47 +885,7 @@ if (source) f.source = source;
             </div>
 
             <div>
-              <label className="text-sm font-semibold text-gray-700">
-                Payment Method
-              </label>
-              <select
-                className="w-full mt-2 px-3 py-2.5 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-black/10 transition"
-                value={paymentMethod}
-                onChange={(e) => {
-                  setCurrentPage(1);
-                  setPaymentMethod(e.target.value);
-                }}
-              >
-                <option value="">All</option>
-                <option value="cod">Cash on Delivery</option>
-                <option value="razorpay">Razorpay</option>
-                <option value="exchange">Exchange</option>
-              </select>
-            </div>
-<div>
-  <label className="text-sm font-semibold text-gray-700">
-    Order Source
-  </label>
-  <select
-    className="w-full mt-2 px-3 py-2.5 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-black/10 transition"
-    value={source}
-    onChange={(e) => {
-      setCurrentPage(1);
-      setSource(e.target.value);
-    }}
-  >
-    <option value="">All</option>
-    <option value="website">Website</option>
-    <option value="shopify">Shopify</option>
-    <option value="manual">Manual</option>
-    <option value="social_media">Social Media</option>
-    <option value="mobile_app">Mobile App</option>
-  </select>
-</div>
-            <div>
-              <label className="text-sm font-semibold text-gray-700">
-                Confirmation
-              </label>
+              <label className="text-sm font-semibold text-gray-700">Confirmation</label>
               <select
                 className="w-full mt-2 px-3 py-2.5 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-black/10 transition"
                 value={confirmFilter}
@@ -984,99 +901,60 @@ if (source) f.source = source;
             </div>
 
             <div>
-              <label className="text-sm font-semibold text-gray-700">
-                Priority
-              </label>
-              <select
-                className="w-full mt-2 px-3 py-2.5 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-black/10 transition"
-                value={priority}
-                onChange={(e) => {
-                  setCurrentPage(1);
-                  setPriority(e.target.value);
-                }}
-              >
-                <option value="">All</option>
-                <option value="normal">Normal</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="text-sm font-semibold text-gray-700">
-                Per Page
-              </label>
+              <label className="text-sm font-semibold text-gray-700">Per Page</label>
               <input
                 type="text"
                 value="100"
                 disabled
                 className="w-full mt-2 px-3 py-2.5 rounded-xl bg-gray-100 border border-gray-200 outline-none text-gray-500 cursor-not-allowed"
               />
-              <p className="mt-1 text-xs text-gray-500">
-                Fixed to 100 orders per page for better performance.
-              </p>
             </div>
           </div>
 
           <div className="mt-6 flex flex-wrap gap-2">
             {chips.map((s) => {
               const isActive =
-  s.type === "status"
-    ? status === s.key
-    : s.type === "confirm"
-      ? confirmFilter === s.key
-      : s.type === "priority"
-        ? priority === s.key
-        : s.type === "quickDate"
-          ? quickDate === s.key
-          : s.type === "source"
-            ? source === s.key
-            : status === "" &&
-              confirmFilter === "" &&
-              priority === "" &&
-              quickDate === "" &&
-              source === "";
+                s.type === "status"
+                  ? status === s.key
+                  : s.type === "confirm"
+                    ? confirmFilter === s.key
+                    : s.type === "quickDate"
+                      ? quickDate === s.key
+                      : status === "" && confirmFilter === "" && quickDate === "";
+
               const onClick = () => {
-  setCurrentPage(1);
+                setCurrentPage(1);
 
-  if (s.type === "all") {
-    setStatus("");
-    setConfirmFilter("");
-    setPriority("");
-    setQuickDate("");
-    setSource("");
-    return;
-  }
+                if (s.type === "all") {
+                  setStatus("");
+                  setConfirmFilter("");
+                  setPriority("");
+                  setQuickDate("");
+                  return;
+                }
 
-  if (s.type === "status") {
-    setStatus((prev) => (prev === s.key ? "" : s.key));
-  }
+                if (s.type === "status") {
+                  setStatus((prev) => (prev === s.key ? "" : s.key));
+                }
 
-  if (s.type === "confirm") {
-    setConfirmFilter((prev) => (prev === s.key ? "" : s.key));
-  }
+                if (s.type === "confirm") {
+                  setConfirmFilter((prev) => (prev === s.key ? "" : s.key));
+                }
 
-  if (s.type === "priority") {
-    setPriority((prev) => (prev === s.key ? "" : s.key));
-  }
-
-  if (s.type === "quickDate") {
-    setQuickDate((prev) => (prev === s.key ? "" : s.key));
-  }
-
-  if (s.type === "source") {
-    setSource((prev) => (prev === s.key ? "" : s.key));
-  }
-};  
+                if (s.type === "quickDate") {
+                  setQuickDate((prev) => (prev === s.key ? "" : s.key));
+                }
+              };
 
               return (
                 <button
                   key={`${s.type}-${s.key || "all"}`}
                   onClick={onClick}
-                  className={`px-4 py-2 rounded-xl text-sm font-medium transition whitespace-nowrap ${isActive
+                  className={`px-4 py-2 rounded-xl text-sm font-medium transition whitespace-nowrap ${
+                    isActive
                       ? "bg-black text-white shadow-sm"
                       : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    }`}
+                  }`}
                 >
                   {s.label}
                 </button>
@@ -1084,7 +962,6 @@ if (source) f.source = source;
             })}
           </div>
 
-          {/* Top Pagination */}
           <div className="mt-6">
             <PaginationBar
               currentPage={currentMetaPage}
@@ -1099,63 +976,61 @@ if (source) f.source = source;
           </div>
         </Card>
 
-        {/* Table */}
-      {/* Table */}
-<div className="overflow-hidden rounded-[28px] bg-white shadow-sm ring-1 ring-black/[0.04]">
-  <div className="overflow-x-auto">
-    <table className="w-full min-w-[1180px] text-sm">
-      <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
-        <tr>
-          <th className="px-5 py-4 text-left font-semibold">Order</th>
-          <th className="px-5 py-4 text-left font-semibold">Customer</th>
-          <th className="px-5 py-4 text-left font-semibold">Payment Status</th>
-          <th className="px-5 py-4 text-left font-semibold">Method</th>
-          <th className="px-5 py-4 text-left font-semibold">Fulfillment</th>
-          <th className="px-5 py-4 text-left font-semibold">Amount</th>
-          <th className="px-5 py-4 text-left font-semibold">Date</th>
-          <th className="px-5 py-4 text-right font-semibold">Actions</th>
-        </tr>
-      </thead>
+        <div className="overflow-hidden rounded-[28px] bg-white shadow-sm ring-1 ring-black/[0.04]">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1180px] text-sm">
+              <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+                <tr>
+                  <th className="px-5 py-4 text-left font-semibold">Order</th>
+                  <th className="px-5 py-4 text-left font-semibold">Customer</th>
+                  <th className="px-5 py-4 text-left font-semibold">Payment Status</th>
+                  <th className="px-5 py-4 text-left font-semibold">Method</th>
+                  <th className="px-5 py-4 text-left font-semibold">Fulfillment</th>
+                  <th className="px-5 py-4 text-left font-semibold">Amount</th>
+                  <th className="px-5 py-4 text-left font-semibold">Date</th>
+                  <th className="px-5 py-4 text-right font-semibold">Actions</th>
+                </tr>
+              </thead>
 
-      <tbody className="divide-y divide-gray-100">
-        {loading && !hasLoadedOnce ? (
-          <tr>
-            <td colSpan={8} className="py-14 text-center text-gray-500">
-              <div className="inline-flex items-center gap-2">
-                <Loader2 size={18} className="animate-spin" />
-                Loading orders...
-              </div>
-            </td>
-          </tr>
-        ) : sortedOrders.length ? (
-          sortedOrders.map((order, idx) => {
-            const rowKey =
-              order?._id ||
-              order?.id ||
-              order?.orderNumber ||
-              `order-${idx}`;
+              <tbody className="divide-y divide-gray-100">
+                {loading && !hasLoadedOnce ? (
+                  <tr>
+                    <td colSpan={8} className="py-14 text-center text-gray-500">
+                      <div className="inline-flex items-center gap-2">
+                        <Loader2 size={18} className="animate-spin" />
+                        Loading Shopify orders...
+                      </div>
+                    </td>
+                  </tr>
+                ) : sortedOrders.length ? (
+                  sortedOrders.map((order, idx) => {
+                    const rowKey =
+                      order?._id ||
+                      order?.id ||
+                      order?.orderNumber ||
+                      order?.shopifyOrderId ||
+                      `shopify-order-${idx}`;
 
-            return (
-              <OrderRow
-                key={String(rowKey)}
-                order={order}
-                onUpdated={handleOrderUpdated}
-              />
-            );
-          })
-        ) : (
-          <tr>
-            <td colSpan={8} className="py-12 text-center text-gray-500">
-              No orders found for applied filters.
-            </td>
-          </tr>
-        )}
-      </tbody>
-    </table>
-  </div>
-</div>
+                    return (
+                      <OrderRow
+                        key={String(rowKey)}
+                        order={order}
+                        onUpdated={handleOrderUpdated}
+                      />
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center text-gray-500">
+                      No Shopify orders found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
 
-        {/* Bottom Pagination */}
         <Card>
           <PaginationBar
             currentPage={currentMetaPage}

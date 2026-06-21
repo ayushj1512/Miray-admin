@@ -25,6 +25,12 @@ const getRequest = async (endpoint, params = {}) => {
   return data;
 };
 
+const postRequest = async (endpoint, body = {}) => {
+  const url = `${API_URL}/api/shopify/${endpoint}`;
+  const { data } = await axios.post(url, body);
+  return data;
+};
+
 const getProductionSummary = (rows = []) =>
   rows.reduce(
     (acc, item) => {
@@ -44,7 +50,10 @@ const getProductionSummary = (rows = []) =>
 
 const adminShopifyStore = create((set, get) => ({
   loading: false,
+  syncingOrders: false,
   error: null,
+  syncError: null,
+  lastSyncResult: null,
 
   shop: null,
 
@@ -102,7 +111,13 @@ const adminShopifyStore = create((set, get) => ({
     after: "",
   },
 
-  clearError: () => set({ error: null }),
+  clearError: () => set({ error: null, syncError: null }),
+
+  clearSyncResult: () =>
+    set({
+      syncError: null,
+      lastSyncResult: null,
+    }),
 
   clearSelectedShopifyProduct: () =>
     set({
@@ -153,16 +168,13 @@ const adminShopifyStore = create((set, get) => ({
 
       set({
         shop: dashboard.shop || null,
-
         products: dashboard.recent?.products || [],
         orders: dashboard.recent?.orders || [],
         customers: dashboard.recent?.customers || [],
-
         productCount: dashboard.counts?.products || 0,
         orderCount: dashboard.counts?.orders || 0,
         customerCount: dashboard.counts?.customers || 0,
         inventoryCount: dashboard.counts?.inventory || 0,
-
         loading: false,
       });
 
@@ -201,18 +213,11 @@ const adminShopifyStore = create((set, get) => ({
 
   fetchNextProducts: () => {
     const { productPageInfo, fetchShopifyProducts } = get();
-
     if (!productPageInfo?.hasNextPage || !productPageInfo?.endCursor) return;
-
-    return fetchShopifyProducts({
-      after: productPageInfo.endCursor,
-    });
+    return fetchShopifyProducts({ after: productPageInfo.endCursor });
   },
 
-  resetProductPagination: () =>
-    get().fetchShopifyProducts({
-      after: "",
-    }),
+  resetProductPagination: () => get().fetchShopifyProducts({ after: "" }),
 
   fetchShopifyOrders: async (params = {}) => {
     try {
@@ -240,18 +245,54 @@ const adminShopifyStore = create((set, get) => ({
 
   fetchNextOrders: () => {
     const { orderPageInfo, fetchShopifyOrders } = get();
-
     if (!orderPageInfo?.hasNextPage || !orderPageInfo?.endCursor) return;
-
-    return fetchShopifyOrders({
-      after: orderPageInfo.endCursor,
-    });
+    return fetchShopifyOrders({ after: orderPageInfo.endCursor });
   },
 
-  resetOrderPagination: () =>
-    get().fetchShopifyOrders({
-      after: "",
-    }),
+  resetOrderPagination: () => get().fetchShopifyOrders({ after: "" }),
+
+  syncShopifyOrdersToLocal: async (params = {}) => {
+    try {
+      set({
+        syncingOrders: true,
+        syncError: null,
+        lastSyncResult: null,
+      });
+
+      const filters = {
+        ...get().orderFilters,
+        ...params,
+      };
+
+      const data = await postRequest("orders/sync", {
+        limit: filters.limit || 20,
+        search: filters.search || "",
+        financialStatus: filters.financialStatus || "",
+        fulfillmentStatus: filters.fulfillmentStatus || "",
+        createdAfter: filters.createdAfter || "",
+        createdBefore: filters.createdBefore || "",
+      });
+
+      set({
+        syncingOrders: false,
+        lastSyncResult: data.summary || data.data || data,
+      });
+
+      return data;
+    } catch (error) {
+      const message = getErrorMessage(error, "Failed to sync Shopify orders");
+
+      set({
+        syncingOrders: false,
+        syncError: message,
+      });
+
+      return {
+        success: false,
+        message,
+      };
+    }
+  },
 
   fetchShopifyCustomers: async (params = {}) => {
     try {
@@ -279,18 +320,11 @@ const adminShopifyStore = create((set, get) => ({
 
   fetchNextCustomers: () => {
     const { customerPageInfo, fetchShopifyCustomers } = get();
-
     if (!customerPageInfo?.hasNextPage || !customerPageInfo?.endCursor) return;
-
-    return fetchShopifyCustomers({
-      after: customerPageInfo.endCursor,
-    });
+    return fetchShopifyCustomers({ after: customerPageInfo.endCursor });
   },
 
-  resetCustomerPagination: () =>
-    get().fetchShopifyCustomers({
-      after: "",
-    }),
+  resetCustomerPagination: () => get().fetchShopifyCustomers({ after: "" }),
 
   fetchProductMappings: async () => {
     try {

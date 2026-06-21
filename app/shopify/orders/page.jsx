@@ -1,16 +1,31 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Search, RefreshCw, Printer, X, Eye, Download, FileSpreadsheet } from "lucide-react";
+import {
+  Search,
+  RefreshCw,
+  Printer,
+  X,
+  Download,
+  FileSpreadsheet,
+} from "lucide-react";
 import * as XLSX from "xlsx";
 import adminShopifyStore from "@/store/adminshopifystore";
 import InvoiceTemplate from "@/components/invoice/InvoiceTemplate";
 import { buildInvoiceDataFromShopify } from "@/components/invoice/buildInvoiceDataFromShopify";
+import ShopifyOrderRow from "@/components/shopify/ShopifyOrderRow";
+
+const shopifyGidToId = (gid = "") => {
+  const raw = String(gid || "").trim();
+  return raw.includes("/") ? raw.split("/").pop() : raw;
+};
 
 export default function ShopifyOrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
   const [printOrders, setPrintOrders] = useState([]);
+  const [importedOrderMap, setImportedOrderMap] = useState({});
+  const [checkingImported, setCheckingImported] = useState(false);
 
   const {
     loading,
@@ -37,27 +52,51 @@ export default function ShopifyOrdersPage() {
     return orders.filter((order) => selectedIds.includes(order.id));
   }, [orders, selectedIds]);
 
-  const money = (amount, currency = "INR") =>
-    amount || amount === 0
-      ? new Intl.NumberFormat("en-IN", {
-          style: "currency",
-          currency,
-          maximumFractionDigits: 0,
-        }).format(Number(amount))
-      : "-";
-
   const rawMoney = (moneySet) => Number(moneySet?.shopMoney?.amount || 0);
 
-  const formatDate = (date) =>
-    date
-      ? new Date(date).toLocaleDateString("en-IN", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        })
-      : "-";
+  const fetchImportedStatus = async (list = []) => {
+    try {
+      const ids = list.map((order) => shopifyGidToId(order.id)).filter(Boolean);
+
+      if (!ids.length) {
+        setImportedOrderMap({});
+        return;
+      }
+
+      setCheckingImported(true);
+
+      const res = await fetch(
+        `/api/shopify/orders/imported-status?ids=${encodeURIComponent(
+          ids.join(",")
+        )}`
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.message || "Failed to check imported orders");
+      }
+
+      setImportedOrderMap(data?.importedMap || {});
+    } catch (error) {
+      console.error("❌ Shopify imported status fetch failed:", error);
+      setImportedOrderMap({});
+    } finally {
+      setCheckingImported(false);
+    }
+  };
+
+  useEffect(() => {
+    if (orders.length) fetchImportedStatus(orders);
+    else setImportedOrderMap({});
+  }, [orders]);
 
   const searchOrders = () => {
+    setSelectedIds([]);
+    fetchShopifyOrders({ after: "" });
+  };
+
+  const refreshOrders = () => {
     setSelectedIds([]);
     fetchShopifyOrders({ after: "" });
   };
@@ -93,14 +132,18 @@ export default function ShopifyOrdersPage() {
         : order.shippingAddress?.name || "";
 
       const items = order?.lineItems?.edges || [];
+
       const itemSummary = items
         .map((edge) => {
           const item = edge.node;
-          return `${item.title || "-"} ${item.variantTitle ? `(${item.variantTitle})` : ""} x ${item.quantity || 1}`;
+          return `${item.title || "-"} ${
+            item.variantTitle ? `(${item.variantTitle})` : ""
+          } x ${item.quantity || 1}`;
         })
         .join(" | ");
 
       const tracking = order?.fulfillments?.[0]?.trackingInfo?.[0];
+      const importedInfo = importedOrderMap[shopifyGidToId(order.id)];
 
       return {
         "Order No": order.name || "",
@@ -110,10 +153,12 @@ export default function ShopifyOrdersPage() {
         Phone: order.customer?.phone || order.shippingAddress?.phone || "",
         "Payment Status": order.displayFinancialStatus || "",
         "Fulfillment Status": order.displayFulfillmentStatus || "",
-        "Subtotal": rawMoney(order.subtotalPriceSet),
-        "Shipping": rawMoney(order.totalShippingPriceSet),
-        "Total": rawMoney(order.totalPriceSet),
-        "Currency": order?.totalPriceSet?.shopMoney?.currencyCode || "INR",
+        "Import Status": importedInfo?.isImported ? "Imported" : "Not Imported",
+        "Local Order Number": importedInfo?.localOrderNumber || "",
+        Subtotal: rawMoney(order.subtotalPriceSet),
+        Shipping: rawMoney(order.totalShippingPriceSet),
+        Total: rawMoney(order.totalPriceSet),
+        Currency: order?.totalPriceSet?.shopMoney?.currencyCode || "INR",
         "Shipping Name": order.shippingAddress?.name || "",
         "Address 1": order.shippingAddress?.address1 || "",
         "Address 2": order.shippingAddress?.address2 || "",
@@ -121,9 +166,9 @@ export default function ShopifyOrdersPage() {
         State: order.shippingAddress?.province || "",
         Pincode: order.shippingAddress?.zip || "",
         Country: order.shippingAddress?.country || "",
-        "Items": itemSummary,
+        Items: itemSummary,
         "Tracking Company": tracking?.company || "",
-        "AWB": tracking?.number || "",
+        AWB: tracking?.number || "",
         "Tracking URL": tracking?.url || "",
         "Cancelled At": order.cancelledAt || "",
         "Cancel Reason": order.cancelReason || "",
@@ -133,7 +178,6 @@ export default function ShopifyOrdersPage() {
 
   const exportOrdersExcel = (type = "all") => {
     const list = type === "selected" ? selectedOrders : orders;
-
     if (!list.length) return;
 
     const rows = buildExcelRows(list);
@@ -149,6 +193,13 @@ export default function ShopifyOrdersPage() {
 
     XLSX.writeFile(wb, fileName);
   };
+
+  const importedCount = useMemo(() => {
+    return orders.reduce((count, order) => {
+      const id = shopifyGidToId(order.id);
+      return importedOrderMap[id]?.isImported ? count + 1 : count;
+    }, 0);
+  }, [orders, importedOrderMap]);
 
   return (
     <div className="min-h-screen bg-[#faf9f8] p-4 md:p-7">
@@ -187,13 +238,17 @@ export default function ShopifyOrdersPage() {
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[#800020]">
-                Shopify Orders
+                Miray Shopify
               </p>
               <h1 className="mt-2 text-2xl font-black text-black">
                 Orders & Invoicing
               </h1>
               <p className="mt-1 text-sm text-neutral-500">
-                Preview, print, invoice download and Excel export.
+                Import Shopify orders, review products, export Excel and print invoices.
+              </p>
+              <p className="mt-2 text-xs font-black uppercase tracking-wide text-neutral-400">
+                Imported: {importedCount}/{orders.length}
+                {checkingImported ? " · Checking..." : ""}
               </p>
             </div>
 
@@ -226,7 +281,7 @@ export default function ShopifyOrdersPage() {
               </button>
 
               <button
-                onClick={() => fetchShopifyOrders({ after: "" })}
+                onClick={refreshOrders}
                 disabled={loading}
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-black px-5 py-3 text-sm font-bold text-white disabled:opacity-50"
               >
@@ -311,15 +366,18 @@ export default function ShopifyOrdersPage() {
             <div>
               <h2 className="text-lg font-black text-black">Shopify Orders</h2>
               <p className="text-sm font-bold text-neutral-400">
-                Total: {orderCount || 0}
+                Total: {orderCount || 0} · Imported on page: {importedCount}
               </p>
             </div>
 
             <button
               onClick={toggleAll}
-              className="rounded-full bg-[#fff1f5] px-4 py-2 text-xs font-black text-[#800020]"
+              disabled={!orders.length}
+              className="rounded-full bg-[#fff1f5] px-4 py-2 text-xs font-black text-[#800020] disabled:opacity-40"
             >
-              {selectedIds.length === orders.length ? "Clear All" : "Select All"}
+              {selectedIds.length === orders.length && orders.length
+                ? "Clear All"
+                : "Select All"}
             </button>
           </div>
 
@@ -339,69 +397,21 @@ export default function ShopifyOrdersPage() {
               </thead>
 
               <tbody>
-                {orders.map((order) => (
-                  <tr key={order.id} className="transition hover:bg-[#fff9fb]">
-                    <td className="whitespace-nowrap px-5 py-4">
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.includes(order.id)}
-                        onChange={() => toggleOrder(order.id)}
-                        className="h-4 w-4 accent-[#800020]"
-                      />
-                    </td>
+                {orders.map((order) => {
+                  const shopifyOrderId = shopifyGidToId(order.id);
 
-                    <td className="whitespace-nowrap px-5 py-4 font-black text-black">
-                      {order.name}
-                    </td>
-
-                    <td className="whitespace-nowrap px-5 py-4 text-neutral-600">
-                      {order.customer
-                        ? `${order.customer.firstName || ""} ${
-                            order.customer.lastName || ""
-                          }`
-                        : order.shippingAddress?.name || "-"}
-                    </td>
-
-                    <td className="whitespace-nowrap px-5 py-4 text-neutral-600">
-                      {formatDate(order.createdAt)}
-                    </td>
-
-                    <td className="whitespace-nowrap px-5 py-4">
-                      <Badge>{order.displayFinancialStatus}</Badge>
-                    </td>
-
-                    <td className="whitespace-nowrap px-5 py-4 text-neutral-600">
-                      {order.displayFulfillmentStatus || "-"}
-                    </td>
-
-                    <td className="whitespace-nowrap px-5 py-4 font-bold text-black">
-                      {money(
-                        order?.totalPriceSet?.shopMoney?.amount,
-                        order?.totalPriceSet?.shopMoney?.currencyCode
-                      )}
-                    </td>
-
-                    <td className="whitespace-nowrap px-5 py-4 text-right">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() => setSelectedOrder(order)}
-                          className="inline-flex items-center gap-1 rounded-full bg-[#fff1f5] px-3 py-2 text-xs font-black text-[#800020]"
-                        >
-                          <Eye size={13} />
-                          Preview
-                        </button>
-
-                        <button
-                          onClick={() => printSingleInvoice(order)}
-                          className="inline-flex items-center gap-1 rounded-full bg-black px-3 py-2 text-xs font-black text-white"
-                        >
-                          <Printer size={13} />
-                          Invoice
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                  return (
+                    <ShopifyOrderRow
+                      key={order.id}
+                      order={order}
+                      syncedInfo={importedOrderMap[shopifyOrderId]}
+                      checked={selectedIds.includes(order.id)}
+                      onToggle={() => toggleOrder(order.id)}
+                      onPreview={() => setSelectedOrder(order)}
+                      onPrint={() => printSingleInvoice(order)}
+                    />
+                  );
+                })}
 
                 {!loading && orders.length === 0 && (
                   <tr>
@@ -410,6 +420,17 @@ export default function ShopifyOrdersPage() {
                       className="px-5 py-10 text-center text-sm font-semibold text-neutral-400"
                     >
                       No Shopify orders found.
+                    </td>
+                  </tr>
+                )}
+
+                {loading && (
+                  <tr>
+                    <td
+                      colSpan={8}
+                      className="px-5 py-10 text-center text-sm font-semibold text-neutral-400"
+                    >
+                      Loading Shopify orders...
                     </td>
                   </tr>
                 )}
@@ -472,6 +493,7 @@ export default function ShopifyOrdersPage() {
       <div id="shopify-print-area" className="hidden print:block">
         {printOrders.map((order) => {
           const data = buildInvoiceDataFromShopify(order);
+
           return (
             <div key={order.id} className="invoice-print-page">
               <InvoiceTemplate data={data} />
@@ -492,6 +514,7 @@ function Input({ icon, className = "", ...props }) {
           className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
         />
       )}
+
       <input
         {...props}
         className={`h-11 w-full rounded-full bg-[#faf9f8] px-4 text-sm font-semibold text-black outline-none placeholder:text-neutral-400 ${
@@ -510,13 +533,5 @@ function Select({ children, ...props }) {
     >
       {children}
     </select>
-  );
-}
-
-function Badge({ children }) {
-  return (
-    <span className="inline-flex rounded-full bg-[#fff1f5] px-2.5 py-1 text-[11px] font-black uppercase text-[#800020]">
-      {children || "-"}
-    </span>
   );
 }

@@ -3,6 +3,7 @@
 import { useEffect, useMemo } from "react";
 import * as XLSX from "xlsx";
 import adminShopifyStore from "@/store/adminshopifystore";
+import ImportShopifyOrdersButton from "@/components/shopify/ImportShopifyOrdersButton";
 
 const getCustomerName = (order) =>
   order?.customer?.displayName ||
@@ -10,13 +11,23 @@ const getCustomerName = (order) =>
   "Guest";
 
 const getAmount = (order) =>
-  Number(order?.totalPriceSet?.shopMoney?.amount || order?.totalPrice || 0);
+  Number(
+    order?.currentTotalPriceSet?.shopMoney?.amount ||
+    order?.totalPriceSet?.shopMoney?.amount ||
+    order?.totalPrice ||
+    0
+  );
 
 const money = (value) => `₹${Number(value || 0).toLocaleString("en-IN")}`;
 
 const getProductCodeFromSku = (sku = "") => String(sku).split("-")?.[1] || "";
 
 const getLineItems = (order) => order?.lineItems?.edges || [];
+
+const getLineImage = (node) =>
+  node?.variant?.image?.url ||
+  node?.variant?.product?.featuredMedia?.preview?.image?.url ||
+  "";
 
 export default function FulfilledOrdersPage() {
   const { loading, error, orders, fetchShopifyOrders } = adminShopifyStore();
@@ -82,19 +93,21 @@ export default function FulfilledOrdersPage() {
 
         SKUs:
           items
-            .map(({ node }) => node?.sku)
+            .map(({ node }) => node?.sku || node?.variant?.sku)
             .filter(Boolean)
             .join(", ") || "",
 
         "Product Codes":
           items
-            .map(({ node }) => getProductCodeFromSku(node?.sku))
+            .map(({ node }) =>
+              getProductCodeFromSku(node?.sku || node?.variant?.sku)
+            )
             .filter(Boolean)
             .join(", ") || "",
 
         "Image URLs":
           items
-            .map(({ node }) => node?.image?.url)
+            .map(({ node }) => getLineImage(node))
             .filter(Boolean)
             .join(", ") || "",
 
@@ -154,7 +167,17 @@ export default function FulfilledOrdersPage() {
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-start gap-2">
+            <ImportShopifyOrdersButton
+              refreshAfterImport
+              size="md"
+              label="Import Orders"
+              params={{
+                limit: 50,
+                fulfillmentStatus: "FULFILLED",
+              }}
+            />
+
             <button
               onClick={() =>
                 fetchShopifyOrders({
@@ -188,7 +211,7 @@ export default function FulfilledOrdersPage() {
 
       {error && (
         <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {error}
+          {typeof error === "string" ? error : error?.message || JSON.stringify(error)}
         </div>
       )}
 
@@ -261,7 +284,9 @@ function OrdersTable({ orders, loading, emptyText }) {
                     {money(getAmount(order))}
                   </td>
 
-                  <td className="px-4 py-3">{order?.shippingAddress?.city || "-"}</td>
+                  <td className="px-4 py-3">
+                    {order?.shippingAddress?.city || "-"}
+                  </td>
 
                   <td className="px-4 py-3 text-xs text-gray-500">
                     {order.createdAt
@@ -288,17 +313,18 @@ function LineItems({ order }) {
   return (
     <div className="flex flex-col gap-2">
       {items.map(({ node }, index) => {
-        const sku = node?.sku || "";
+        const sku = node?.sku || node?.variant?.sku || "";
         const productCode = getProductCodeFromSku(sku);
+        const image = getLineImage(node);
 
         return (
           <div
             key={`${order.id}-${sku}-${index}`}
             className="flex gap-3 rounded-xl border border-gray-100 bg-white p-2"
           >
-            {node?.image?.url ? (
+            {image ? (
               <img
-                src={node.image.url}
+                src={image}
                 alt={node.title}
                 className="h-12 w-12 rounded-lg object-cover"
               />
@@ -329,14 +355,12 @@ function LineItems({ order }) {
 function Card({ label, value, dark = false }) {
   return (
     <div
-      className={`rounded-2xl border p-4 ${
-        dark ? "border-black bg-black text-white" : "border-gray-200 bg-gray-50"
-      }`}
+      className={`rounded-2xl border p-4 ${dark ? "border-black bg-black text-white" : "border-gray-200 bg-gray-50"
+        }`}
     >
       <p
-        className={`text-xs uppercase tracking-wide ${
-          dark ? "text-gray-300" : "text-gray-500"
-        }`}
+        className={`text-xs uppercase tracking-wide ${dark ? "text-gray-300" : "text-gray-500"
+          }`}
       >
         {label}
       </p>
@@ -348,9 +372,8 @@ function Card({ label, value, dark = false }) {
 function Badge({ children, dark = false }) {
   return (
     <span
-      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
-        dark ? "bg-black text-white" : "bg-gray-100 text-gray-700"
-      }`}
+      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${dark ? "bg-black text-white" : "bg-gray-100 text-gray-700"
+        }`}
     >
       {children}
     </span>

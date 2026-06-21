@@ -220,10 +220,13 @@ function PaginationBar({
   );
 }
 
+const getOrderSource = (o) =>
+  norm(o?.source || o?.attribution?.source || o?.medium || o?.attribution?.medium);
+
 const applyClientFiltersToOrders = ({ orders, confirmFilter, priority, search }) => {
   let data = Array.isArray(orders) ? [...orders] : [];
 
-  data = data.filter((o) => norm(o?.source) === SHOPIFY_SOURCE);
+  data = data.filter((o) => getOrderSource(o) === SHOPIFY_SOURCE);
 
   if (confirmFilter === "confirmed") {
     data = data.filter((o) => o?.isConfirmed === true);

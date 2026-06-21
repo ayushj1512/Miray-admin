@@ -417,4 +417,4 @@ function InfoCard({ icon, label, value, sub }) {
       {sub && <p className="mt-1 text-xs font-semibold text-neutral-400">{sub}</p>}
     </div>
   );
-}inp
+}

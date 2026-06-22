@@ -18,28 +18,28 @@ import adminShopifyStore from "@/store/adminshopifystore";
 const money = (amount, currency = "INR") =>
   amount || amount === 0
     ? new Intl.NumberFormat("en-IN", {
-        style: "currency",
-        currency,
-        maximumFractionDigits: 0,
-      }).format(Number(amount))
+      style: "currency",
+      currency,
+      maximumFractionDigits: 0,
+    }).format(Number(amount))
     : "-";
 
 const formatDate = (date) =>
   date
     ? new Date(date).toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      })
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    })
     : "-";
 
 const formatTime = (date) =>
   date
     ? new Date(date).toLocaleTimeString("en-IN", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
-      })
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    })
     : "-";
 
 function getCustomerName(order) {
@@ -206,11 +206,10 @@ export default function ShopifyOrderRow({
 
             {importStatus && (
               <div
-                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-black ${
-                  importStatus.type === "success"
+                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-black ${importStatus.type === "success"
                     ? "bg-emerald-50 text-emerald-700"
                     : "bg-red-50 text-red-700"
-                }`}
+                  }`}
               >
                 {importStatus.type === "success" ? (
                   <CheckCircle2 size={12} />
@@ -231,14 +230,14 @@ export default function ShopifyOrderRow({
         </td>
 
         <td className="px-5 py-4">
-  <div className="font-bold text-neutral-700">
-    {formatDate(order.createdAt)}
-  </div>
+          <div className="font-bold text-neutral-700">
+            {formatDate(order.createdAt)}
+          </div>
 
-  <div className="mt-1 text-xs font-semibold text-neutral-400">
-    {formatTime(order.createdAt)}
-  </div>
-</td>
+          <div className="mt-1 text-xs font-semibold text-neutral-400">
+            {formatTime(order.createdAt)}
+          </div>
+        </td>
 
         <td className="px-5 py-4">
           <StatusBadge type="payment" value={order.displayFinancialStatus} />
@@ -265,11 +264,10 @@ export default function ShopifyOrderRow({
             <button
               onClick={handleImportOne}
               disabled={syncingOrders || alreadyImported}
-              className={`inline-flex items-center gap-1 rounded-full px-3 py-2 text-xs font-black disabled:cursor-not-allowed disabled:opacity-60 ${
-                alreadyImported
+              className={`inline-flex items-center gap-1 rounded-full px-3 py-2 text-xs font-black disabled:cursor-not-allowed disabled:opacity-60 ${alreadyImported
                   ? "bg-neutral-100 text-neutral-500"
                   : "bg-emerald-50 text-emerald-700"
-              }`}
+                }`}
             >
               {alreadyImported ? (
                 <CheckCircle2 size={13} />
@@ -326,9 +324,8 @@ export default function ShopifyOrderRow({
                   icon={<Package size={16} />}
                   label="Delivery Address"
                   value={order.shippingAddress?.city || "-"}
-                  sub={`${order.shippingAddress?.province || ""} ${
-                    order.shippingAddress?.zip || ""
-                  }`}
+                  sub={`${order.shippingAddress?.province || ""} ${order.shippingAddress?.zip || ""
+                    }`}
                 />
               </div>
 
@@ -389,9 +386,9 @@ export default function ShopifyOrderRow({
                           <td className="px-4 py-3 font-bold text-black">
                             {money(
                               item?.discountedUnitPriceSet?.shopMoney?.amount ||
-                                item?.originalUnitPriceSet?.shopMoney?.amount,
+                              item?.originalUnitPriceSet?.shopMoney?.amount,
                               item?.discountedUnitPriceSet?.shopMoney?.currencyCode ||
-                                item?.originalUnitPriceSet?.shopMoney?.currencyCode
+                              item?.originalUnitPriceSet?.shopMoney?.currencyCode
                             )}
                           </td>
                         </tr>

@@ -79,6 +79,14 @@ const adminShopifyStore = create((set, get) => ({
   orderCount: 0,
   customerCount: 0,
   inventoryCount: 0,
+  shopifyStats: {
+  totalRevenue: 0,
+  aov: 0,
+  paidOrders: 0,
+  codOrders: 0,
+  todayOrders: 0,
+  thisMonthRevenue: 0,
+},
 
   productPageInfo: null,
   orderPageInfo: null,
@@ -167,16 +175,28 @@ const adminShopifyStore = create((set, get) => ({
       const dashboard = data.data || {};
 
       set({
-        shop: dashboard.shop || null,
-        products: dashboard.recent?.products || [],
-        orders: dashboard.recent?.orders || [],
-        customers: dashboard.recent?.customers || [],
-        productCount: dashboard.counts?.products || 0,
-        orderCount: dashboard.counts?.orders || 0,
-        customerCount: dashboard.counts?.customers || 0,
-        inventoryCount: dashboard.counts?.inventory || 0,
-        loading: false,
-      });
+  shop: dashboard.shop || null,
+
+  products: dashboard.recent?.products || [],
+  orders: dashboard.recent?.orders || [],
+  customers: dashboard.recent?.customers || [],
+
+  productCount: dashboard.counts?.products || 0,
+  orderCount: dashboard.counts?.orders || 0,
+  customerCount: dashboard.counts?.customers || 0,
+  inventoryCount: dashboard.counts?.inventory || 0,
+
+  shopifyStats: {
+    totalRevenue: dashboard.stats?.totalRevenue || 0,
+    aov: dashboard.stats?.aov || 0,
+    paidOrders: dashboard.stats?.paidOrders || 0,
+    codOrders: dashboard.stats?.codOrders || 0,
+    todayOrders: dashboard.stats?.todayOrders || 0,
+    thisMonthRevenue: dashboard.stats?.thisMonthRevenue || 0,
+  },
+
+  loading: false,
+});
 
       return data;
     } catch (error) {
@@ -265,7 +285,8 @@ const adminShopifyStore = create((set, get) => ({
       };
 
       const data = await postRequest("orders/sync", {
-        limit: filters.limit || 20,
+        limit: Number(filters.limit || 100),
+        after: filters.after || "",
         search: filters.search || "",
         financialStatus: filters.financialStatus || "",
         fulfillmentStatus: filters.fulfillmentStatus || "",
@@ -280,7 +301,7 @@ const adminShopifyStore = create((set, get) => ({
 
       return data;
     } catch (error) {
-      const message = getErrorMessage(error, "Failed to sync Shopify orders");
+      const message = getErrorMessage(error, "Failed to import Shopify orders");
 
       set({
         syncingOrders: false,
@@ -292,6 +313,17 @@ const adminShopifyStore = create((set, get) => ({
         message,
       };
     }
+  },
+
+  bulkImportCurrentShopifyPage: async (params = {}) => {
+    const { orderFilters, syncShopifyOrdersToLocal } = get();
+
+    return syncShopifyOrdersToLocal({
+      ...orderFilters,
+      ...params,
+      limit: Number(params.limit || orderFilters.limit || 100),
+      after: params.after ?? orderFilters.after ?? "",
+    });
   },
 
   fetchShopifyCustomers: async (params = {}) => {

@@ -9,10 +9,7 @@ export const DOMAIN_PERMISSIONS = {
   footwear: "manageFootwear",
   orders: "manageOrders",
 
-  // ✅ Refunds
   refunds: "manageRefunds",
-
-  // ✅ NEW → Fast2SMS
   fast2sms: "manageFast2SMS",
 
   shiprocket: "manageOrders",
@@ -24,6 +21,10 @@ export const DOMAIN_PERMISSIONS = {
   blogs: "manageBlogs",
   inventory: "manageInventory",
   fabrics: "manageFabrics",
+
+  // NEW
+  cutting_batch: "manageCuttingBatch",
+
   operations: "manageOperations",
   it: "manageIT",
   marketing: "manageMarketing",

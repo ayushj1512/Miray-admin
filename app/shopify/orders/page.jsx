@@ -8,12 +8,17 @@ import {
   X,
   Download,
   FileSpreadsheet,
+  ChevronLeft,
+  ChevronRight,
+  UploadCloud,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import adminShopifyStore from "@/store/adminshopifystore";
 import InvoiceTemplate from "@/components/invoice/InvoiceTemplate";
 import { buildInvoiceDataFromShopify } from "@/components/invoice/buildInvoiceDataFromShopify";
 import ShopifyOrderRow from "@/components/shopify/ShopifyOrderRow";
+
+const PAGE_SIZE = 100;
 
 const shopifyGidToId = (gid = "") => {
   const raw = String(gid || "").trim();
@@ -27,21 +32,38 @@ export default function ShopifyOrdersPage() {
   const [importedOrderMap, setImportedOrderMap] = useState({});
   const [checkingImported, setCheckingImported] = useState(false);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [cursorStack, setCursorStack] = useState([""]);
+
   const {
     loading,
+    syncingOrders,
     error,
+    syncError,
+    lastSyncResult,
     orders,
     orderCount,
     orderPageInfo,
     orderFilters,
     setOrderFilters,
     fetchShopifyOrders,
-    fetchNextOrders,
+    syncShopifyOrdersToLocal,
     clearError,
+    clearSyncResult,
   } = adminShopifyStore();
 
+  const totalPages = useMemo(() => {
+    return Math.max(1, Math.ceil((Number(orderCount) || 0) / PAGE_SIZE));
+  }, [orderCount]);
+
+  const fetchPage = async (page, after = "") => {
+    setSelectedIds([]);
+    setCurrentPage(page);
+    await fetchShopifyOrders({ limit: PAGE_SIZE, after });
+  };
+
   useEffect(() => {
-    fetchShopifyOrders({ limit: 20, after: "" });
+    fetchPage(1, "");
   }, [fetchShopifyOrders]);
 
   const invoiceData = useMemo(() => {
@@ -92,13 +114,56 @@ export default function ShopifyOrdersPage() {
   }, [orders]);
 
   const searchOrders = () => {
-    setSelectedIds([]);
-    fetchShopifyOrders({ after: "" });
+    setCursorStack([""]);
+    fetchPage(1, "");
   };
 
   const refreshOrders = () => {
-    setSelectedIds([]);
-    fetchShopifyOrders({ after: "" });
+    const after = cursorStack[currentPage - 1] || "";
+    fetchPage(currentPage, after);
+  };
+
+  const importCurrentPageOrders = async () => {
+    const after = cursorStack[currentPage - 1] || "";
+
+    const res = await syncShopifyOrdersToLocal({
+      limit: PAGE_SIZE,
+      after,
+      search: orderFilters.search || "",
+      financialStatus: orderFilters.financialStatus || "",
+      fulfillmentStatus: orderFilters.fulfillmentStatus || "",
+      createdAfter: orderFilters.createdAfter || "",
+      createdBefore: orderFilters.createdBefore || "",
+    });
+    await fetchPage(currentPage, after);
+
+    return res;
+  };
+
+  const goNextPage = async () => {
+    if (!orderPageInfo?.hasNextPage || loading) return;
+
+    const nextCursor = orderPageInfo?.endCursor || "";
+    if (!nextCursor) return;
+
+    const nextPage = currentPage + 1;
+
+    setCursorStack((prev) => {
+      const updated = [...prev];
+      updated[nextPage - 1] = nextCursor;
+      return updated;
+    });
+
+    await fetchPage(nextPage, nextCursor);
+  };
+
+  const goPreviousPage = async () => {
+    if (currentPage <= 1 || loading) return;
+
+    const previousPage = currentPage - 1;
+    const previousCursor = cursorStack[previousPage - 1] || "";
+
+    await fetchPage(previousPage, previousCursor);
   };
 
   const toggleOrder = (orderId) => {
@@ -136,9 +201,8 @@ export default function ShopifyOrdersPage() {
       const itemSummary = items
         .map((edge) => {
           const item = edge.node;
-          return `${item.title || "-"} ${
-            item.variantTitle ? `(${item.variantTitle})` : ""
-          } x ${item.quantity || 1}`;
+          return `${item.title || "-"} ${item.variantTitle ? `(${item.variantTitle})` : ""
+            } x ${item.quantity || 1}`;
         })
         .join(" | ");
 
@@ -189,7 +253,7 @@ export default function ShopifyOrdersPage() {
     const fileName =
       type === "selected"
         ? `shopify-selected-orders-${selectedOrders.length}.xlsx`
-        : "shopify-orders.xlsx";
+        : `shopify-orders-page-${currentPage}.xlsx`;
 
     XLSX.writeFile(wb, fileName);
   };
@@ -247,19 +311,28 @@ export default function ShopifyOrdersPage() {
                 Import Shopify orders, review products, export Excel and print invoices.
               </p>
               <p className="mt-2 text-xs font-black uppercase tracking-wide text-neutral-400">
-                Imported: {importedCount}/{orders.length}
-                {checkingImported ? " · Checking..." : ""}
+                Page {currentPage} of {totalPages} · Showing {orders.length} orders
+                {checkingImported ? " · Checking import status..." : ""}
               </p>
             </div>
 
             <div className="flex flex-wrap gap-2">
+              <button
+                onClick={importCurrentPageOrders}
+                disabled={syncingOrders || loading || !orders.length}
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-[#800020] px-5 py-3 text-sm font-bold text-white disabled:opacity-40"
+              >
+                <UploadCloud size={16} />
+                {syncingOrders ? "Importing..." : `Import Page (${orders.length})`}
+              </button>
+
               <button
                 onClick={() => exportOrdersExcel("all")}
                 disabled={!orders.length}
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-black shadow disabled:opacity-40"
               >
                 <FileSpreadsheet size={16} />
-                Export Excel
+                Export Page
               </button>
 
               <button
@@ -274,7 +347,7 @@ export default function ShopifyOrdersPage() {
               <button
                 onClick={printSelectedInvoices}
                 disabled={!selectedIds.length}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-[#800020] px-5 py-3 text-sm font-bold text-white disabled:opacity-40"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-black px-5 py-3 text-sm font-bold text-white disabled:opacity-40"
               >
                 <Download size={16} />
                 Download Selected ({selectedIds.length})
@@ -282,7 +355,7 @@ export default function ShopifyOrdersPage() {
 
               <button
                 onClick={refreshOrders}
-                disabled={loading}
+                disabled={loading || syncingOrders}
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-black px-5 py-3 text-sm font-bold text-white disabled:opacity-50"
               >
                 <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
@@ -297,6 +370,34 @@ export default function ShopifyOrdersPage() {
             {error}
             <button onClick={clearError} className="ml-3 underline">
               Dismiss
+            </button>
+          </div>
+        )}
+
+        {syncError && (
+          <div className="rounded-2xl bg-[#fff3f6] px-4 py-3 text-sm font-semibold text-[#800020]">
+            {syncError}
+            <button onClick={clearSyncResult} className="ml-3 underline">
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        {lastSyncResult && (
+          <div className="rounded-2xl bg-white px-4 py-3 text-sm font-bold text-neutral-700 shadow-[0_14px_40px_rgba(0,0,0,0.04)]">
+            Imported: {lastSyncResult.created || 0}
+            {" · "}
+            Skipped: {lastSyncResult.skipped || 0}
+            {" · "}
+            Failed: {lastSyncResult.failed || 0}
+            {" · "}
+            Total: {lastSyncResult.total || 0}
+
+            <button
+              onClick={clearSyncResult}
+              className="ml-3 text-[#800020] underline"
+            >
+              Clear
             </button>
           </div>
         )}
@@ -354,7 +455,8 @@ export default function ShopifyOrdersPage() {
 
           <button
             onClick={searchOrders}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#800020] px-5 text-sm font-black text-white"
+            disabled={loading || syncingOrders}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#800020] px-5 text-sm font-black text-white disabled:opacity-40"
           >
             <Search size={15} />
             Search
@@ -366,13 +468,13 @@ export default function ShopifyOrdersPage() {
             <div>
               <h2 className="text-lg font-black text-black">Shopify Orders</h2>
               <p className="text-sm font-bold text-neutral-400">
-                Total: {orderCount || 0} · Imported on page: {importedCount}
+                Total: {orderCount || 0} · Page {currentPage}/{totalPages} · Imported on page: {importedCount}
               </p>
             </div>
 
             <button
               onClick={toggleAll}
-              disabled={!orders.length}
+              disabled={!orders.length || loading || syncingOrders}
               className="rounded-full bg-[#fff1f5] px-4 py-2 text-xs font-black text-[#800020] disabled:opacity-40"
             >
               {selectedIds.length === orders.length && orders.length
@@ -434,23 +536,50 @@ export default function ShopifyOrdersPage() {
                     </td>
                   </tr>
                 )}
+
+                {syncingOrders && (
+                  <tr>
+                    <td
+                      colSpan={8}
+                      className="px-5 py-4 text-center text-sm font-black text-[#800020]"
+                    >
+                      Importing current page orders...
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
         </div>
 
-        <div className="flex items-center justify-between rounded-[24px] bg-white px-5 py-4 text-sm shadow-[0_14px_40px_rgba(0,0,0,0.04)]">
+        <div className="flex flex-col gap-3 rounded-[24px] bg-white px-5 py-4 text-sm shadow-[0_14px_40px_rgba(0,0,0,0.04)] md:flex-row md:items-center md:justify-between">
           <p className="font-bold text-neutral-500">
-            Showing {orders.length} of {orderCount || 0}
+            Showing {orders.length} orders on this page · Total {orderCount || 0} · Page {currentPage} of {totalPages}
           </p>
 
-          <button
-            onClick={fetchNextOrders}
-            disabled={!orderPageInfo?.hasNextPage || loading}
-            className="rounded-full bg-black px-5 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            Load Next
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={goPreviousPage}
+              disabled={currentPage <= 1 || loading || syncingOrders}
+              className="inline-flex items-center gap-2 rounded-full bg-[#faf9f8] px-5 py-2.5 text-sm font-black text-black disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ChevronLeft size={16} />
+              Previous
+            </button>
+
+            <div className="rounded-full bg-[#fff1f5] px-4 py-2.5 text-xs font-black text-[#800020]">
+              {currentPage}/{totalPages}
+            </div>
+
+            <button
+              onClick={goNextPage}
+              disabled={!orderPageInfo?.hasNextPage || loading || syncingOrders}
+              className="inline-flex items-center gap-2 rounded-full bg-black px-5 py-2.5 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Next
+              <ChevronRight size={16} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -517,9 +646,8 @@ function Input({ icon, className = "", ...props }) {
 
       <input
         {...props}
-        className={`h-11 w-full rounded-full bg-[#faf9f8] px-4 text-sm font-semibold text-black outline-none placeholder:text-neutral-400 ${
-          icon ? "pl-9" : ""
-        }`}
+        className={`h-11 w-full rounded-full bg-[#faf9f8] px-4 text-sm font-semibold text-black outline-none placeholder:text-neutral-400 ${icon ? "pl-9" : ""
+          }`}
       />
     </div>
   );

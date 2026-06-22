@@ -8,6 +8,11 @@ import {
   Boxes,
   RefreshCw,
   Search,
+  IndianRupee,
+  CreditCard,
+  Banknote,
+  CalendarDays,
+  TrendingUp,
 } from "lucide-react";
 import adminShopifyStore from "@/store/adminshopifystore";
 import ImportShopifyOrdersButton from "@/components/shopify/ImportShopifyOrdersButton";
@@ -30,6 +35,7 @@ export default function ShopifyDashboardPage() {
     orderCount,
     customerCount,
     inventoryCount,
+    shopifyStats,
 
     productPageInfo,
     orderPageInfo,
@@ -56,7 +62,7 @@ export default function ShopifyDashboardPage() {
   } = adminShopifyStore();
 
   useEffect(() => {
-    fetchShopifyDashboard(10);
+    fetchShopifyDashboard(1000);
   }, [fetchShopifyDashboard]);
 
   const inventoryRows = useMemo(() => {
@@ -94,6 +100,13 @@ export default function ShopifyDashboardPage() {
         maximumFractionDigits: 0,
       }).format(Number(amount))
       : "-";
+
+  const statMoney = (amount) =>
+    new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 0,
+    }).format(Number(amount || 0));
 
   const handleTab = async (tab) => {
     setActiveTab(tab);
@@ -164,11 +177,47 @@ export default function ShopifyDashboardPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
           <Stat icon={<Package size={18} />} title="Products" value={productCount} />
           <Stat icon={<ShoppingBag size={18} />} title="Orders" value={orderCount} />
           <Stat icon={<Users size={18} />} title="Customers" value={customerCount} />
           <Stat icon={<Boxes size={18} />} title="Inventory" value={totalInventory} />
+
+          <Stat
+            icon={<IndianRupee size={18} />}
+            title="Total Revenue"
+            value={statMoney(shopifyStats?.totalRevenue)}
+          />
+
+          <Stat
+            icon={<TrendingUp size={18} />}
+            title="AOV"
+            value={statMoney(shopifyStats?.aov)}
+          />
+
+          <Stat
+            icon={<CreditCard size={18} />}
+            title="Paid Orders"
+            value={shopifyStats?.paidOrders || 0}
+          />
+
+          <Stat
+            icon={<Banknote size={18} />}
+            title="COD Orders"
+            value={shopifyStats?.codOrders || 0}
+          />
+
+          <Stat
+            icon={<CalendarDays size={18} />}
+            title="Today Orders"
+            value={shopifyStats?.todayOrders || 0}
+          />
+
+          <Stat
+            icon={<IndianRupee size={18} />}
+            title="Month Revenue"
+            value={statMoney(shopifyStats?.thisMonthRevenue)}
+          />
         </div>
 
         <div className="rounded-full bg-white p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.05)]">

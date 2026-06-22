@@ -44,6 +44,12 @@ import LiveClock from "@/components/dashboard/LiveClock";
 
 const DOMAIN_LIST = [
   { id: "shopify", name: "Shopify", icon: Store, route: "/shopify" },
+  {
+    id: "cutting_batch",
+    name: "Cutting Batch",
+    icon: Scissors,
+    route: "/cutting-batch",
+  },
   { id: "designing", name: "Designing", icon: Palette, route: "/designing" },
   { id: "design_lab", name: "Design Lab", icon: Sparkles, route: "/design-lab" },
   { id: "production", name: "Production / Tailoring", icon: Ticket, route: "/production" },
@@ -83,6 +89,7 @@ const DOMAIN_LIST = [
 
 const CARD_HINTS = {
   shopify: "View Shopify products, orders & customers",
+  cutting_batch: "Generate and download cutting lists",
   design_lab: "Creative apparel design workspace",
   refunds: "Manage Razorpay refunds & manual refund proofs",
   fast2sms: "View WhatsApp confirmation logs & message status",
@@ -95,7 +102,8 @@ const CARD_HINTS = {
   fabrics: "Manage fabric records & mappings",
 };
 
-const isFeaturedCard = (id) => id === "design_lab" || id === "shopify";
+const isFeaturedCard = (id) =>
+  id === "design_lab" || id === "shopify" || id === "cutting_batch";
 
 export default function HomeDashboard() {
   const router = useRouter();

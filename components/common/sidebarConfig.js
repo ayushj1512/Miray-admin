@@ -394,20 +394,32 @@ export const sidebarMenus = {
 
   wordpress: [{ label: "WP Orders", href: "/wordpress/orders" }],
 
- shopify: [
-  { label: "Dashboard", href: "/shopify" },
-  { label: "Orders & Invoicing", href: "/shopify/orders" },
-  { label: "All Shopify Orders", href: "/shopify/all-orders" },
-  { label: "Reserved Inventory", href: "/shopify/reserved-inventory" },
-  { label: "Unfulfilled Orders", href: "/shopify/unfulfilled-orders" },
-  { label: "Fulfilled Orders", href: "/shopify/fulfilled-orders" },
-  { label: "Products", href: "/shopify/products" },
-  { label: "Customers", href: "/shopify/customers" },
-  { label: "Inventory", href: "/shopify/inventory" },
-  
-  { label: "Production Matrix", href: "/shopify/production-matrix" },
-  { label: "Production Queue", href: "/shopify/shopify-production" },
+  cutting_batch: [
+  { label: "Dashboard", href: "/cutting-batch" },
+  { label: "Generate Batch", href: "/cutting-batch/generate" },
+  { label: "Batch History", href: "/cutting-batch/history" },
+  { label: "Product Summary", href: "/cutting-batch/product-summary" },
+  { label: "Cutting Records", href: "/cutting-batch/pending-reservations" },
 ],
+
+  shopify: [
+    { label: "Dashboard", href: "/shopify" },
+    { label: "Orders & Invoicing", href: "/shopify/orders" },
+    { label: "All Shopify Orders", href: "/shopify/all-orders" },
+    { label: "Reserved Inventory", href: "/shopify/reserved-inventory" },
+    { label: "Unfulfilled Orders", href: "/shopify/unfulfilled-orders" },
+    { label: "Fulfilled Orders", href: "/shopify/fulfilled-orders" },
+
+    { label: "Products", href: "/shopify/products" },
+    { label: "Customers", href: "/shopify/customers" },
+    { label: "Inventory", href: "/shopify/inventory" },
+
+    { label: "Production Matrix", href: "/shopify/production-matrix" },
+    { label: "Production Queue", href: "/shopify/shopify-production" },
+
+    // NEW
+    { label: "Cutting List", href: "/shopify/cutting-list" },
+  ],
 };
 
 export const routeSidebarMap = [
@@ -445,4 +457,5 @@ export const routeSidebarMap = [
   { prefix: "/account", key: "account_user" },
   { prefix: "/fast2sms", key: "fast2sms" },
   { prefix: "/shopify", key: "shopify" },
+  { prefix: "/cutting-batch", key: "cutting_batch" },
 ];

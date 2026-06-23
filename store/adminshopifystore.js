@@ -555,6 +555,93 @@ const adminShopifyStore = create((set, get) => ({
       });
     }
   },
+
+  fetchFulfillmentOrders: async (orderNumber) => {
+    try {
+      set({
+        fulfillmentLoading: true,
+        fulfillmentError: null,
+      });
+
+      const data = await getRequest(
+        `orders/${orderNumber}/fulfillment-orders`
+      );
+
+      set({
+        fulfillmentOrders: data?.data?.fulfillmentOrders || [],
+        fulfillmentLoading: false,
+      });
+
+      return data;
+    } catch (error) {
+      const message = getErrorMessage(
+        error,
+        "Failed to fetch fulfillment orders"
+      );
+
+      set({
+        fulfillmentLoading: false,
+        fulfillmentError: message,
+      });
+
+      return {
+        success: false,
+        message,
+      };
+    }
+  },
+
+  manualFulfillOrder: async ({
+    orderNumber,
+    trackingNumber,
+    courierName,
+    trackingUrl = "",
+    notifyCustomer = true,
+  }) => {
+    try {
+      set({
+        fulfillmentLoading: true,
+        fulfillmentError: null,
+      });
+
+      const data = await postRequest(
+        `orders/${orderNumber}/manual-fulfill`,
+        {
+          trackingNumber,
+          courierName,
+          trackingUrl,
+          notifyCustomer,
+        }
+      );
+
+      set({
+        fulfillmentLoading: false,
+      });
+
+      return data;
+    } catch (error) {
+      const message = getErrorMessage(
+        error,
+        "Failed to fulfill Shopify order"
+      );
+
+      set({
+        fulfillmentLoading: false,
+        fulfillmentError: message,
+      });
+
+      return {
+        success: false,
+        message,
+      };
+    }
+  },
+
+  clearFulfillmentState: () =>
+    set({
+      fulfillmentOrders: [],
+      fulfillmentError: null,
+    }),
 }));
 
 export default adminShopifyStore;

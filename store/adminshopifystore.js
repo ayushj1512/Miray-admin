@@ -60,6 +60,8 @@ const adminShopifyStore = create((set, get) => ({
   products: [],
   orders: [],
   customers: [],
+  localShopifyOrders: [],
+  localShopifyOrdersMeta: null,
 
   selectedShopifyProduct: null,
 
@@ -80,13 +82,13 @@ const adminShopifyStore = create((set, get) => ({
   customerCount: 0,
   inventoryCount: 0,
   shopifyStats: {
-  totalRevenue: 0,
-  aov: 0,
-  paidOrders: 0,
-  codOrders: 0,
-  todayOrders: 0,
-  thisMonthRevenue: 0,
-},
+    totalRevenue: 0,
+    aov: 0,
+    paidOrders: 0,
+    codOrders: 0,
+    todayOrders: 0,
+    thisMonthRevenue: 0,
+  },
 
   productPageInfo: null,
   orderPageInfo: null,
@@ -175,28 +177,28 @@ const adminShopifyStore = create((set, get) => ({
       const dashboard = data.data || {};
 
       set({
-  shop: dashboard.shop || null,
+        shop: dashboard.shop || null,
 
-  products: dashboard.recent?.products || [],
-  orders: dashboard.recent?.orders || [],
-  customers: dashboard.recent?.customers || [],
+        products: dashboard.recent?.products || [],
+        orders: dashboard.recent?.orders || [],
+        customers: dashboard.recent?.customers || [],
 
-  productCount: dashboard.counts?.products || 0,
-  orderCount: dashboard.counts?.orders || 0,
-  customerCount: dashboard.counts?.customers || 0,
-  inventoryCount: dashboard.counts?.inventory || 0,
+        productCount: dashboard.counts?.products || 0,
+        orderCount: dashboard.counts?.orders || 0,
+        customerCount: dashboard.counts?.customers || 0,
+        inventoryCount: dashboard.counts?.inventory || 0,
 
-  shopifyStats: {
-    totalRevenue: dashboard.stats?.totalRevenue || 0,
-    aov: dashboard.stats?.aov || 0,
-    paidOrders: dashboard.stats?.paidOrders || 0,
-    codOrders: dashboard.stats?.codOrders || 0,
-    todayOrders: dashboard.stats?.todayOrders || 0,
-    thisMonthRevenue: dashboard.stats?.thisMonthRevenue || 0,
-  },
+        shopifyStats: {
+          totalRevenue: dashboard.stats?.totalRevenue || 0,
+          aov: dashboard.stats?.aov || 0,
+          paidOrders: dashboard.stats?.paidOrders || 0,
+          codOrders: dashboard.stats?.codOrders || 0,
+          todayOrders: dashboard.stats?.todayOrders || 0,
+          thisMonthRevenue: dashboard.stats?.thisMonthRevenue || 0,
+        },
 
-  loading: false,
-});
+        loading: false,
+      });
 
       return data;
     } catch (error) {
@@ -259,6 +261,74 @@ const adminShopifyStore = create((set, get) => ({
       set({
         loading: false,
         error: getErrorMessage(error, "Failed to fetch Shopify orders"),
+      });
+    }
+  },
+
+  // ✅ LOCAL IMPORTED SHOPIFY ORDERS (MongoDB)
+  fetchLocalShopifyOrders: async (params = {}) => {
+    try {
+      set({ loading: true, error: null });
+
+      const query = buildQuery({
+        source: "shopify",
+        ...params,
+      });
+
+      const url = `${API_URL}/api/orders/customer-support${query ? `?${query}` : ""}`;
+
+      const { data } = await axios.get(url);
+
+      set({
+        localShopifyOrders: data?.orders || [],
+        localShopifyOrdersMeta: data?.meta || null,
+        loading: false,
+      });
+
+      return data;
+    } catch (error) {
+      set({
+        loading: false,
+        error: getErrorMessage(
+          error,
+          "Failed to fetch local Shopify orders"
+        ),
+      });
+    }
+  },
+
+  fetchNextLocalShopifyOrders: async (params = {}) => {
+    try {
+      const meta = get().localShopifyOrdersMeta || {};
+
+      const nextPage = Number(meta.page || 1) + 1;
+
+      const query = buildQuery({
+        source: "shopify",
+        page: nextPage,
+        limit: meta.limit || 50,
+        ...params,
+      });
+
+      const url = `${API_URL}/api/orders/customer-support${query ? `?${query}` : ""}`;
+
+      const { data } = await axios.get(url);
+
+      set((state) => ({
+        localShopifyOrders: [
+          ...(state.localShopifyOrders || []),
+          ...(data?.orders || []),
+        ],
+        localShopifyOrdersMeta: data?.meta || meta,
+      }));
+
+      return data;
+    } catch (error) {
+      set({
+        error: getErrorMessage(
+          error,
+          "Failed to fetch more Shopify orders"
+        ),
       });
     }
   },

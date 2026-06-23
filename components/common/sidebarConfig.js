@@ -395,30 +395,32 @@ export const sidebarMenus = {
   wordpress: [{ label: "WP Orders", href: "/wordpress/orders" }],
 
   cutting_batch: [
-  { label: "Dashboard", href: "/cutting-batch" },
-  { label: "Generate Batch", href: "/cutting-batch/generate" },
-  { label: "Batch History", href: "/cutting-batch/history" },
-  { label: "Product Summary", href: "/cutting-batch/product-summary" },
-  { label: "Cutting Records", href: "/cutting-batch/pending-reservations" },
-],
+    { label: "Dashboard", href: "/cutting-batch" },
+    { label: "Generate Batch", href: "/cutting-batch/generate" },
+    { label: "Batch History", href: "/cutting-batch/history" },
+    { label: "Product Summary", href: "/cutting-batch/product-summary" },
+    { label: "Cutting Records", href: "/cutting-batch/pending-reservations" },
+  ],
 
   shopify: [
     { label: "Dashboard", href: "/shopify" },
-    { label: "Orders & Invoicing", href: "/shopify/orders" },
-    { label: "All Shopify Orders", href: "/shopify/all-orders" },
-    { label: "Reserved Inventory", href: "/shopify/reserved-inventory" },
-    { label: "Unfulfilled Orders", href: "/shopify/unfulfilled-orders" },
-    { label: "Fulfilled Orders", href: "/shopify/fulfilled-orders" },
+
+    { label: "Orders", href: "/shopify/orders" },
+    { label: "All Orders", href: "/shopify/all-orders" },
+    { label: "Pending Fulfillment", href: "/shopify/unfulfilled-orders" },
+    { label: "Fulfilled", href: "/shopify/fulfilled-orders" },
 
     { label: "Products", href: "/shopify/products" },
-    { label: "Customers", href: "/shopify/customers" },
     { label: "Inventory", href: "/shopify/inventory" },
+    { label: "Customers", href: "/shopify/customers" },
 
+    { label: "Reserved Stock", href: "/shopify/reserved-inventory" },
+
+    { label: "Production", href: "/shopify/shopify-production" },
     { label: "Production Matrix", href: "/shopify/production-matrix" },
-    { label: "Production Queue", href: "/shopify/shopify-production" },
-
-    // NEW
     { label: "Cutting List", href: "/shopify/cutting-list" },
+    { label: "Order Confirmation", href: "/shopify/order-confrimation" },
+
   ],
 };
 

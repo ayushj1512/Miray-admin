@@ -404,6 +404,7 @@ export const sidebarMenus = {
 
   shopify: [
     { label: "Dashboard", href: "/shopify" },
+    { label: "Token Manager", href: "/shopify/token" },
 
     { label: "Orders", href: "/shopify/orders" },
     { label: "All Orders", href: "/shopify/all-orders" },
@@ -420,7 +421,6 @@ export const sidebarMenus = {
     { label: "Production Matrix", href: "/shopify/production-matrix" },
     { label: "Cutting List", href: "/shopify/cutting-list" },
     { label: "Order Confirmation", href: "/shopify/order-confrimation" },
-
   ],
 };
 

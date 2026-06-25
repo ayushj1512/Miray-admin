@@ -564,7 +564,7 @@ const adminShopifyStore = create((set, get) => ({
       });
 
       const data = await getRequest(
-        `orders/${orderNumber}/fulfillment-orders`
+        `orders/${encodeURIComponent(orderNumber)}/fulfillment-orders`
       );
 
       set({
@@ -605,7 +605,7 @@ const adminShopifyStore = create((set, get) => ({
       });
 
       const data = await postRequest(
-        `orders/${orderNumber}/manual-fulfill`,
+        `orders/${encodeURIComponent(orderNumber)}/manual-fulfill`,
         {
           trackingNumber,
           courierName,
@@ -642,6 +642,34 @@ const adminShopifyStore = create((set, get) => ({
       fulfillmentOrders: [],
       fulfillmentError: null,
     }),
+
+
+  expireShopifyToken: async () => {
+    try {
+      set({ loading: true, error: null });
+
+      const data = await postRequest("expire-token");
+
+      set({ loading: false });
+
+      return data;
+    } catch (error) {
+      const message = getErrorMessage(
+        error,
+        "Failed to expire Shopify token"
+      );
+
+      set({
+        loading: false,
+        error: message,
+      });
+
+      return {
+        success: false,
+        message,
+      };
+    }
+  },
 }));
 
 export default adminShopifyStore;

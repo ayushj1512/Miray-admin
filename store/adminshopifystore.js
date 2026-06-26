@@ -54,6 +54,12 @@ const adminShopifyStore = create((set, get) => ({
   error: null,
   syncError: null,
   lastSyncResult: null,
+  syncingOrders: false,
+  importingLatestOrders: false,
+
+  error: null,
+  syncError: null,
+  lastSyncResult: null,
 
   shop: null,
 
@@ -375,6 +381,40 @@ const adminShopifyStore = create((set, get) => ({
 
       set({
         syncingOrders: false,
+        syncError: message,
+      });
+
+      return {
+        success: false,
+        message,
+      };
+    }
+  },
+
+  importLatestShopifyOrders: async () => {
+    try {
+      set({
+        importingLatestOrders: true,
+        syncError: null,
+        lastSyncResult: null,
+      });
+
+      const data = await postRequest("orders/import-latest");
+
+      set({
+        importingLatestOrders: false,
+        lastSyncResult: data.summary || {},
+      });
+
+      return data;
+    } catch (error) {
+      const message = getErrorMessage(
+        error,
+        "Failed to import latest Shopify orders"
+      );
+
+      set({
+        importingLatestOrders: false,
         syncError: message,
       });
 

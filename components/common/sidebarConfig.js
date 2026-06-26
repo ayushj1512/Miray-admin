@@ -404,12 +404,12 @@ export const sidebarMenus = {
 
   shopify: [
     { label: "Dashboard", href: "/shopify" },
-    { label: "Token Manager", href: "/shopify/token" },
+    { label: "Settings", href: "/shopify/settings" },
 
     { label: "Orders", href: "/shopify/orders" },
     { label: "All Orders", href: "/shopify/all-orders" },
     { label: "Pending Fulfillment", href: "/shopify/unfulfilled-orders" },
-    { label: "Fulfilled", href: "/shopify/fulfilled-orders" },
+    { label: "Fulfilled Orders", href: "/shopify/fulfilled-orders" },
 
     { label: "Products", href: "/shopify/products" },
     { label: "Inventory", href: "/shopify/inventory" },
@@ -420,6 +420,7 @@ export const sidebarMenus = {
     { label: "Production", href: "/shopify/shopify-production" },
     { label: "Production Matrix", href: "/shopify/production-matrix" },
     { label: "Cutting List", href: "/shopify/cutting-list" },
+
     { label: "Order Confirmation", href: "/shopify/order-confrimation" },
   ],
 };

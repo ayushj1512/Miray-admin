@@ -71,10 +71,16 @@ const adminShopifyStore = create((set, get) => ({
 
   selectedShopifyProduct: null,
 
+  // initial state me add karo
+  orderAnalytics: null,
+  orderAnalyticsLoading: false,
+  orderAnalyticsError: null,
+
   productMappings: [],
   productionDemand: [],
   productionRequirements: [],
   productionQueue: [],
+
 
   productionSummary: {
     totalProducts: 0,
@@ -702,6 +708,43 @@ const adminShopifyStore = create((set, get) => ({
       set({
         loading: false,
         error: message,
+      });
+
+      return {
+        success: false,
+        message,
+      };
+    }
+  },
+
+  // actions ke andar add karo
+  fetchShopifyOrderAnalytics: async (params = {}) => {
+    try {
+      set({
+        orderAnalyticsLoading: true,
+        orderAnalyticsError: null,
+      });
+
+      const data = await getRequest("order-analytics", {
+        days: 30,
+        ...params,
+      });
+
+      set({
+        orderAnalytics: data.data || null,
+        orderAnalyticsLoading: false,
+      });
+
+      return data;
+    } catch (error) {
+      const message = getErrorMessage(
+        error,
+        "Failed to fetch Shopify order analytics"
+      );
+
+      set({
+        orderAnalyticsLoading: false,
+        orderAnalyticsError: message,
       });
 
       return {

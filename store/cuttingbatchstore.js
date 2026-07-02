@@ -3,33 +3,46 @@
 import { create } from "zustand";
 
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://localhost:5000";
+
+const apiUrl = (path = "") => {
+  const base = API_BASE.replace(/\/$/, "");
+  const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  return `${base}${cleanPath}`;
+};
+
+const safeJson = async (res) => {
+  try {
+    return await res.json();
+  } catch {
+    return {};
+  }
+};
 
 const cuttingBatchStore = create((set, get) => ({
-  // data
   batches: [],
   selectedBatch: null,
   lastCreatedBatch: null,
 
-  // ui state
   loading: false,
   creating: false,
   error: null,
 
-  // clear error
   clearError: () => set({ error: null }),
 
-  // get all cutting batches
   fetchCuttingBatches: async () => {
     try {
       set({ loading: true, error: null });
 
-      const res = await fetch(`${API_BASE}/api/cutting-batches`, {
+      const res = await fetch(apiUrl("/api/cutting-batches"), {
         method: "GET",
         credentials: "include",
+        cache: "no-store",
       });
 
-      const data = await res.json();
+      const data = await safeJson(res);
 
       if (!res.ok || !data.success) {
         throw new Error(data.message || "Failed to fetch cutting batches");
@@ -54,21 +67,19 @@ const cuttingBatchStore = create((set, get) => ({
     }
   },
 
-  // get single cutting batch
   fetchCuttingBatchById: async (id) => {
     try {
-      if (!id) {
-        throw new Error("Batch id is required");
-      }
+      if (!id) throw new Error("Batch id is required");
 
       set({ loading: true, error: null });
 
-      const res = await fetch(`${API_BASE}/api/cutting-batches/${id}`, {
+      const res = await fetch(apiUrl(`/api/cutting-batches/${id}`), {
         method: "GET",
         credentials: "include",
+        cache: "no-store",
       });
 
-      const data = await res.json();
+      const data = await safeJson(res);
 
       if (!res.ok || !data.success) {
         throw new Error(data.message || "Failed to fetch cutting batch");
@@ -93,21 +104,21 @@ const cuttingBatchStore = create((set, get) => ({
     }
   },
 
-  // create latest auto cutting batch
   createCuttingBatch: async () => {
     try {
       set({ creating: true, error: null });
 
-      const res = await fetch(`${API_BASE}/api/cutting-batches`, {
+      const res = await fetch(apiUrl("/api/cutting-batches"), {
         method: "POST",
         credentials: "include",
+        cache: "no-store",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({}),
       });
 
-      const data = await res.json();
+      const data = await safeJson(res);
 
       if (!res.ok || !data.success) {
         throw new Error(data.message || "Failed to create cutting batch");
@@ -136,21 +147,18 @@ const cuttingBatchStore = create((set, get) => ({
     }
   },
 
-  // locally set selected batch
   setSelectedBatch: (batch) => {
     set({
       selectedBatch: batch || null,
     });
   },
 
-  // reset selected batch
   clearSelectedBatch: () => {
     set({
       selectedBatch: null,
     });
   },
 
-  // reset last created batch
   clearLastCreatedBatch: () => {
     set({
       lastCreatedBatch: null,

@@ -16,6 +16,7 @@ import OrderPaymentStatusDropdown from "@/components/orders/OrderPaymentStatusDr
 import OrderRowActions from "@/components/orders/OrderRowActions";
 
 const BASE_URL = "https://mirayfashions.com";
+const SHOPIFY_LOGO = "https://img.icons8.com/color/512/shopify.png";
 
 const safe = (v) => (v == null ? "" : String(v));
 
@@ -83,6 +84,14 @@ function OrderRow({ order, onUpdated }) {
 
   const orderId = order?._id || order?.id;
 
+  const isShopifyOrder = useMemo(() => {
+    return (
+      String(order?.attribution?.source || "").toLowerCase() === "shopify" ||
+      String(order?.source || "").toLowerCase() === "shopify" ||
+      String(order?.orderNumber || "").toUpperCase().startsWith("SHOP-")
+    );
+  }, [order?.attribution?.source, order?.source, order?.orderNumber]);
+
   const effectiveStatus = useMemo(
     () => String(order?.fulfillmentStatus || "processing").toLowerCase(),
     [order?.fulfillmentStatus]
@@ -144,9 +153,20 @@ function OrderRow({ order, onUpdated }) {
               title="Open order"
               className="text-left inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 hover:bg-black/[0.05] focus:outline-none focus:ring-2 focus:ring-black/10"
             >
+              {isShopifyOrder ? (
+                <img
+                  src={SHOPIFY_LOGO}
+                  alt="Shopify"
+                  title="Shopify Order"
+                  loading="lazy"
+                  className="h-4 w-4 shrink-0 object-contain"
+                />
+              ) : null}
+
               <span className="underline underline-offset-2 decoration-black/30 hover:decoration-black">
                 {order?.orderNumber || "-"}
               </span>
+
               <ExternalLink size={14} className="opacity-70" />
             </button>
           </div>

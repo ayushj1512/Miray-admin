@@ -100,6 +100,15 @@ const adminShopifyStore = create((set, get) => ({
     codOrders: 0,
     todayOrders: 0,
     thisMonthRevenue: 0,
+
+    // new
+    todayRevenue: 0,
+    todayItems: 0,
+    todayAov: 0,
+    pendingOrders: 0,
+    fulfilledOrders: 0,
+    unfulfilledOrders: 0,
+    cancelledOrders: 0,
   },
 
   productPageInfo: null,
@@ -207,6 +216,14 @@ const adminShopifyStore = create((set, get) => ({
           codOrders: dashboard.stats?.codOrders || 0,
           todayOrders: dashboard.stats?.todayOrders || 0,
           thisMonthRevenue: dashboard.stats?.thisMonthRevenue || 0,
+
+          todayRevenue: dashboard.stats?.todayRevenue || 0,
+          todayItems: dashboard.stats?.todayItems || 0,
+          todayAov: dashboard.stats?.todayAov || 0,
+          pendingOrders: dashboard.stats?.pendingOrders || 0,
+          fulfilledOrders: dashboard.stats?.fulfilledOrders || 0,
+          unfulfilledOrders: dashboard.stats?.unfulfilledOrders || 0,
+          cancelledOrders: dashboard.stats?.cancelledOrders || 0,
         },
 
         loading: false,
@@ -730,8 +747,29 @@ const adminShopifyStore = create((set, get) => ({
         ...params,
       });
 
+      const analytics = data.data || null;
+
       set({
-        orderAnalytics: data.data || null,
+        orderAnalytics: analytics,
+
+        shopifyStats: {
+          ...get().shopifyStats,
+
+          totalRevenue: analytics?.summary?.revenue || 0,
+          aov: analytics?.summary?.aov || 0,
+
+          todayOrders: analytics?.summary?.today?.orders || 0,
+          todayRevenue: analytics?.summary?.today?.revenue || 0,
+          todayItems: analytics?.summary?.today?.items || 0,
+          todayAov: analytics?.summary?.today?.aov || 0,
+
+          paidOrders: analytics?.summary?.paidOrders || 0,
+          pendingOrders: analytics?.summary?.pendingOrders || 0,
+          fulfilledOrders: analytics?.summary?.fulfilledOrders || 0,
+          unfulfilledOrders: analytics?.summary?.unfulfilledOrders || 0,
+          cancelledOrders: analytics?.summary?.cancelledOrders || 0,
+        },
+
         orderAnalyticsLoading: false,
       });
 

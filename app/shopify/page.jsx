@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import adminShopifyStore from "@/store/adminshopifystore";
 import ImportShopifyOrdersButton from "@/components/shopify/ImportShopifyOrdersButton";
+import ShopifyAnalyticsSummary from "@/components/shopify/ShopifyAnalyticsSummary";
 
 const accent = "#800020";
 const tabs = ["Overview", "Products", "Orders", "Customers", "Inventory"];
@@ -177,7 +178,7 @@ export default function ShopifyDashboardPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+        {/* <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
           <Stat icon={<Package size={18} />} title="Products" value={productCount} />
           <Stat icon={<ShoppingBag size={18} />} title="Orders" value={orderCount} />
           <Stat icon={<Users size={18} />} title="Customers" value={customerCount} />
@@ -218,7 +219,8 @@ export default function ShopifyDashboardPage() {
             title="Month Revenue"
             value={statMoney(shopifyStats?.thisMonthRevenue)}
           />
-        </div>
+        </div> */}
+        <ShopifyAnalyticsSummary stats={shopifyStats} />
 
         <div className="rounded-full bg-white p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.05)]">
           <div className="flex gap-1 overflow-x-auto">

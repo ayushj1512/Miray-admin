@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
   Download,
   IndianRupee,
   MapPin,
@@ -9,6 +12,7 @@ import {
   RefreshCw,
   ShoppingBag,
   TrendingUp,
+  Truck,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import adminShopifyStore from "@/store/adminshopifystore";
@@ -36,6 +40,23 @@ const StatCard = ({ title, value, sub, icon: Icon }) => (
 
       <div className="rounded-xl bg-[#800020]/10 p-3 text-[#800020]">
         <Icon size={18} />
+      </div>
+    </div>
+  </div>
+);
+
+const MiniCard = ({ title, value, sub, icon: Icon }) => (
+  <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+    <div className="flex items-center justify-between gap-3">
+      <div>
+        <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">
+          {title}
+        </p>
+        <h3 className="mt-2 text-xl font-semibold text-zinc-950">{value}</h3>
+        {sub ? <p className="mt-1 text-xs text-zinc-500">{sub}</p> : null}
+      </div>
+      <div className="rounded-xl bg-zinc-100 p-2.5 text-[#800020]">
+        <Icon size={17} />
       </div>
     </div>
   </div>
@@ -84,6 +105,7 @@ export default function ShopifySalesAnalyticsPage() {
   }, [days, fetchShopifyOrderAnalytics]);
 
   const summary = orderAnalytics?.summary || {};
+  const today = summary.today || {};
   const charts = orderAnalytics?.charts || {};
 
   const daily = charts.daily || [];
@@ -104,6 +126,11 @@ export default function ShopifySalesAnalyticsPage() {
     [topStates]
   );
 
+  const maxCityCount = useMemo(
+    () => Math.max(...topCities.map((item) => Number(item.count || 0)), 0),
+    [topCities]
+  );
+
   const maxSizeQty = useMemo(
     () =>
       Math.max(...sizeBreakdown.map((item) => Number(item.quantity || 0)), 0),
@@ -120,7 +147,18 @@ export default function ShopifySalesAnalyticsPage() {
         Revenue: summary.revenue || 0,
         AOV: summary.aov || 0,
         Items: summary.items || 0,
+
+        TodayOrders: today.orders || 0,
+        TodayRevenue: today.revenue || 0,
+        TodayAOV: today.aov || 0,
+        TodayItems: today.items || 0,
+
+        PaidOrders: summary.paidOrders || 0,
+        PendingOrders: summary.pendingOrders || 0,
+        FulfilledOrders: summary.fulfilledOrders || 0,
+        UnfulfilledOrders: summary.unfulfilledOrders || 0,
         CancelledOrders: summary.cancelledOrders || 0,
+
         Discounts: summary.discounts || 0,
         Tax: summary.tax || 0,
         Shipping: summary.shipping || 0,
@@ -198,18 +236,21 @@ export default function ShopifySalesAnalyticsPage() {
               Sales Analytics
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-zinc-500">
-              Daily orders, revenue, products, sizes, status and location
-              breakdown from Shopify. Default range is last 7 days including
-              today.
+              Daily orders, today&apos;s performance, revenue, products, sizes,
+              status and location breakdown from Shopify.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={() => fetchShopifyOrderAnalytics({ days })}
-              className="inline-flex items-center gap-2 rounded-full bg-zinc-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-[#800020]"
+              disabled={orderAnalyticsLoading}
+              className="inline-flex items-center gap-2 rounded-full bg-zinc-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-[#800020] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <RefreshCw size={15} />
+              <RefreshCw
+                size={15}
+                className={orderAnalyticsLoading ? "animate-spin" : ""}
+              />
               Refresh
             </button>
 
@@ -232,28 +273,61 @@ export default function ShopifySalesAnalyticsPage() {
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <StatCard
-            title="Revenue"
-            value={money(summary.revenue)}
-            sub={`Last ${days} days`}
-            icon={IndianRupee}
-          />
-          <StatCard
-            title="Orders"
-            value={number(summary.orders)}
-            sub={`AOV ${money(summary.aov)}`}
+            title="Today Orders"
+            value={number(today.orders)}
+            sub={`Today revenue ${money(today.revenue)}`}
             icon={ShoppingBag}
           />
           <StatCard
-            title="Items Sold"
-            value={number(summary.items)}
-            sub={`${number(summary.cancelledOrders)} cancelled`}
-            icon={Package}
+            title="Today AOV"
+            value={money(today.aov)}
+            sub={`${number(today.items)} items sold today`}
+            icon={IndianRupee}
           />
           <StatCard
-            title="Discounts"
-            value={money(summary.discounts)}
-            sub={`Tax ${money(summary.tax)}`}
+            title="Total Revenue"
+            value={money(summary.revenue)}
+            sub={`Last ${days} days`}
             icon={TrendingUp}
+          />
+          <StatCard
+            title="Total Orders"
+            value={number(summary.orders)}
+            sub={`AOV ${money(summary.aov)}`}
+            icon={Package}
+          />
+        </section>
+
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <MiniCard
+            title="Paid"
+            value={number(summary.paidOrders)}
+            sub="Payment received"
+            icon={CheckCircle2}
+          />
+          <MiniCard
+            title="Pending"
+            value={number(summary.pendingOrders)}
+            sub="Mostly COD / pending"
+            icon={Clock}
+          />
+          <MiniCard
+            title="Fulfilled"
+            value={number(summary.fulfilledOrders)}
+            sub="Dispatched orders"
+            icon={Truck}
+          />
+          <MiniCard
+            title="Unfulfilled"
+            value={number(summary.unfulfilledOrders)}
+            sub="Needs action"
+            icon={Package}
+          />
+          <MiniCard
+            title="Cancelled"
+            value={number(summary.cancelledOrders)}
+            sub="Cancelled orders"
+            icon={AlertTriangle}
           />
         </section>
 
@@ -288,10 +362,39 @@ export default function ShopifySalesAnalyticsPage() {
           </div>
 
           <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold">Top states</h2>
+            <h2 className="text-lg font-semibold">Size breakdown</h2>
             <p className="mt-1 text-sm text-zinc-500">
-              Where orders are coming from.
+              Quantity sold size-wise.
             </p>
+
+            <div className="mt-6 space-y-5">
+              {sizeBreakdown.length ? (
+                sizeBreakdown.map((item) => (
+                  <SimpleBar
+                    key={item.name}
+                    label={item.name}
+                    value={item.quantity}
+                    max={maxSizeQty}
+                  />
+                ))
+              ) : (
+                <p className="text-sm text-zinc-500">No size data.</p>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section className="grid gap-6 xl:grid-cols-2">
+          <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">Top states</h2>
+                <p className="mt-1 text-sm text-zinc-500">
+                  State-wise order demand.
+                </p>
+              </div>
+              <MapPin className="text-[#800020]" size={18} />
+            </div>
 
             <div className="mt-6 space-y-5">
               {topStates.length ? (
@@ -304,13 +407,35 @@ export default function ShopifySalesAnalyticsPage() {
                   />
                 ))
               ) : (
-                <p className="text-sm text-zinc-500">No location data.</p>
+                <p className="text-sm text-zinc-500">No state data.</p>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold">Top cities</h2>
+            <p className="mt-1 text-sm text-zinc-500">
+              City-wise order demand.
+            </p>
+
+            <div className="mt-6 space-y-5">
+              {topCities.length ? (
+                topCities.map((item) => (
+                  <SimpleBar
+                    key={item.name}
+                    label={item.name}
+                    value={item.count}
+                    max={maxCityCount}
+                  />
+                ))
+              ) : (
+                <p className="text-sm text-zinc-500">No city data.</p>
               )}
             </div>
           </div>
         </section>
 
-        <section className="grid gap-6 xl:grid-cols-3">
+        <section className="grid gap-6 xl:grid-cols-2">
           <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-semibold">Financial status</h2>
             <div className="mt-5 space-y-3">
@@ -345,28 +470,6 @@ export default function ShopifySalesAnalyticsPage() {
                 ))
               ) : (
                 <p className="text-sm text-zinc-500">No data.</p>
-              )}
-            </div>
-          </div>
-
-          <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Size breakdown</h2>
-              <MapPin className="text-[#800020]" size={18} />
-            </div>
-
-            <div className="mt-5 space-y-5">
-              {sizeBreakdown.length ? (
-                sizeBreakdown.map((item) => (
-                  <SimpleBar
-                    key={item.name}
-                    label={item.name}
-                    value={item.quantity}
-                    max={maxSizeQty}
-                  />
-                ))
-              ) : (
-                <p className="text-sm text-zinc-500">No size data.</p>
               )}
             </div>
           </div>

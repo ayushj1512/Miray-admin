@@ -15,6 +15,7 @@ import CrossSellSelector from "@/components/product/CrossSellSelector";
 import CollectionMultiSelect from "@/components/product/CollectionMultiSelect";
 import FabricAdd from "@/components/product/FabricAdd";
 import OriginalProductLinkField from "@/components/product/OriginalProductLinkField";
+import ProductProductionDetails from "@/components/product/ProductProductionDetails";
 
 const API = process.env.NEXT_PUBLIC_BACKEND_URL;
 
@@ -260,6 +261,13 @@ export default function AddProductPage() {
     colorsText: "",
 
     fabrics: [],
+    avgFabricConsumption: {
+  value: 0,
+  unit: "meter",
+  wastePercentage: 5,
+},
+
+accessories: [],
 
     images: [],
     thumbnail: "",
@@ -311,6 +319,13 @@ export default function AddProductPage() {
         images: safeArr(parsed?.images),
         thumbnail: safeArr(parsed?.images)?.[0] || parsed?.thumbnail || "",
         fabrics: safeArr(parsed?.fabrics),
+        avgFabricConsumption:
+  parsed?.avgFabricConsumption || {
+    value: 0,
+    unit: "meter",
+    wastePercentage: 5,
+  },
+accessories: safeArr(parsed?.accessories),
         attributes: safeArr(parsed?.attributes),
         variants: safeArr(parsed?.variants),
         crossSellProducts: safeArr(parsed?.crossSellProducts),
@@ -383,6 +398,8 @@ export default function AddProductPage() {
       specifications,
 
       fabrics: safeArr(form.fabrics),
+      avgFabricConsumption: form.avgFabricConsumption,
+accessories: safeArr(form.accessories),
 
       images: safeArr(form.images),
       thumbnail: safeArr(form.images)?.[0] || "",
@@ -546,6 +563,23 @@ export default function AddProductPage() {
 
           <FabricAdd value={form.fabrics} onChange={(next) => setForm((p) => ({ ...p, fabrics: next }))} />
         </div>
+
+        {/* Production Details */}
+<div className="bg-white rounded-xl p-6 shadow space-y-4">
+  <ProductProductionDetails
+    value={{
+      avgFabricConsumption: form.avgFabricConsumption,
+      accessories: form.accessories,
+    }}
+    onChange={(next) =>
+      setForm((p) => ({
+        ...p,
+        avgFabricConsumption: next.avgFabricConsumption,
+        accessories: next.accessories,
+      }))
+    }
+  />
+</div>
 
         {/* Categories */}
         <div className="bg-white rounded-xl p-6 shadow space-y-4">

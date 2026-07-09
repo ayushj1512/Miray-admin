@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
-import { useFabricStore } from "@/store/fabricStore";
+import useFabricStore from "@/store/fabricStore";
 
 const cx = (...a) => a.filter(Boolean).join(" ");
 const s = (v) => (v == null ? "" : String(v));
@@ -22,12 +22,7 @@ function Chip({ children, tone = "neutral" }) {
       : "bg-black/5 text-black/70 ring-black/10";
 
   return (
-    <span
-      className={cx(
-        "inline-flex items-center rounded-full px-2.5 py-1 text-xs ring-1",
-        toneCls
-      )}
-    >
+    <span className={cx("inline-flex items-center rounded-full px-2.5 py-1 text-xs ring-1", toneCls)}>
       {children}
     </span>
   );
@@ -45,8 +40,7 @@ function Btn({ children, onClick, disabled, variant = "primary", className = "" 
       onClick={onClick}
       disabled={disabled}
       className={cx(
-        "rounded-xl px-3 py-2 text-sm transition",
-        "disabled:cursor-not-allowed disabled:opacity-50",
+        "rounded-xl px-3 py-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-50",
         base,
         className
       )}
@@ -62,10 +56,7 @@ function TextInput({ value, onChange, placeholder }) {
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      className={cx(
-        "h-10 w-full rounded-xl bg-white px-3 text-sm text-black",
-        "ring-1 ring-black/10 outline-none focus:ring-black/30"
-      )}
+      className="h-10 w-full rounded-xl bg-white px-3 text-sm text-black ring-1 ring-black/10 outline-none focus:ring-black/30"
     />
   );
 }
@@ -75,10 +66,7 @@ function Select({ value, onChange, options = [], placeholder = "All" }) {
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className={cx(
-        "h-10 rounded-xl bg-white px-3 text-sm text-black",
-        "ring-1 ring-black/10 outline-none focus:ring-black/30"
-      )}
+      className="h-10 rounded-xl bg-white px-3 text-sm text-black ring-1 ring-black/10 outline-none focus:ring-black/30"
     >
       <option value="">{placeholder}</option>
       {options.map((opt) => (
@@ -98,12 +86,9 @@ function SkeletonRow() {
         <div className="h-3 w-1/2 rounded bg-black/5" />
         <div className="h-3 w-1/3 rounded bg-black/5" />
       </div>
-      <div className="h-8 rounded-xl bg-black/5" />
-      <div className="h-8 rounded-xl bg-black/5" />
-      <div className="h-8 rounded-xl bg-black/5" />
-      <div className="h-8 rounded-xl bg-black/5" />
-      <div className="h-8 rounded-xl bg-black/5" />
-      <div className="h-9 rounded-xl bg-black/5" />
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="h-8 rounded-xl bg-black/5" />
+      ))}
     </div>
   );
 }
@@ -132,7 +117,7 @@ export default function FabricInventoryPage() {
     filters,
     pagination,
     setFilters,
-    clearFilters,
+    resetFilters: resetStoreFilters,
     fetchFabrics,
     fetchFabricStats,
     updateFabricStatus,
@@ -143,18 +128,13 @@ export default function FabricInventoryPage() {
 
   const [q, setQ] = useState(filters?.q || "");
   const [status, setStatus] = useState(filters?.status || "");
-  const [movementStatus, setMovementStatus] = useState(
-    filters?.movementStatus || ""
-  );
+  const [movementStatus, setMovementStatus] = useState(filters?.movementStatus || "");
   const [unit, setUnit] = useState(filters?.unit || "");
   const [savingKey, setSavingKey] = useState("");
 
   const load = async (extra = {}) => {
     try {
-      await Promise.all([
-        fetchFabrics(extra),
-        fetchFabricStats(),
-      ]);
+      await Promise.all([fetchFabrics(extra), fetchFabricStats()]);
     } catch (e) {
       toast.error(e?.message || "Failed to load fabrics");
     }
@@ -178,20 +158,17 @@ export default function FabricInventoryPage() {
         item?.status,
         item?.movementStatus,
         item?.notes,
-        ...(Array.isArray(item?.associatedProductCodes)
-          ? item.associatedProductCodes
-          : []),
+        ...(Array.isArray(item?.associatedProductCodes) ? item.associatedProductCodes : []),
       ]
         .map((x) => s(x).toLowerCase())
         .join(" ");
 
-      const matchQ = !needle || hay.includes(needle);
-      const matchStatus = !status || s(item?.status) === status;
-      const matchMovement =
-        !movementStatus || s(item?.movementStatus) === movementStatus;
-      const matchUnit = !unit || s(item?.unit) === unit;
-
-      return matchQ && matchStatus && matchMovement && matchUnit;
+      return (
+        (!needle || hay.includes(needle)) &&
+        (!status || s(item?.status) === status) &&
+        (!movementStatus || s(item?.movementStatus) === movementStatus) &&
+        (!unit || s(item?.unit) === unit)
+      );
     });
   }, [fabrics, q, status, movementStatus, unit]);
 
@@ -214,7 +191,8 @@ export default function FabricInventoryPage() {
     setStatus("");
     setMovementStatus("");
     setUnit("");
-    clearFilters();
+    resetStoreFilters();
+
     await load({
       q: "",
       status: "",
@@ -285,9 +263,7 @@ export default function FabricInventoryPage() {
         <div className="px-5 py-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h1 className="text-xl font-semibold tracking-tight">
-                Fabric Inventory
-              </h1>
+              <h1 className="text-xl font-semibold tracking-tight">Fabric Inventory</h1>
               <p className="mt-1 text-sm text-black/60">
                 Manage fabrics, status, movement, associations and activity.
               </p>
@@ -304,11 +280,7 @@ export default function FabricInventoryPage() {
           </div>
 
           <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4 xl:grid-cols-6">
-            <TextInput
-              value={q}
-              onChange={setQ}
-              placeholder="Search name, code, category..."
-            />
+            <TextInput value={q} onChange={setQ} placeholder="Search name, code, category..." />
 
             <Select
               value={status}
@@ -351,20 +323,10 @@ export default function FabricInventoryPage() {
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <Chip>Total: {pagination?.total || filteredList.length || 0}</Chip>
             <Chip>Showing: {filteredList.length}</Chip>
-            <Chip tone="emerald">
-              Active: {n(fabricStats?.activeCount || fabricStats?.active || 0)}
-            </Chip>
-            <Chip tone="amber">
-              Inactive:{" "}
-              {n(fabricStats?.inactiveCount || fabricStats?.inactive || 0)}
-            </Chip>
+            <Chip tone="emerald">Active: {n(fabricStats?.activeCount || fabricStats?.active)}</Chip>
+            <Chip tone="amber">Inactive: {n(fabricStats?.inactiveCount || fabricStats?.inactive)}</Chip>
             <Chip tone="rose">
-              Discontinued:{" "}
-              {n(
-                fabricStats?.discontinuedCount ||
-                  fabricStats?.discontinued ||
-                  0
-              )}
+              Discontinued: {n(fabricStats?.discontinuedCount || fabricStats?.discontinued)}
             </Chip>
           </div>
 
@@ -392,16 +354,12 @@ export default function FabricInventoryPage() {
           ) : filteredList.length === 0 ? (
             <div className="rounded-2xl bg-white p-5 ring-1 ring-black/5">
               <div className="text-sm font-medium">No fabrics found</div>
-              <div className="mt-1 text-sm text-black/60">
-                Try changing search or filters.
-              </div>
+              <div className="mt-1 text-sm text-black/60">Try changing search or filters.</div>
             </div>
           ) : (
             filteredList.map((item) => {
               const id = s(item?._id);
               const image = s(item?.imageLink);
-              const statusTone = getStatusTone(item?.status);
-              const movementTone = getMovementTone(item?.movementStatus);
               const associatedCount =
                 n(item?.associatedProductsCount) ||
                 (Array.isArray(item?.associatedProductCodes)
@@ -409,14 +367,10 @@ export default function FabricInventoryPage() {
                   : 0);
 
               return (
-                <div
-                  key={id}
-                  className="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5"
-                >
+                <div key={id} className="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5">
                   <div className="grid grid-cols-1 gap-3 p-3 xl:grid-cols-[56px_1.3fr_120px_120px_120px_120px_120px_140px] xl:items-center">
                     <div className="h-14 w-14 overflow-hidden rounded-xl bg-black/5">
                       {image ? (
-                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={image}
                           alt={item?.name || "fabric"}
@@ -431,8 +385,8 @@ export default function FabricInventoryPage() {
                         <div className="truncate text-sm font-semibold">
                           {s(item?.name) || "Untitled Fabric"}
                         </div>
-                        <Chip tone={statusTone}>{s(item?.status) || "—"}</Chip>
-                        <Chip tone={movementTone}>
+                        <Chip tone={getStatusTone(item?.status)}>{s(item?.status) || "—"}</Chip>
+                        <Chip tone={getMovementTone(item?.movementStatus)}>
                           {s(item?.movementStatus) || "idle"}
                         </Chip>
                         {!item?.isActive ? <Chip tone="rose">Inactive Flag</Chip> : null}
@@ -446,74 +400,42 @@ export default function FabricInventoryPage() {
                         <span>Unit: {s(item?.unit) || "—"}</span>
                         <span className="text-black/20">•</span>
                         <span>Price: ₹{n(item?.price)}</span>
-                        {item?.gsm ? (
-                          <>
-                            <span className="text-black/20">•</span>
-                            <span>GSM: {n(item?.gsm)}</span>
-                          </>
-                        ) : null}
-                        {item?.width ? (
-                          <>
-                            <span className="text-black/20">•</span>
-                            <span>Width: {s(item?.width)}</span>
-                          </>
-                        ) : null}
                       </div>
-
-                      {item?.notes ? (
-                        <div className="mt-1 truncate text-xs text-black/50">
-                          Notes: {s(item?.notes)}
-                        </div>
-                      ) : null}
                     </div>
 
                     <div>
                       <Chip>Assoc: {associatedCount}</Chip>
                     </div>
 
-                    <div>
-                      <select
-                        value={s(item?.status)}
-                        onChange={(e) =>
-                          handleStatusChange(id, e.target.value)
-                        }
-                        disabled={formLoading || !!savingKey}
-                        className="h-10 w-full rounded-xl bg-white px-3 text-sm ring-1 ring-black/10 outline-none focus:ring-black/30"
-                      >
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                        <option value="discontinued">Discontinued</option>
-                      </select>
-                    </div>
+                    <select
+                      value={s(item?.status)}
+                      onChange={(e) => handleStatusChange(id, e.target.value)}
+                      disabled={formLoading || !!savingKey}
+                      className="h-10 w-full rounded-xl bg-white px-3 text-sm ring-1 ring-black/10 outline-none focus:ring-black/30"
+                    >
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                      <option value="discontinued">Discontinued</option>
+                    </select>
 
-                    <div>
-                      <select
-                        value={s(item?.movementStatus)}
-                        onChange={(e) =>
-                          handleMovementChange(id, e.target.value)
-                        }
-                        disabled={formLoading || !!savingKey}
-                        className="h-10 w-full rounded-xl bg-white px-3 text-sm ring-1 ring-black/10 outline-none focus:ring-black/30"
-                      >
-                        <option value="idle">Idle</option>
-                        <option value="incoming">Incoming</option>
-                        <option value="in_use">In Use</option>
-                        <option value="outgoing">Outgoing</option>
-                      </select>
+                    <select
+                      value={s(item?.movementStatus)}
+                      onChange={(e) => handleMovementChange(id, e.target.value)}
+                      disabled={formLoading || !!savingKey}
+                      className="h-10 w-full rounded-xl bg-white px-3 text-sm ring-1 ring-black/10 outline-none focus:ring-black/30"
+                    >
+                      <option value="idle">Idle</option>
+                      <option value="incoming">Incoming</option>
+                      <option value="in_use">In Use</option>
+                      <option value="outgoing">Outgoing</option>
+                    </select>
+
+                    <div className="text-xs text-black/50">
+                      Updated: {item?.updatedAt ? new Date(item.updatedAt).toLocaleDateString("en-IN") : "—"}
                     </div>
 
                     <div className="text-xs text-black/50">
-                      Updated:{" "}
-                      {item?.updatedAt
-                        ? new Date(item.updatedAt).toLocaleDateString("en-IN")
-                        : "—"}
-                    </div>
-
-                    <div className="text-xs text-black/50">
-                      Created:{" "}
-                      {item?.createdAt
-                        ? new Date(item.createdAt).toLocaleDateString("en-IN")
-                        : "—"}
+                      Created: {item?.createdAt ? new Date(item.createdAt).toLocaleDateString("en-IN") : "—"}
                     </div>
 
                     <div className="flex flex-wrap items-center justify-start gap-2 xl:justify-end">
@@ -523,9 +445,7 @@ export default function FabricInventoryPage() {
                           onClick={() => handleActivate(id)}
                           disabled={savingKey === `activate-${id}`}
                         >
-                          {savingKey === `activate-${id}`
-                            ? "Activating..."
-                            : "Activate"}
+                          {savingKey === `activate-${id}` ? "Activating..." : "Activate"}
                         </Btn>
                       ) : null}
 
@@ -540,8 +460,7 @@ export default function FabricInventoryPage() {
                     </div>
                   </div>
 
-                  {Array.isArray(item?.associatedProductCodes) &&
-                  item.associatedProductCodes.length > 0 ? (
+                  {Array.isArray(item?.associatedProductCodes) && item.associatedProductCodes.length > 0 ? (
                     <div className="border-t border-black/5 bg-[#fafafa] px-3 py-3">
                       <div className="mb-2 text-xs font-medium text-black/60">
                         Associated Product Codes

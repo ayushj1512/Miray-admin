@@ -1,8 +1,80 @@
+// src/store/fabricStore.js
 import { create } from "zustand";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL
-  ? `${process.env.NEXT_PUBLIC_API_URL}/api/fabrics`
-  : "/api/fabrics";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+
+const getErrorMessage = (error, fallback = "Something went wrong") => {
+  return (
+    error?.response?.data?.message ||
+    error?.message ||
+    fallback
+  );
+};
+
+const apiRequest = async (endpoint, options = {}) => {
+  const url = `${API_BASE_URL}/${endpoint}`;
+
+  const res = await fetch(url, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
+    ...options,
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(data?.message || "API request failed");
+  }
+
+  return data;
+};
+
+const buildQuery = (params = {}) => {
+  const query = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== "" && value !== null && value !== undefined) {
+      query.append(key, value);
+    }
+  });
+
+  return query.toString();
+};
+
+const getRequest = async (endpoint, params = {}) => {
+  const query = buildQuery(params);
+  return apiRequest(query ? `${endpoint}?${query}` : endpoint);
+};
+
+const postRequest = async (endpoint, body = {}) => {
+  return apiRequest(endpoint, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+};
+
+const putRequest = async (endpoint, body = {}) => {
+  return apiRequest(endpoint, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+};
+
+const patchRequest = async (endpoint, body = {}) => {
+  return apiRequest(endpoint, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+};
+
+const deleteRequest = async (endpoint) => {
+  return apiRequest(endpoint, {
+    method: "DELETE",
+  });
+};
 
 const defaultFilters = {
   q: "",
@@ -21,146 +93,151 @@ const defaultPagination = {
   total: 0,
   page: 1,
   limit: 20,
-  totalPages: 0,
+  totalPages: 1,
   count: 0,
 };
 
-const jsonHeaders = { "Content-Type": "application/json" };
-
-const buildQuery = (filters = {}) => {
-  const params = new URLSearchParams();
-
-  Object.entries(filters).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== "") {
-      params.append(key, value);
-    }
-  });
-
-  return params.toString();
-};
-
-const updateItemInList = (list = [], updated) =>
-  list.map((item) => (item._id === updated._id ? updated : item));
-
-const request = async (url, options = {}) => {
-  const res = await fetch(url, options);
-  const data = await res.json().catch(() => ({}));
-
-  if (!res.ok) {
-    throw new Error(data.message || "Something went wrong");
-  }
-
-  return data;
-};
-
-export const useFabricStore = create((set, get) => ({
+const useFabricStore = create((set, get) => ({
   fabrics: [],
-  selectedFabric: null,
   fabricOptions: [],
   fabricStats: null,
+  selectedFabric: null,
 
   loading: false,
   formLoading: false,
   error: null,
 
-  filters: { ...defaultFilters },
-  pagination: { ...defaultPagination },
+  filters: defaultFilters,
+  pagination: defaultPagination,
 
-  setError: (error) => set({ error }),
-  clearError: () => set({ error: null }),
-
-  setFilters: (filters) =>
+  setFilters: (updates = {}) => {
     set((state) => ({
-      filters: { ...state.filters, ...filters },
-    })),
-
-  clearFilters: () =>
-    set({
-      filters: { ...defaultFilters },
-    }),
-
-  fetchFabrics: async (extraFilters = {}) => {
-    try {
-      set({ loading: true, error: null });
-
-      const filters = { ...get().filters, ...extraFilters };
-      const query = buildQuery(filters);
-      const data = await request(`${API_BASE}?${query}`);
-
-      set({
-        fabrics: data.data || [],
-        filters,
-        pagination: {
-          total: data.total || 0,
-          page: data.page || 1,
-          limit: data.limit || filters.limit || 20,
-          totalPages: data.totalPages || 0,
-          count: data.count || 0,
-        },
-      });
-
-      return data;
-    } catch (err) {
-      set({ error: err.message });
-      throw err;
-    } finally {
-      set({ loading: false });
-    }
+      filters: { ...state.filters, ...updates },
+    }));
   },
 
-  fetchFabricOptions: async () => {
+  resetFilters: () => {
+    set({ filters: defaultFilters });
+  },
+
+  setPagination: (updates = {}) => {
+    set((state) => ({
+      pagination: { ...state.pagination, ...updates },
+    }));
+  },
+
+  clearError: () => {
+    set({ error: null });
+  },
+
+  fetchFabrics: async (params = {}) => {
     try {
       set({ loading: true, error: null });
-      const data = await request(`${API_BASE}/options`);
-      set({ fabricOptions: data.data || [] });
-      return data.data || [];
-    } catch (err) {
-      set({ error: err.message });
-      throw err;
-    } finally {
-      set({ loading: false });
+
+      const query = {
+        ...get().filters,
+        ...params,
+      };
+
+      const res = await getRequest("fabrics", query);
+
+      set({
+        fabrics: res.data || [],
+        pagination: {
+          total: res.total || 0,
+          page: res.page || query.page || 1,
+          limit: res.limit || query.limit || 20,
+          totalPages: res.totalPages || 1,
+          count: res.count || 0,
+        },
+        filters: {
+          ...get().filters,
+          ...params,
+        },
+        loading: false,
+      });
+
+      return res;
+    } catch (error) {
+      const message = getErrorMessage(error, "Failed to fetch fabrics");
+      set({ loading: false, error: message });
+      return { success: false, message };
     }
   },
 
   fetchFabricStats: async () => {
     try {
       set({ loading: true, error: null });
-      const data = await request(`${API_BASE}/stats`);
-      set({ fabricStats: data.data || null });
-      return data.data || null;
-    } catch (err) {
-      set({ error: err.message });
-      throw err;
-    } finally {
-      set({ loading: false });
+
+      const res = await getRequest("fabrics/stats");
+
+      set({
+        fabricStats: res.data || null,
+        loading: false,
+      });
+
+      return res;
+    } catch (error) {
+      const message = getErrorMessage(error, "Failed to fetch fabric stats");
+      set({ loading: false, error: message });
+      return { success: false, message };
+    }
+  },
+
+  fetchFabricOptions: async () => {
+    try {
+      set({ loading: true, error: null });
+
+      const res = await getRequest("fabrics/options");
+
+      set({
+        fabricOptions: res.data || [],
+        loading: false,
+      });
+
+      return res;
+    } catch (error) {
+      const message = getErrorMessage(error, "Failed to fetch fabric options");
+      set({ loading: false, error: message });
+      return { success: false, message };
     }
   },
 
   fetchFabricById: async (id) => {
     try {
       set({ loading: true, error: null });
-      const data = await request(`${API_BASE}/${id}`);
-      set({ selectedFabric: data.data || null });
-      return data.data || null;
-    } catch (err) {
-      set({ error: err.message });
-      throw err;
-    } finally {
-      set({ loading: false });
+
+      const res = await getRequest(`fabrics/${id}`);
+
+      set({
+        selectedFabric: res.data || null,
+        loading: false,
+      });
+
+      return res;
+    } catch (error) {
+      const message = getErrorMessage(error, "Failed to fetch fabric");
+      set({ loading: false, error: message });
+      return { success: false, message };
     }
   },
 
   fetchFabricByCode: async (code) => {
     try {
       set({ loading: true, error: null });
-      const data = await request(`${API_BASE}/code/${code}`);
-      set({ selectedFabric: data.data || null });
-      return data.data || null;
-    } catch (err) {
-      set({ error: err.message });
-      throw err;
-    } finally {
-      set({ loading: false });
+
+      const res = await getRequest(`fabrics/code/${code}`);
+
+      set({
+        selectedFabric: res.data || null,
+        loading: false,
+      });
+
+      return res;
+    } catch (error) {
+      const message = getErrorMessage(error, "Failed to fetch fabric by code");
+      set({ loading: false, error: message });
+      return { success: false, message };
     }
   },
 
@@ -168,27 +245,19 @@ export const useFabricStore = create((set, get) => ({
     try {
       set({ formLoading: true, error: null });
 
-      const data = await request(API_BASE, {
-        method: "POST",
-        headers: jsonHeaders,
-        body: JSON.stringify(payload),
-      });
+      const res = await postRequest("fabrics", payload);
 
-      set((state) => ({
-        fabrics: [data.data, ...state.fabrics],
-        pagination: {
-          ...state.pagination,
-          total: state.pagination.total + 1,
-          count: state.pagination.count + 1,
-        },
-      }));
+      if (res.success) {
+        await get().fetchFabrics({ page: 1 });
+        await get().fetchFabricStats();
+      }
 
-      return data.data;
-    } catch (err) {
-      set({ error: err.message });
-      throw err;
-    } finally {
       set({ formLoading: false });
+      return res;
+    } catch (error) {
+      const message = getErrorMessage(error, "Failed to create fabric");
+      set({ formLoading: false, error: message });
+      return { success: false, message };
     }
   },
 
@@ -196,24 +265,24 @@ export const useFabricStore = create((set, get) => ({
     try {
       set({ formLoading: true, error: null });
 
-      const data = await request(`${API_BASE}/${id}`, {
-        method: "PUT",
-        headers: jsonHeaders,
-        body: JSON.stringify(payload),
-      });
+      const res = await putRequest(`fabrics/${id}`, payload);
 
-      set((state) => ({
-        fabrics: updateItemInList(state.fabrics, data.data),
-        selectedFabric:
-          state.selectedFabric?._id === id ? data.data : state.selectedFabric,
-      }));
+      if (res.success) {
+        set((state) => ({
+          fabrics: state.fabrics.map((item) =>
+            item._id === id ? res.data : item
+          ),
+          selectedFabric:
+            state.selectedFabric?._id === id ? res.data : state.selectedFabric,
+        }));
+      }
 
-      return data.data;
-    } catch (err) {
-      set({ error: err.message });
-      throw err;
-    } finally {
       set({ formLoading: false });
+      return res;
+    } catch (error) {
+      const message = getErrorMessage(error, "Failed to update fabric");
+      set({ formLoading: false, error: message });
+      return { success: false, message };
     }
   },
 
@@ -221,24 +290,19 @@ export const useFabricStore = create((set, get) => ({
     try {
       set({ formLoading: true, error: null });
 
-      const data = await request(`${API_BASE}/${id}/status`, {
-        method: "PATCH",
-        headers: jsonHeaders,
-        body: JSON.stringify(payload),
-      });
+      const res = await patchRequest(`fabrics/${id}/status`, payload);
 
-      set((state) => ({
-        fabrics: updateItemInList(state.fabrics, data.data),
-        selectedFabric:
-          state.selectedFabric?._id === id ? data.data : state.selectedFabric,
-      }));
+      if (res.success) {
+        await get().fetchFabrics();
+        await get().fetchFabricStats();
+      }
 
-      return data.data;
-    } catch (err) {
-      set({ error: err.message });
-      throw err;
-    } finally {
       set({ formLoading: false });
+      return res;
+    } catch (error) {
+      const message = getErrorMessage(error, "Failed to update fabric status");
+      set({ formLoading: false, error: message });
+      return { success: false, message };
     }
   },
 
@@ -246,24 +310,20 @@ export const useFabricStore = create((set, get) => ({
     try {
       set({ formLoading: true, error: null });
 
-      const data = await request(`${API_BASE}/${id}/movement`, {
-        method: "PATCH",
-        headers: jsonHeaders,
-        body: JSON.stringify({ movementStatus }),
+      const res = await patchRequest(`fabrics/${id}/movement`, {
+        movementStatus,
       });
 
-      set((state) => ({
-        fabrics: updateItemInList(state.fabrics, data.data),
-        selectedFabric:
-          state.selectedFabric?._id === id ? data.data : state.selectedFabric,
-      }));
+      if (res.success) {
+        await get().fetchFabrics();
+      }
 
-      return data.data;
-    } catch (err) {
-      set({ error: err.message });
-      throw err;
-    } finally {
       set({ formLoading: false });
+      return res;
+    } catch (error) {
+      const message = getErrorMessage(error, "Failed to update movement status");
+      set({ formLoading: false, error: message });
+      return { success: false, message };
     }
   },
 
@@ -271,24 +331,20 @@ export const useFabricStore = create((set, get) => ({
     try {
       set({ formLoading: true, error: null });
 
-      const data = await request(`${API_BASE}/${id}/add-product-codes`, {
-        method: "PATCH",
-        headers: jsonHeaders,
-        body: JSON.stringify({ productCodes }),
+      const res = await patchRequest(`fabrics/${id}/add-product-codes`, {
+        productCodes,
       });
 
-      set((state) => ({
-        fabrics: updateItemInList(state.fabrics, data.data),
-        selectedFabric:
-          state.selectedFabric?._id === id ? data.data : state.selectedFabric,
-      }));
+      if (res.success) {
+        await get().fetchFabrics();
+      }
 
-      return data.data;
-    } catch (err) {
-      set({ error: err.message });
-      throw err;
-    } finally {
       set({ formLoading: false });
+      return res;
+    } catch (error) {
+      const message = getErrorMessage(error, "Failed to add product codes");
+      set({ formLoading: false, error: message });
+      return { success: false, message };
     }
   },
 
@@ -296,24 +352,20 @@ export const useFabricStore = create((set, get) => ({
     try {
       set({ formLoading: true, error: null });
 
-      const data = await request(`${API_BASE}/${id}/remove-product-codes`, {
-        method: "PATCH",
-        headers: jsonHeaders,
-        body: JSON.stringify({ productCodes }),
+      const res = await patchRequest(`fabrics/${id}/remove-product-codes`, {
+        productCodes,
       });
 
-      set((state) => ({
-        fabrics: updateItemInList(state.fabrics, data.data),
-        selectedFabric:
-          state.selectedFabric?._id === id ? data.data : state.selectedFabric,
-      }));
+      if (res.success) {
+        await get().fetchFabrics();
+      }
 
-      return data.data;
-    } catch (err) {
-      set({ error: err.message });
-      throw err;
-    } finally {
       set({ formLoading: false });
+      return res;
+    } catch (error) {
+      const message = getErrorMessage(error, "Failed to remove product codes");
+      set({ formLoading: false, error: message });
+      return { success: false, message };
     }
   },
 
@@ -321,22 +373,19 @@ export const useFabricStore = create((set, get) => ({
     try {
       set({ formLoading: true, error: null });
 
-      const data = await request(`${API_BASE}/${id}/activate`, {
-        method: "PATCH",
-      });
+      const res = await patchRequest(`fabrics/${id}/activate`);
 
-      set((state) => ({
-        fabrics: updateItemInList(state.fabrics, data.data),
-        selectedFabric:
-          state.selectedFabric?._id === id ? data.data : state.selectedFabric,
-      }));
+      if (res.success) {
+        await get().fetchFabrics();
+        await get().fetchFabricStats();
+      }
 
-      return data.data;
-    } catch (err) {
-      set({ error: err.message });
-      throw err;
-    } finally {
       set({ formLoading: false });
+      return res;
+    } catch (error) {
+      const message = getErrorMessage(error, "Failed to activate fabric");
+      set({ formLoading: false, error: message });
+      return { success: false, message };
     }
   },
 
@@ -344,27 +393,19 @@ export const useFabricStore = create((set, get) => ({
     try {
       set({ formLoading: true, error: null });
 
-      const data = await request(`${API_BASE}/${id}`, {
-        method: "DELETE",
-      });
+      const res = await deleteRequest(`fabrics/${id}`);
 
-      set((state) => ({
-        fabrics: state.fabrics.filter((item) => item._id !== id),
-        selectedFabric:
-          state.selectedFabric?._id === id ? null : state.selectedFabric,
-        pagination: {
-          ...state.pagination,
-          total: Math.max(0, state.pagination.total - 1),
-          count: Math.max(0, state.pagination.count - 1),
-        },
-      }));
+      if (res.success) {
+        await get().fetchFabrics();
+        await get().fetchFabricStats();
+      }
 
-      return data;
-    } catch (err) {
-      set({ error: err.message });
-      throw err;
-    } finally {
       set({ formLoading: false });
+      return res;
+    } catch (error) {
+      const message = getErrorMessage(error, "Failed to delete fabric");
+      set({ formLoading: false, error: message });
+      return { success: false, message };
     }
   },
 
@@ -372,32 +413,42 @@ export const useFabricStore = create((set, get) => ({
     try {
       set({ formLoading: true, error: null });
 
-      const data = await request(`${API_BASE}/bulk-update`, {
-        method: "PATCH",
-        headers: jsonHeaders,
-        body: JSON.stringify({ ids, updates }),
+      const res = await patchRequest("fabrics/bulk-update", {
+        ids,
+        updates,
       });
 
-      await get().fetchFabrics();
-      return data;
-    } catch (err) {
-      set({ error: err.message });
-      throw err;
-    } finally {
+      if (res.success) {
+        await get().fetchFabrics();
+        await get().fetchFabricStats();
+      }
+
       set({ formLoading: false });
+      return res;
+    } catch (error) {
+      const message = getErrorMessage(error, "Failed to bulk update fabrics");
+      set({ formLoading: false, error: message });
+      return { success: false, message };
     }
   },
 
-  resetFabricStore: () =>
+  clearSelectedFabric: () => {
+    set({ selectedFabric: null });
+  },
+
+  resetFabricStore: () => {
     set({
       fabrics: [],
-      selectedFabric: null,
       fabricOptions: [],
       fabricStats: null,
+      selectedFabric: null,
       loading: false,
       formLoading: false,
       error: null,
-      filters: { ...defaultFilters },
-      pagination: { ...defaultPagination },
-    }),
+      filters: defaultFilters,
+      pagination: defaultPagination,
+    });
+  },
 }));
+
+export default useFabricStore;

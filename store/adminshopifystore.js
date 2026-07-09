@@ -63,6 +63,12 @@ const adminShopifyStore = create((set, get) => ({
 
   shop: null,
 
+  bulkFulfillPreviewLoading: false,
+bulkFulfillMarking: false,
+bulkFulfillError: null,
+bulkFulfillPreviewRows: [],
+bulkFulfillResult: null,
+
   products: [],
   orders: [],
   customers: [],
@@ -791,6 +797,88 @@ const adminShopifyStore = create((set, get) => ({
       };
     }
   },
+
+  clearBulkFulfillmentState: () =>
+  set({
+    bulkFulfillPreviewLoading: false,
+    bulkFulfillMarking: false,
+    bulkFulfillError: null,
+    bulkFulfillPreviewRows: [],
+    bulkFulfillResult: null,
+  }),
+
+bulkFulfillPreview: async (rows = []) => {
+  try {
+    set({
+      bulkFulfillPreviewLoading: true,
+      bulkFulfillError: null,
+      bulkFulfillPreviewRows: [],
+      bulkFulfillResult: null,
+    });
+
+    const data = await postRequest("orders/bulk-fulfill-preview", {
+      rows,
+    });
+
+    set({
+      bulkFulfillPreviewLoading: false,
+      bulkFulfillPreviewRows: data.results || data.data || [],
+    });
+
+    return data;
+  } catch (error) {
+    const message = getErrorMessage(
+      error,
+      "Failed to preview bulk fulfillment"
+    );
+
+    set({
+      bulkFulfillPreviewLoading: false,
+      bulkFulfillError: message,
+    });
+
+    return {
+      success: false,
+      message,
+    };
+  }
+},
+
+bulkMarkFulfilled: async (rows = []) => {
+  try {
+    set({
+      bulkFulfillMarking: true,
+      bulkFulfillError: null,
+      bulkFulfillResult: null,
+    });
+
+    const data = await postRequest("orders/bulk-mark-fulfilled", {
+      rows,
+    });
+
+    set({
+      bulkFulfillMarking: false,
+      bulkFulfillResult: data,
+    });
+
+    return data;
+  } catch (error) {
+    const message = getErrorMessage(
+      error,
+      "Failed to mark orders fulfilled"
+    );
+
+    set({
+      bulkFulfillMarking: false,
+      bulkFulfillError: message,
+    });
+
+    return {
+      success: false,
+      message,
+    };
+  }
+},
 }));
 
 export default adminShopifyStore;

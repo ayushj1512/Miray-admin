@@ -103,6 +103,84 @@ const normalizeProductPayload = (payload) => {
 
   out.fabrics = tryJson(out.fabrics);
   out.avgFabricConsumption = tryJson(out.avgFabricConsumption);
+  out.accessories = tryJson(out.accessories);
+
+/* ✅ ACCESSORIES hygiene */
+const normalizeAccessories = (v) => {
+  const rows = [];
+  const UNITS = new Set(["piece", "pair", "meter", "gram", "roll"]);
+
+  const push = (row) => {
+    if (!row) return;
+
+    if (typeof row === "string") {
+      const name = toStr(row);
+      if (!name) return;
+
+      rows.push({
+        name,
+        type: "",
+        quantity: 1,
+        unit: "piece",
+        notes: "",
+      });
+      return;
+    }
+
+    if (typeof row !== "object") return;
+
+    const name = toStr(row.name);
+    const type = toStr(row.type).toLowerCase();
+    const quantity = Number(row.quantity ?? 1);
+    const unitRaw = toStr(row.unit || "piece").toLowerCase();
+
+    if (!name && !type && !toStr(row.notes)) return;
+    if (!name) return;
+
+    rows.push({
+      name,
+      type,
+      quantity: Number.isFinite(quantity) && quantity >= 0 ? quantity : 1,
+      unit: UNITS.has(unitRaw) ? unitRaw : "piece",
+      notes: toStr(row.notes),
+    });
+  };
+
+  if (typeof v === "string") {
+    const t = v.trim();
+    if (!t) return [];
+
+    try {
+      v = JSON.parse(t);
+    } catch {
+      const parts = t.includes("|") ? t.split("|") : t.split(",");
+      parts.forEach((p) => push(String(p || "")));
+      return rows;
+    }
+  }
+
+  if (Array.isArray(v)) return v.forEach(push), rows;
+
+  if (v && typeof v === "object") {
+    const looksSingle =
+      "name" in v ||
+      "type" in v ||
+      "quantity" in v ||
+      "unit" in v ||
+      "notes" in v;
+
+    if (looksSingle) return push(v), rows;
+
+    Object.entries(v).forEach(([type, name]) => push({ type, name }));
+    return rows;
+  }
+
+  return [];
+};
+
+if (out.accessories !== undefined) {
+  out.accessories = normalizeAccessories(out.accessories);
+}
 
   // ✅ highlights -> keyFeatures
   if (out.highlights !== undefined && out.keyFeatures === undefined) {
@@ -1415,6 +1493,61 @@ export const useAdminProductStore = create((set, get) => ({
       set({ saving: false });
     }
   },
+
+  /* ============================================================
+  ✅ UPDATE PRODUCT ACCESSORIES + AVG FABRIC
+  PATCH /api/products/:id
+============================================================ */
+updateProductProductionDetails: async (id, payload = {}) => {
+  try {
+    set({ saving: true, error: null });
+
+    const normalizedPayload = normalizeProductPayload({
+      accessories: payload.accessories,
+      avgFabricConsumption: payload.avgFabricConsumption,
+    });
+
+    const res = await fetch(`${API}/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(normalizedPayload),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || "Production details update failed");
+    }
+
+    const updated = data.product;
+
+    if (get().product && String(get().product?._id) === String(id)) {
+      set({ product: updated });
+    }
+
+    set((state) => ({
+      products: (state.products || []).map((p) =>
+        String(p._id) === String(id)
+          ? {
+              ...p,
+              accessories: updated?.accessories ?? p.accessories,
+              avgFabricConsumption:
+                updated?.avgFabricConsumption ?? p.avgFabricConsumption,
+            }
+          : p
+      ),
+    }));
+
+    toast.success("Production details updated ✅");
+    return updated;
+  } catch (e) {
+    console.error(e);
+    toast.error(e.message);
+    throw e;
+  } finally {
+    set({ saving: false });
+  }opi
+},
 
   /* ============================================================
     ✅ SAMPLING STATUS

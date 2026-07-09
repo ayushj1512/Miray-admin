@@ -15,6 +15,7 @@ import CrossSellSelector from "@/components/product/CrossSellSelector";
 import CollectionMultiSelect from "@/components/product/CollectionMultiSelect";
 import FabricAdd from "@/components/product/FabricAdd"; // ✅ NEW (replaces ProductFabricAssignment)
 import OriginalProductLinkField from "@/components/product/OriginalProductLinkField";
+import ProductProductionDetails from "@/components/product/ProductProductionDetails";
 
 const BACKEND = (process.env.NEXT_PUBLIC_BACKEND_URL || "").replace(/\/+$/, "");
 
@@ -72,6 +73,13 @@ export default function ProductDetailsPage({ params }) {
     thumbnail: "",
 
     fabrics: [], // ✅ NEW
+    avgFabricConsumption: {
+  value: 0,
+  unit: "meter",
+  wastePercentage: 5,
+},
+
+accessories: [],
     crossSellProducts: [],
     collections: [],
     originalProductLink: "",
@@ -157,6 +165,14 @@ export default function ProductDetailsPage({ params }) {
           thumbnail: thumb,
 
           fabrics: safeArr(pData?.fabrics), // ✅ NEW
+          avgFabricConsumption:
+  pData?.avgFabricConsumption || {
+    value: 0,
+    unit: "meter",
+    wastePercentage: 5,
+  },
+
+accessories: safeArr(pData?.accessories),
           crossSellProducts: safeArr(pData?.crossSellProducts).map((x) =>
             typeof x === "string" ? x : x?._id,
           ),
@@ -255,6 +271,8 @@ export default function ProductDetailsPage({ params }) {
         colors: uniqLower(s(form.colorsText).split(",")),
 
         fabrics: cleanedFabrics, // ✅ NEW
+        avgFabricConsumption: form.avgFabricConsumption,
+accessories: safeArr(form.accessories),
         attributes: cleanedAttributes,
         ...(variantsDirty ? { variants: cleanedVariants } : {}),
 
@@ -289,11 +307,18 @@ export default function ProductDetailsPage({ params }) {
 
       const imgs = safeImages(updated);
       setForm((p) => ({
-        ...p,
-        images: imgs,
-        thumbnail: imgs[0] || "",
-        fabrics: safeArr(updated?.fabrics),
-      }));
+  ...p,
+  images: imgs,
+  thumbnail: imgs[0] || "",
+  fabrics: safeArr(updated?.fabrics),
+  avgFabricConsumption:
+    updated?.avgFabricConsumption || {
+      value: 0,
+      unit: "meter",
+      wastePercentage: 5,
+    },
+  accessories: safeArr(updated?.accessories),
+}));
     } catch (e) {
       console.error("❌ save error:", e);
       alert(e?.message || "Failed to update product");
@@ -554,6 +579,26 @@ export default function ProductDetailsPage({ params }) {
             onChange={(next) => setForm((p) => ({ ...p, fabrics: next }))}
           />
         </div>
+
+        {/* Production Details */}
+<div className="bg-white p-5 md:p-6 rounded-xl shadow space-y-4">
+  <ProductProductionDetails
+    editable={editing}
+    value={{
+      avgFabricConsumption: editing
+        ? form.avgFabricConsumption
+        : product?.avgFabricConsumption,
+      accessories: editing ? form.accessories : product?.accessories,
+    }}
+    onChange={(next) =>
+      setForm((p) => ({
+        ...p,
+        avgFabricConsumption: next.avgFabricConsumption,
+        accessories: next.accessories,
+      }))
+    }
+  />
+</div>  
 
         {/* Attributes */}
         <AttributeSelector

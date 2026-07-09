@@ -461,7 +461,7 @@ export const sidebarMenus = {
 
   // Settings
   { label: "Settings", href: "/shopify/settings" },
-],
+],    
 };
 
 export const routeSidebarMap = [

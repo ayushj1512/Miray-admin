@@ -238,3 +238,4 @@ export default function WishlistSection({ firebaseUID, customerId }) {
     </div>
   );
 }
+

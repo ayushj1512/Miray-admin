@@ -187,3 +187,4 @@ export const useWordpressStore = create((set, get) => ({
   ============================================================ */
   clearOrder: () => set({ order: null }),
 }));
+

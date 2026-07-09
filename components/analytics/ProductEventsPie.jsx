@@ -73,3 +73,4 @@ export default function ProductEventsPie({ data }) {
     </div>
   );
 }
+

@@ -222,3 +222,4 @@ const res = await fetch(`${API}/api/blogs/${id}`, {
   ============================== */
   clearBlog: () => set({ blog: null }),
 }));
+

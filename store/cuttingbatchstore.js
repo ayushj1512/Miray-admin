@@ -49,7 +49,7 @@ const cuttingBatchStore = create((set, get) => ({
       }
 
       set({
-        batches: data.batches || [],
+        batches: Array.isArray(data.batches) ? data.batches : [],
         loading: false,
       });
 
@@ -104,9 +104,13 @@ const cuttingBatchStore = create((set, get) => ({
     }
   },
 
-  createCuttingBatch: async () => {
+  createCuttingBatch: async (payload = {}) => {
     try {
       set({ creating: true, error: null });
+
+      const skipOrderNumbers = Array.isArray(payload.skipOrderNumbers)
+        ? payload.skipOrderNumbers.map((x) => String(x).trim()).filter(Boolean)
+        : [];
 
       const res = await fetch(apiUrl("/api/cutting-batches"), {
         method: "POST",
@@ -115,7 +119,10 @@ const cuttingBatchStore = create((set, get) => ({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({}),
+        body: JSON.stringify({
+          ...payload,
+          skipOrderNumbers,
+        }),
       });
 
       const data = await safeJson(res);
@@ -129,7 +136,9 @@ const cuttingBatchStore = create((set, get) => ({
       set({
         lastCreatedBatch: batch,
         selectedBatch: batch,
-        batches: batch ? [batch, ...get().batches] : get().batches,
+        batches: batch
+          ? [batch, ...get().batches.filter((b) => b?._id !== batch?._id)]
+          : get().batches,
         creating: false,
       });
 
@@ -147,22 +156,20 @@ const cuttingBatchStore = create((set, get) => ({
     }
   },
 
+  createCuttingBatchWithSkips: async (skipOrderNumbers = []) => {
+    return get().createCuttingBatch({ skipOrderNumbers });
+  },
+
   setSelectedBatch: (batch) => {
-    set({
-      selectedBatch: batch || null,
-    });
+    set({ selectedBatch: batch || null });
   },
 
   clearSelectedBatch: () => {
-    set({
-      selectedBatch: null,
-    });
+    set({ selectedBatch: null });
   },
 
   clearLastCreatedBatch: () => {
-    set({
-      lastCreatedBatch: null,
-    });
+    set({ lastCreatedBatch: null });
   },
 }));
 

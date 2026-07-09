@@ -126,3 +126,4 @@ export default function AllCustomersGraphs({ vm }) {
     </section>
   );
 }
+

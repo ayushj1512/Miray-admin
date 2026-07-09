@@ -287,3 +287,4 @@ export default function BlogCategoriesPage() {
     </section>
   );
 }
+

@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useAdminProductStore } from "@/store/adminProductStore";
-import { useFabricStore } from "@/store/fabricStore";
+import useFabricStore from "@/store/fabricStore";
 
 const ROLES = ["main", "lining", "contrast", "padding", "other"];
 const UNITS = ["meter", "gram"];
@@ -480,3 +480,4 @@ const styles = {
 
   expandFooter: { marginTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 },
 };
+

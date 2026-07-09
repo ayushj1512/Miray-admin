@@ -131,3 +131,4 @@ export default {
   DOCUMENT_TYPES,
   PAYMENT_LABELS,
 };
+

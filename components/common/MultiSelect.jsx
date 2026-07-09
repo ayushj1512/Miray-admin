@@ -49,3 +49,4 @@ export default function MultiSelect({ label, list, values, setValues }) {
     </div>
   );
 }
+

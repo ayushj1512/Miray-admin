@@ -153,3 +153,4 @@ export function buildAllCustomersAnalyticsVM(customers = [], { rangeDays = 30 } 
     raw: { customers: list },
   };
 }
+

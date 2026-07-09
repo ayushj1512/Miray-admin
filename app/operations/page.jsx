@@ -3,3 +3,4 @@ export default function OperationsPage() {
     <h1 className="text-2xl font-semibold p-6">Operations</h1>
   );
 }
+

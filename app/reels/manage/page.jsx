@@ -539,3 +539,4 @@ function MiniStat({ icon: Icon, value }) {
     </div>
   );
 }
+

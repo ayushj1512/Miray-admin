@@ -39,3 +39,4 @@ export default function AnimatedDropdown({ label, value, options, onChange }) {
     </div>
   );
 }
+

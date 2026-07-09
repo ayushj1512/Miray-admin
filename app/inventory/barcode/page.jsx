@@ -609,3 +609,4 @@ const styles = {
   bulkFlex: { display: "flex", flexWrap: "wrap", gap: 10 },
   bulkCard: { width: 260, border: "1px dashed #ddd", borderRadius: 12, padding: 10, background: "white" },
 };
+

@@ -158,3 +158,4 @@ export default function CustomerSection({ customerId }) {
     </div>
   );
 }
+

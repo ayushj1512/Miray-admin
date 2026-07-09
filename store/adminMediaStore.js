@@ -110,3 +110,4 @@ export const useAdminMediaStore = create((set, get) => ({
   setType: (type) => set({ type: str(type), page: 1 }),
   resetFilters: () => set({ q: "", type: "", page: 1 }),
 }));
+

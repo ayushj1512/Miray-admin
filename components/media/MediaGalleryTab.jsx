@@ -90,3 +90,4 @@ export default function MediaGalleryTab({ onSelect, multiple = false }) {
     </div>
   );
 }
+

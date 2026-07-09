@@ -163,3 +163,4 @@ export default function SupportTicketSection({ customerEmail }) {
     </div>
   );
 }
+

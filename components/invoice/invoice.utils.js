@@ -68,3 +68,4 @@ export function buildInvoiceData(order) {
     paymentMethod: order.paymentMethod,
   };
 }
+

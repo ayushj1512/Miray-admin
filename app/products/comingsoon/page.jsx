@@ -420,3 +420,4 @@ function StatusPill({ value }) {
     return <span className={`${base} bg-gray-200 text-gray-700`}>Archived</span>;
   return <span className={`${base} bg-gray-100 text-gray-800`}>Coming Soon</span>;
 }
+

@@ -646,3 +646,4 @@ const s = {
 
   foot: { marginTop: 10, fontSize: 11, color: "#64748b" },
 };
+

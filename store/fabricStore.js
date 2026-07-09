@@ -436,7 +436,7 @@ const useFabricStore = create((set, get) => ({
     set({ selectedFabric: null });
   },
 
-  resetFabricStore: () => {
+  resetfabricStore: () => {
     set({
       fabrics: [],
       fabricOptions: [],
@@ -452,3 +452,4 @@ const useFabricStore = create((set, get) => ({
 }));
 
 export default useFabricStore;
+

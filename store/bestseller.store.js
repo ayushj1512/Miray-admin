@@ -219,3 +219,4 @@ export const useBestsellerStore = create((set, get) => ({
     await Promise.allSettled([get().fetchIds(), get().fetchAll()]);
   },
 }));
+

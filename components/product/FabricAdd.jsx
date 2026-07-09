@@ -308,3 +308,4 @@ export default function FabricAdd({ value = [], onChange, editable = true }) {
     </div>
   );
 }
+

@@ -245,3 +245,4 @@ export const useWishlistStore = create((set, get) => ({
     return wishlists.find((w) => String(w.firebaseUID) === uid) || null;
   },
 }));
+

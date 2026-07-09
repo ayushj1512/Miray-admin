@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { useOrderStore } from "@/store/order.store";
+import { useOrderStore } from "@/store/orderStore";
 import { buildInvoiceData } from "./invoice.utils";
 import { buildPackingSlipData } from "./packingSlip.utils";
 import InvoiceTemplate from "./InvoiceTemplate";

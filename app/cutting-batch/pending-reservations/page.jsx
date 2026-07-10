@@ -14,39 +14,6 @@ export default function PendingReservationsPage() {
     fetchCuttingBatches();
   }, [fetchCuttingBatches]);
 
-  const rows = useMemo(() => {
-    const list = [];
-
-    for (const batch of batches || []) {
-      for (const item of batch.rows || []) {
-        list.push({
-          batchNumber: batch.batchNumber,
-          createdAt: batch.createdAt,
-          fromOrderNumber: batch.fromOrderNumber,
-          toOrderNumber: batch.toOrderNumber,
-          ...item,
-        });
-      }
-    }
-
-    const q = search.trim().toLowerCase();
-
-    if (!q) return list;
-
-    return list.filter((item) => {
-      return [
-        item.batchNumber,
-        item.productTitle,
-        item.productCode,
-        item.fromOrderNumber,
-        item.toOrderNumber,
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(q);
-    });
-  }, [batches, search]);
-
   const formatDateTime = (date) => {
     if (!date) return "-";
 
@@ -60,6 +27,42 @@ export default function PendingReservationsPage() {
     });
   };
 
+  const rows = useMemo(() => {
+    const list = [];
+
+    for (const batch of batches || []) {
+      for (const item of batch.rows || []) {
+        list.push({
+          batchNumber: batch.batchNumber,
+          status: batch.status || "generated",
+          createdAt: batch.createdAt,
+          fromOrderNumber: batch.fromOrderNumber,
+          toOrderNumber: batch.toOrderNumber,
+          includedOrders: batch.totalOrders || batch.includedOrders?.length || 0,
+          skippedOrders: batch.skippedOrders?.length || 0,
+          ...item,
+        });
+      }
+    }
+
+    const q = search.trim().toLowerCase();
+    if (!q) return list;
+
+    return list.filter((item) =>
+      [
+        item.batchNumber,
+        item.status,
+        item.productTitle,
+        item.productCode,
+        item.fromOrderNumber,
+        item.toOrderNumber,
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(q)
+    );
+  }, [batches, search]);
+
   const downloadExcel = () => {
     if (!rows.length) {
       alert("No data available.");
@@ -69,8 +72,11 @@ export default function PendingReservationsPage() {
     const ws = XLSX.utils.json_to_sheet(
       rows.map((item) => ({
         Batch: item.batchNumber,
+        Status: item.status,
         "Generated At": formatDateTime(item.createdAt),
         Range: `${item.fromOrderNumber} to ${item.toOrderNumber}`,
+        "Included Orders": item.includedOrders,
+        "Skipped Orders": item.skippedOrders,
         "Product Name": item.productTitle || "",
         Code: item.productCode || "",
         Image: item.productImage || "",
@@ -85,8 +91,11 @@ export default function PendingReservationsPage() {
 
     ws["!cols"] = [
       { wch: 28 },
+      { wch: 16 },
       { wch: 24 },
       { wch: 32 },
+      { wch: 16 },
+      { wch: 16 },
       { wch: 42 },
       { wch: 18 },
       { wch: 55 },
@@ -111,7 +120,8 @@ export default function PendingReservationsPage() {
             <div>
               <h1 className="text-xl font-semibold">Cutting Records</h1>
               <p className="mt-1 text-sm text-zinc-500">
-                Search product-wise records across generated Miray cutting batches.
+                Product-wise records from confirmed processing Shopify cutting
+                batches.
               </p>
             </div>
 
@@ -154,12 +164,14 @@ export default function PendingReservationsPage() {
 
         <section className="rounded-2xl border border-zinc-200 bg-white">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1200px] text-sm">
+            <table className="w-full min-w-[1350px] text-sm">
               <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
                 <tr>
                   <th className="px-4 py-3 text-left">Batch</th>
                   <th className="px-4 py-3 text-left">Generated</th>
                   <th className="px-4 py-3 text-left">Range</th>
+                  <th className="px-4 py-3 text-left">Included</th>
+                  <th className="px-4 py-3 text-left">Skipped</th>
                   <th className="px-4 py-3 text-left">Image</th>
                   <th className="px-4 py-3 text-left">Product</th>
                   <th className="px-4 py-3 text-left">Code</th>
@@ -188,15 +200,21 @@ export default function PendingReservationsPage() {
                         {item.fromOrderNumber} → {item.toOrderNumber}
                       </td>
 
+                      <td className="px-4 py-3">{item.includedOrders}</td>
+
+                      <td className="px-4 py-3">{item.skippedOrders}</td>
+
                       <td className="px-4 py-3">
                         {item.productImage ? (
                           <img
                             src={item.productImage}
-                            alt={item.productTitle}
+                            alt={item.productTitle || "Product"}
                             className="h-12 w-12 rounded-lg object-cover"
                           />
                         ) : (
-                          <div className="h-12 w-12 rounded-lg bg-zinc-100" />
+                          <div className="grid h-12 w-12 place-items-center rounded-lg bg-zinc-100 text-xs text-zinc-400">
+                            No img
+                          </div>
                         )}
                       </td>
 
@@ -222,7 +240,7 @@ export default function PendingReservationsPage() {
                 ) : (
                   <tr>
                     <td
-                      colSpan={12}
+                      colSpan={14}
                       className="px-4 py-10 text-center text-zinc-500"
                     >
                       No cutting records found.

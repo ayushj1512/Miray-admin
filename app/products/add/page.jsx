@@ -16,6 +16,7 @@ import CollectionMultiSelect from "@/components/product/CollectionMultiSelect";
 import FabricAdd from "@/components/product/FabricAdd";
 import OriginalProductLinkField from "@/components/product/OriginalProductLinkField";
 import ProductProductionDetails from "@/components/product/ProductProductionDetails";
+import ProductSamplingPattern from "@/components/product/ProductSamplingPattern";
 
 const API = process.env.NEXT_PUBLIC_BACKEND_URL;
 
@@ -44,7 +45,7 @@ const parseList = (v) => {
   try {
     const parsed = JSON.parse(t);
     if (Array.isArray(parsed)) return parsed.map((x) => String(x || "").trim()).filter(Boolean);
-  } catch {}
+  } catch { }
   return t.split(",").map((x) => x.trim()).filter(Boolean);
 };
 
@@ -177,9 +178,8 @@ function ColorsPicker({ valueText, onChangeText }) {
               key={c}
               type="button"
               onClick={() => toggleChip(c)}
-              className={`px-3 py-1 rounded-full text-sm border transition ${
-                on ? "bg-black text-white border-black" : "bg-white text-gray-800 border-gray-200"
-              }`}
+              className={`px-3 py-1 rounded-full text-sm border transition ${on ? "bg-black text-white border-black" : "bg-white text-gray-800 border-gray-200"
+                }`}
               title="Click to toggle"
             >
               {c}
@@ -262,12 +262,12 @@ export default function AddProductPage() {
 
     fabrics: [],
     avgFabricConsumption: {
-  value: 0,
-  unit: "meter",
-  wastePercentage: 5,
-},
+      value: 0,
+      unit: "meter",
+      wastePercentage: 5,
+    },
 
-accessories: [],
+    accessories: [],
 
     images: [],
     thumbnail: "",
@@ -276,6 +276,9 @@ accessories: [],
 
     attributes: [],
     variants: [],
+
+    isSamplingDone: false,
+    isPatternReady: false,
 
     highlights: [],
     collections: [],
@@ -320,13 +323,15 @@ accessories: [],
         thumbnail: safeArr(parsed?.images)?.[0] || parsed?.thumbnail || "",
         fabrics: safeArr(parsed?.fabrics),
         avgFabricConsumption:
-  parsed?.avgFabricConsumption || {
-    value: 0,
-    unit: "meter",
-    wastePercentage: 5,
-  },
-accessories: safeArr(parsed?.accessories),
+          parsed?.avgFabricConsumption || {
+            value: 0,
+            unit: "meter",
+            wastePercentage: 5,
+          },
+        accessories: safeArr(parsed?.accessories),
         attributes: safeArr(parsed?.attributes),
+        isSamplingDone: Boolean(parsed?.isSamplingDone),
+        isPatternReady: Boolean(parsed?.isPatternReady),
         variants: safeArr(parsed?.variants),
         crossSellProducts: safeArr(parsed?.crossSellProducts),
         collections: safeArr(parsed?.collections),
@@ -382,7 +387,14 @@ accessories: safeArr(parsed?.accessories),
     const colors = parseList(form.colorsText).map((c) => normColor(c));
     const keyFeatures = parseList(form.keyFeaturesText);
     const specifications = parseSpecs(form.specificationsText);
+    const cleanedVariants = safeArr(form.variants).map((variant) => ({
+      ...variant,
+      patternNumber: String(variant?.patternNumber || "").trim(),
+    }));
 
+    const isPatternReady =
+      cleanedVariants.length > 0 &&
+      cleanedVariants.some((variant) => Boolean(variant.patternNumber));
     const payload = {
       title: String(form.title || "").trim(),
       price: toNum(form.price),
@@ -399,7 +411,7 @@ accessories: safeArr(parsed?.accessories),
 
       fabrics: safeArr(form.fabrics),
       avgFabricConsumption: form.avgFabricConsumption,
-accessories: safeArr(form.accessories),
+      accessories: safeArr(form.accessories),
 
       images: safeArr(form.images),
       thumbnail: safeArr(form.images)?.[0] || "",
@@ -409,6 +421,9 @@ accessories: safeArr(form.accessories),
 
       attributes: safeArr(form.attributes),
       variants: safeArr(form.variants),
+
+      isSamplingDone: Boolean(form.isSamplingDone),
+      isPatternReady,
 
       crossSellProducts: safeArr(form.crossSellProducts),
 
@@ -565,21 +580,21 @@ accessories: safeArr(form.accessories),
         </div>
 
         {/* Production Details */}
-<div className="bg-white rounded-xl p-6 shadow space-y-4">
-  <ProductProductionDetails
-    value={{
-      avgFabricConsumption: form.avgFabricConsumption,
-      accessories: form.accessories,
-    }}
-    onChange={(next) =>
-      setForm((p) => ({
-        ...p,
-        avgFabricConsumption: next.avgFabricConsumption,
-        accessories: next.accessories,
-      }))
-    }
-  />
-</div>
+        <div className="bg-white rounded-xl p-6 shadow space-y-4">
+          <ProductProductionDetails
+            value={{
+              avgFabricConsumption: form.avgFabricConsumption,
+              accessories: form.accessories,
+            }}
+            onChange={(next) =>
+              setForm((p) => ({
+                ...p,
+                avgFabricConsumption: next.avgFabricConsumption,
+                accessories: next.accessories,
+              }))
+            }
+          />
+        </div>
 
         {/* Categories */}
         <div className="bg-white rounded-xl p-6 shadow space-y-4">
@@ -631,6 +646,27 @@ accessories: safeArr(form.accessories),
             onChange={(next) => setForm((p) => ({ ...p, variants: next }))}
           />
         )}
+
+        <ProductSamplingPattern
+          variants={form.variants}
+          isSamplingDone={form.isSamplingDone}
+          editable
+          onVariantsChange={(nextVariants) =>
+            setForm((previous) => ({
+              ...previous,
+              variants: nextVariants,
+              isPatternReady: nextVariants.some((variant) =>
+                Boolean(String(variant?.patternNumber || "").trim()),
+              ),
+            }))
+          }
+          onSamplingChange={(nextValue) =>
+            setForm((previous) => ({
+              ...previous,
+              isSamplingDone: nextValue,
+            }))
+          }
+        />
 
         {/* Cross Sell */}
         <div className="bg-white rounded-xl p-6 shadow space-y-4">

@@ -1,8 +1,7 @@
 // src/store/fabricStore.js
 import { create } from "zustand";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+const API_BASE_URL = `${(process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000").replace(/\/+$/, "")}/api`;
 
 const getErrorMessage = (error, fallback = "Something went wrong") => {
   return (
@@ -306,6 +305,51 @@ const useFabricStore = create((set, get) => ({
     }
   },
 
+  assignProductCodesToFabric: async (id, productCodes = []) => {
+  try {
+    set({ formLoading: true, error: null });
+
+    const res = await patchRequest(
+      `fabrics/${id}/assign-products`,
+      {
+        productCodes,
+      }
+    );
+
+    if (res.success) {
+      set((state) => ({
+        fabrics: state.fabrics.map((fabric) =>
+          fabric._id === id ? res.data : fabric
+        ),
+        selectedFabric:
+          state.selectedFabric?._id === id
+            ? res.data
+            : state.selectedFabric,
+      }));
+
+      await get().fetchFabricStats();
+    }
+
+    set({ formLoading: false });
+    return res;
+  } catch (error) {
+    const message = getErrorMessage(
+      error,
+      "Failed to assign product codes"
+    );
+
+    set({
+      formLoading: false,
+      error: message,
+    });
+
+    return {
+      success: false,
+      message,
+    };
+  }
+},
+
   updateMovementStatus: async (id, movementStatus) => {
     try {
       set({ formLoading: true, error: null });
@@ -435,6 +479,11 @@ const useFabricStore = create((set, get) => ({
   clearSelectedFabric: () => {
     set({ selectedFabric: null });
   },
+  setSelectedFabric: (fabric) => {
+  set({
+    selectedFabric: fabric || null,
+  });
+},
 
   resetfabricStore: () => {
     set({

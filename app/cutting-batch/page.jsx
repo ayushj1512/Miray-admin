@@ -13,33 +13,48 @@ export default function CuttingBatchDashboard() {
     selectedBatch,
     creating,
     loading,
+    error,
     fetchCuttingBatches,
     createCuttingBatch,
   } = cuttingBatchStore();
 
   useEffect(() => {
     fetchCuttingBatches();
-  }, []);
+  }, [fetchCuttingBatches]);
 
   const handleGenerate = async () => {
     await createCuttingBatch();
     await fetchCuttingBatches();
   };
 
+  const activeBatch = selectedBatch || batches?.[0] || null;
+
   return (
-    <div className="space-y-6 p-6">
-      <CuttingBatchHeader
-        loading={loading}
-        creating={creating}
-        onRefresh={fetchCuttingBatches}
-        onGenerate={handleGenerate}
-      />
+    <main className="min-h-screen bg-zinc-50 p-6 text-zinc-950">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <CuttingBatchHeader
+          loading={loading}
+          creating={creating}
+          onRefresh={fetchCuttingBatches}
+          onGenerate={handleGenerate}
+        />
 
-      <CuttingBatchStats batches={batches} />
+        {error && (
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            {error}
+          </div>
+        )}
 
-      <CuttingBatchTable
-        batch={selectedBatch || batches?.[0]}
-      />
-    </div>
+        <CuttingBatchStats batches={batches} />
+
+        {loading ? (
+          <div className="rounded-2xl border border-zinc-200 bg-white p-10 text-center text-sm text-zinc-500">
+            Loading cutting batches...
+          </div>
+        ) : (
+          <CuttingBatchTable batch={activeBatch} />
+        )}
+      </div>
+    </main>
   );
 }

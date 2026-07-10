@@ -8,12 +8,8 @@ import CuttingBatchTable from "@/components/cutting-batch/CuttingBatchTable";
 export default function CuttingBatchDetailPage() {
   const { id } = useParams();
 
-  const {
-    selectedBatch,
-    loading,
-    error,
-    fetchCuttingBatchById,
-  } = cuttingBatchStore();
+  const { selectedBatch, loading, error, fetchCuttingBatchById } =
+    cuttingBatchStore();
 
   useEffect(() => {
     if (id) fetchCuttingBatchById(id);
@@ -25,7 +21,8 @@ export default function CuttingBatchDetailPage() {
         <div>
           <h1 className="text-xl font-semibold">Cutting Batch Details</h1>
           <p className="mt-1 text-sm text-zinc-500">
-            Product-wise size breakdown for this Miray cutting batch.
+            Confirmed processing Shopify orders with product-wise cutting
+            breakdown.
           </p>
         </div>
 

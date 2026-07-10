@@ -128,6 +128,10 @@ export const sidebarMenus = {
     label: "Fabric Price Logs",
     href: "/fabrics/price-logs",
   },
+  {
+  label: "Fabric Product Assignment",
+  href: "/fabrics/fabric-product-assignment",
+},
 ]
 ,
 
@@ -167,6 +171,7 @@ export const sidebarMenus = {
 
   { label: "Fabric Assignment", href: "/products/fabric-assignment" },
   { label: "Accessories Assignment", href: "/products/accessories-assignment" },
+  { label: "Fabric Product Assignment", href: "/products/fabric-product-assignment" },
   { label: "Product Colors", href: "/products/colors" },
 
   { label: "Bestsellers", href: "/products/bestseller" },

@@ -16,6 +16,7 @@ import CollectionMultiSelect from "@/components/product/CollectionMultiSelect";
 import FabricAdd from "@/components/product/FabricAdd"; // ✅ NEW (replaces ProductFabricAssignment)
 import OriginalProductLinkField from "@/components/product/OriginalProductLinkField";
 import ProductProductionDetails from "@/components/product/ProductProductionDetails";
+import ProductSamplingPattern from "@/components/product/ProductSamplingPattern";
 
 const BACKEND = (process.env.NEXT_PUBLIC_BACKEND_URL || "").replace(/\/+$/, "");
 
@@ -68,18 +69,20 @@ export default function ProductDetailsPage({ params }) {
 
     attributes: [],
     variants: [],
+    isSamplingDone: false,
+    isPatternReady: false,
 
     images: [],
     thumbnail: "",
 
     fabrics: [], // ✅ NEW
     avgFabricConsumption: {
-  value: 0,
-  unit: "meter",
-  wastePercentage: 5,
-},
+      value: 0,
+      unit: "meter",
+      wastePercentage: 5,
+    },
 
-accessories: [],
+    accessories: [],
     crossSellProducts: [],
     collections: [],
     originalProductLink: "",
@@ -161,23 +164,27 @@ accessories: [],
             attributes: safeArr(v?.attributes),
           })),
 
+
+          isSamplingDone: Boolean(pData?.isSamplingDone),
+          isPatternReady: Boolean(pData?.isPatternReady),
+
           images: imgs,
           thumbnail: thumb,
 
           fabrics: safeArr(pData?.fabrics), // ✅ NEW
           avgFabricConsumption:
-  pData?.avgFabricConsumption || {
-    value: 0,
-    unit: "meter",
-    wastePercentage: 5,
-  },
+            pData?.avgFabricConsumption || {
+              value: 0,
+              unit: "meter",
+              wastePercentage: 5,
+            },
 
-accessories: safeArr(pData?.accessories),
+          accessories: safeArr(pData?.accessories),
           crossSellProducts: safeArr(pData?.crossSellProducts).map((x) =>
             typeof x === "string" ? x : x?._id,
           ),
           collections: safeArr(pData?.collections),
- originalProductLink: s(pData?.originalProductLink),
+          originalProductLink: s(pData?.originalProductLink),
           highlights: safeArr(pData?.highlights),
           weight: n(pData?.weight),
           dimensions: pData?.dimensions || { length: 0, width: 0, height: 0, unit: "cm" },
@@ -272,9 +279,12 @@ accessories: safeArr(pData?.accessories),
 
         fabrics: cleanedFabrics, // ✅ NEW
         avgFabricConsumption: form.avgFabricConsumption,
-accessories: safeArr(form.accessories),
+        accessories: safeArr(form.accessories),
         attributes: cleanedAttributes,
         ...(variantsDirty ? { variants: cleanedVariants } : {}),
+
+        isSamplingDone: Boolean(form.isSamplingDone),
+
 
         crossSellProducts: safeArr(form.crossSellProducts).filter(Boolean),
         collections: safeArr(form.collections),
@@ -306,19 +316,28 @@ accessories: safeArr(form.accessories),
       setProduct(updated);
 
       const imgs = safeImages(updated);
-      setForm((p) => ({
-  ...p,
-  images: imgs,
-  thumbnail: imgs[0] || "",
-  fabrics: safeArr(updated?.fabrics),
-  avgFabricConsumption:
-    updated?.avgFabricConsumption || {
-      value: 0,
-      unit: "meter",
-      wastePercentage: 5,
-    },
-  accessories: safeArr(updated?.accessories),
-}));
+      setForm((previous) => ({
+        ...previous,
+
+        images: imgs,
+        thumbnail: imgs[0] || "",
+
+        fabrics: safeArr(updated?.fabrics),
+
+        avgFabricConsumption:
+          updated?.avgFabricConsumption || {
+            value: 0,
+            unit: "meter",
+            wastePercentage: 5,
+          },
+
+        accessories: safeArr(updated?.accessories),
+
+        variants: safeArr(updated?.variants),
+
+        isSamplingDone: Boolean(updated?.isSamplingDone),
+        isPatternReady: Boolean(updated?.isPatternReady),
+      }));
     } catch (e) {
       console.error("❌ save error:", e);
       alert(e?.message || "Failed to update product");
@@ -419,7 +438,7 @@ accessories: safeArr(form.accessories),
           />
         </div>
 
-         {/* ✅ NEW: Original product link */}
+        {/* ✅ NEW: Original product link */}
         <div className="bg-white p-5 md:p-6 rounded-xl shadow space-y-4">
           <OriginalProductLinkField
             value={editing ? form.originalProductLink : s(product?.originalProductLink)}
@@ -581,24 +600,24 @@ accessories: safeArr(form.accessories),
         </div>
 
         {/* Production Details */}
-<div className="bg-white p-5 md:p-6 rounded-xl shadow space-y-4">
-  <ProductProductionDetails
-    editable={editing}
-    value={{
-      avgFabricConsumption: editing
-        ? form.avgFabricConsumption
-        : product?.avgFabricConsumption,
-      accessories: editing ? form.accessories : product?.accessories,
-    }}
-    onChange={(next) =>
-      setForm((p) => ({
-        ...p,
-        avgFabricConsumption: next.avgFabricConsumption,
-        accessories: next.accessories,
-      }))
-    }
-  />
-</div>  
+        <div className="bg-white p-5 md:p-6 rounded-xl shadow space-y-4">
+          <ProductProductionDetails
+            editable={editing}
+            value={{
+              avgFabricConsumption: editing
+                ? form.avgFabricConsumption
+                : product?.avgFabricConsumption,
+              accessories: editing ? form.accessories : product?.accessories,
+            }}
+            onChange={(next) =>
+              setForm((p) => ({
+                ...p,
+                avgFabricConsumption: next.avgFabricConsumption,
+                accessories: next.accessories,
+              }))
+            }
+          />
+        </div>
 
         {/* Attributes */}
         <AttributeSelector
@@ -661,6 +680,55 @@ accessories: safeArr(form.accessories),
           onChange={(next) => {
             setVariantsDirty(true);
             setForm((p) => ({ ...p, variants: next }));
+          }}
+        />
+
+        <ProductSamplingPattern
+          productId={product?._id}
+          variants={editing ? form.variants : safeArr(product?.variants)}
+          isSamplingDone={
+            editing
+              ? form.isSamplingDone
+              : Boolean(product?.isSamplingDone)
+          }
+          editable={editing}
+          onVariantsChange={(nextVariants) => {
+            setVariantsDirty(true);
+
+            const nextPatternReady = nextVariants.some((variant) =>
+              Boolean(String(variant?.patternNumber || "").trim()),
+            );
+
+            setForm((previous) => ({
+              ...previous,
+              variants: nextVariants,
+              isPatternReady: nextPatternReady,
+            }));
+
+            setProduct((previous) =>
+              previous
+                ? {
+                  ...previous,
+                  variants: nextVariants,
+                  isPatternReady: nextPatternReady,
+                }
+                : previous,
+            );
+          }}
+          onSamplingChange={(nextValue) => {
+            setForm((previous) => ({
+              ...previous,
+              isSamplingDone: nextValue,
+            }));
+
+            setProduct((previous) =>
+              previous
+                ? {
+                  ...previous,
+                  isSamplingDone: nextValue,
+                }
+                : previous,
+            );
           }}
         />
 

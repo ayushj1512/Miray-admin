@@ -366,6 +366,8 @@ export const useAdminProductStore = create((set, get) => ({
   loading: false,
   saving: false,
   error: null,
+  assignmentProducts: [],
+assignmentProductsLoading: false,
 
   /* ============================================================
     HELPERS
@@ -611,6 +613,97 @@ export const useAdminProductStore = create((set, get) => ({
   }
 },
 
+
+/* ============================================================
+   FABRIC ASSIGNMENT PRODUCTS
+   Loads all products without replacing the normal products grid
+============================================================ */
+fetchFabricAssignmentProducts: async (params = {}) => {
+  try {
+    set({
+      assignmentProductsLoading: true,
+      error: null,
+    });
+
+    const requestLimit = 250;
+    const mergedProducts = [];
+    const seenProductIds = new Set();
+
+    let currentPage = 1;
+    let totalPages = 1;
+
+    do {
+      const query = buildProductQuery({
+        page: currentPage,
+        limit: requestLimit,
+        isActive: params.isActive ?? true,
+        isDraft: params.isDraft,
+        search: params.search,
+        sort: params.sort || "newest",
+      });
+
+      const res = await fetch(`${API}?${query}`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(
+          data.message || "Failed to fetch assignment products"
+        );
+      }
+
+      const productList = Array.isArray(data.products)
+        ? data.products
+        : [];
+
+      productList.forEach((product) => {
+        const id = String(product?._id || "");
+
+        if (!id || seenProductIds.has(id)) return;
+
+        seenProductIds.add(id);
+        mergedProducts.push(product);
+      });
+
+      totalPages = Math.max(Number(data.pages || 1), 1);
+      currentPage += 1;
+    } while (currentPage <= totalPages);
+
+    set({
+      assignmentProducts: mergedProducts,
+      assignmentProductsLoading: false,
+    });
+
+    return mergedProducts;
+  } catch (error) {
+    console.error(
+      "❌ fetchFabricAssignmentProducts error:",
+      error
+    );
+
+    set({
+      assignmentProducts: [],
+      assignmentProductsLoading: false,
+      error: error.message,
+    });
+
+    toast.error(
+      error.message || "Failed to fetch assignment products"
+    );
+
+    return [];
+  }
+},
+
+clearFabricAssignmentProducts: () => {
+  set({
+    assignmentProducts: [],
+    assignmentProductsLoading: false,
+  });
+},
   /* ============================================================
     FETCH SINGLE PRODUCT (EDIT PAGE)
   ============================================================ */
@@ -1549,50 +1642,197 @@ updateProductProductionDetails: async (id, payload = {}) => {
   }opi
 },
 
-  /* ============================================================
-    ✅ SAMPLING STATUS
-  ============================================================ */
+ /* ============================================================
+  SAMPLING STATUS
+  PATCH /api/products/:id/sampling-status
+============================================================ */
+updateSamplingStatus: async (
+  productId,
+  isSamplingDone,
+) => {
+  try {
+    set({ saving: true, error: null });
 
-  updateSamplingStatus: async (productId, isSamplingDone) => {
-    try {
-      set({ saving: true });
-
-      const res = await fetch(`${API}/${productId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ isSamplingDone: !!isSamplingDone }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Sampling update failed");
-
-      const updated = data.product;
-
-      // single product
-      if (get().product?._id === productId) set({ product: updated });
-
-      // list update
-      set((state) => ({
-        products: (state.products || []).map((p) =>
-          p._id === productId
-            ? { ...p, isSamplingDone: !!updated?.isSamplingDone }
-            : p,
-        ),
-      }));
-
-      toast.success(
-        updated.isSamplingDone ? "Sampling Done ✅" : "Sampling Undo ↩️",
-      );
-      return updated;
-    } catch (e) {
-      console.error(e);
-      toast.error(e.message);
-      throw e;
-    } finally {
-      set({ saving: false });
+    if (!productId) {
+      throw new Error("Product ID is required");
     }
-  },
+
+    const nextValue = Boolean(isSamplingDone);
+
+    const res = await fetch(
+      `${API}/${productId}/sampling-status`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          isSamplingDone: nextValue,
+        }),
+      },
+    );
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(
+        data.message || "Sampling update failed",
+      );
+    }
+
+    const updatedProduct = data.product || {
+      _id: productId,
+      isSamplingDone:
+        data.isSamplingDone ?? nextValue,
+    };
+
+    if (
+      String(get().product?._id || "") ===
+      String(productId)
+    ) {
+      set((state) => ({
+        product: state.product
+          ? {
+              ...state.product,
+              ...updatedProduct,
+              isSamplingDone:
+                updatedProduct.isSamplingDone ??
+                nextValue,
+            }
+          : state.product,
+      }));
+    }
+
+    set((state) => ({
+      products: (state.products || []).map((product) =>
+        String(product?._id) === String(productId)
+          ? {
+              ...product,
+              ...updatedProduct,
+              isSamplingDone:
+                updatedProduct.isSamplingDone ??
+                nextValue,
+            }
+          : product,
+      ),
+    }));
+
+    toast.success(
+      nextValue
+        ? "Sampling marked as done ✅"
+        : "Sampling marked as pending",
+    );
+
+    return updatedProduct;
+  } catch (error) {
+    console.error(
+      "❌ updateSamplingStatus:",
+      error,
+    );
+
+    toast.error(
+      error.message || "Sampling update failed",
+    );
+
+    throw error;
+  } finally {
+    set({ saving: false });
+  }
+},
+
+  /* ============================================================
+  VARIANT PATTERN NUMBER
+  PATCH /api/products/:id/variant-pattern
+  body: { variantId, patternNumber }
+============================================================ */
+updateVariantPatternNumber: async (
+  productId,
+  variantId,
+  patternNumber,
+) => {
+  try {
+    set({ saving: true, error: null });
+
+    if (!productId) {
+      throw new Error("Product ID is required");
+    }
+
+    if (!variantId) {
+      throw new Error("Variant ID is required");
+    }
+
+    const nextPatternNumber = String(
+      patternNumber ?? "",
+    ).trim();
+
+    const res = await fetch(
+      `${API}/${productId}/variant-pattern`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          variantId,
+          patternNumber: nextPatternNumber,
+        }),
+      },
+    );
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(
+        data.message || "Pattern number update failed",
+      );
+    }
+
+    const updatedProduct = data.product;
+
+    if (
+      String(get().product?._id || "") ===
+      String(productId)
+    ) {
+      set({
+        product: updatedProduct,
+      });
+    }
+
+    set((state) => ({
+      products: (state.products || []).map((product) =>
+        String(product?._id) === String(productId)
+          ? {
+              ...product,
+              ...updatedProduct,
+            }
+          : product,
+      ),
+    }));
+
+    toast.success(
+      nextPatternNumber
+        ? "Pattern number updated ✅"
+        : "Pattern number removed",
+    );
+
+    return updatedProduct;
+  } catch (error) {
+    console.error(
+      "❌ updateVariantPatternNumber:",
+      error,
+    );
+
+    toast.error(
+      error.message || "Pattern number update failed",
+    );
+
+    throw error;
+  } finally {
+    set({ saving: false });
+  }
+},
 
 
      /* ============================================================

@@ -22,19 +22,21 @@ export default function CuttingBatchHistory({ batches = [], onView }) {
       <div className="border-b border-zinc-200 p-5">
         <h2 className="font-semibold">Batch History</h2>
         <p className="mt-1 text-sm text-zinc-500">
-          View and download previous cutting lists.
+          Confirmed processing Shopify cutting batches.
         </p>
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[950px] text-sm">
+        <table className="w-full min-w-[1050px] text-sm">
           <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
             <tr>
               <th className="px-4 py-3 text-left">Batch</th>
-              <th className="px-4 py-3 text-left">Date & Time</th>
+              <th className="px-4 py-3 text-left">Date</th>
               <th className="px-4 py-3 text-left">Range</th>
-              <th className="px-4 py-3 text-left">Orders</th>
+              <th className="px-4 py-3 text-left">Included</th>
+              <th className="px-4 py-3 text-left">Skipped</th>
               <th className="px-4 py-3 text-left">Pieces</th>
+              <th className="px-4 py-3 text-left">Status</th>
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
@@ -55,10 +57,22 @@ export default function CuttingBatchHistory({ batches = [], onView }) {
                     {batch.fromOrderNumber} → {batch.toOrderNumber}
                   </td>
 
-                  <td className="px-4 py-3">{batch.totalOrders || 0}</td>
+                  <td className="px-4 py-3">
+                    {batch.totalOrders || batch.includedOrders?.length || 0}
+                  </td>
+
+                  <td className="px-4 py-3">
+                    {batch.skippedOrders?.length || 0}
+                  </td>
 
                   <td className="px-4 py-3 font-medium">
                     {batch.totalPieces || 0}
+                  </td>
+
+                  <td className="px-4 py-3">
+                    <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-700">
+                      {batch.status || "generated"}
+                    </span>
                   </td>
 
                   <td className="px-4 py-3">
@@ -78,10 +92,7 @@ export default function CuttingBatchHistory({ batches = [], onView }) {
               ))
             ) : (
               <tr>
-                <td
-                  colSpan={6}
-                  className="px-4 py-10 text-center text-zinc-500"
-                >
+                <td colSpan={8} className="px-4 py-10 text-center text-zinc-500">
                   No cutting batches found.
                 </td>
               </tr>

@@ -4,7 +4,8 @@ export default function CuttingBatchStats({ batches = [] }) {
   const totalBatches = batches.length;
 
   const totalOrders = batches.reduce(
-    (sum, batch) => sum + Number(batch.totalOrders || 0),
+    (sum, batch) =>
+      sum + Number(batch.totalOrders || batch.includedOrders?.length || 0),
     0
   );
 
@@ -13,25 +14,18 @@ export default function CuttingBatchStats({ batches = [] }) {
     0
   );
 
+  const skippedOrders = batches.reduce(
+    (sum, batch) => sum + Number(batch.skippedOrders?.length || 0),
+    0
+  );
+
   const lastBatch = batches?.[0];
 
   const cards = [
-    {
-      label: "Total Batches",
-      value: totalBatches,
-    },
-    {
-      label: "Total Orders",
-      value: totalOrders,
-    },
-    {
-      label: "Total Pieces",
-      value: totalPieces,
-    },
-    {
-      label: "Last Batch",
-      value: lastBatch?.batchNumber || "-",
-    },
+    { label: "Total Batches", value: totalBatches },
+    { label: "Included Orders", value: totalOrders },
+    { label: "Total Pieces", value: totalPieces },
+    { label: "Skipped Orders", value: skippedOrders },
   ];
 
   return (
@@ -45,11 +39,27 @@ export default function CuttingBatchStats({ batches = [] }) {
             {item.label}
           </p>
 
-          <h3 className="mt-2 text-2xl font-semibold text-zinc-950">
+          <h3 className="mt-2 truncate text-2xl font-semibold text-zinc-950">
             {item.value}
           </h3>
         </div>
       ))}
+
+      {lastBatch && (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 md:col-span-4">
+          <p className="text-xs uppercase tracking-wide text-emerald-700">
+            Last Batch
+          </p>
+
+          <h3 className="mt-2 font-semibold text-emerald-950">
+            {lastBatch.batchNumber}
+          </h3>
+
+          <p className="mt-1 text-sm text-emerald-700">
+            {lastBatch.fromOrderNumber} → {lastBatch.toOrderNumber}
+          </p>
+        </div>
+      )}
     </div>
   );
 }

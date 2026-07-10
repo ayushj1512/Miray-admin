@@ -82,6 +82,7 @@ const defaultFilters = {
   category: "",
   unit: "",
   isActive: "",
+  isLowStock: "",
   page: 1,
   limit: 20,
   sortBy: "updatedAt",
@@ -98,6 +99,7 @@ const defaultPagination = {
 
 const useFabricStore = create((set, get) => ({
   fabrics: [],
+  lowStockFabrics: [],
   fabricOptions: [],
   fabricStats: null,
   selectedFabric: null,
@@ -161,6 +163,36 @@ const useFabricStore = create((set, get) => ({
       const message = getErrorMessage(error, "Failed to fetch fabrics");
       set({ loading: false, error: message });
       return { success: false, message };
+    }
+  },
+
+  fetchLowStockFabrics: async () => {
+    try {
+      set({ loading: true, error: null });
+
+      const res = await getRequest("fabrics/low-stock");
+
+      set({
+        lowStockFabrics: res.data || [],
+        loading: false,
+      });
+
+      return res;
+    } catch (error) {
+      const message = getErrorMessage(
+        error,
+        "Failed to fetch low-stock fabrics"
+      );
+
+      set({
+        loading: false,
+        error: message,
+      });
+
+      return {
+        success: false,
+        message,
+      };
     }
   },
 
@@ -285,6 +317,56 @@ const useFabricStore = create((set, get) => ({
     }
   },
 
+  updateFabricLowStockThreshold: async (
+    id,
+    lowStockThreshold
+  ) => {
+    try {
+      set({ formLoading: true, error: null });
+
+      const res = await patchRequest(
+        `fabrics/${id}/low-stock-threshold`,
+        {
+          lowStockThreshold,
+        }
+      );
+
+      if (res.success) {
+        set((state) => ({
+          fabrics: state.fabrics.map((fabric) =>
+            fabric._id === id ? res.data : fabric
+          ),
+          selectedFabric:
+            state.selectedFabric?._id === id
+              ? res.data
+              : state.selectedFabric,
+        }));
+
+        await get().fetchLowStockFabrics();
+        await get().fetchFabricStats();
+      }
+
+      set({ formLoading: false });
+
+      return res;
+    } catch (error) {
+      const message = getErrorMessage(
+        error,
+        "Failed to update low-stock threshold"
+      );
+
+      set({
+        formLoading: false,
+        error: message,
+      });
+
+      return {
+        success: false,
+        message,
+      };
+    }
+  },
+
   updateFabricStatus: async (id, payload) => {
     try {
       set({ formLoading: true, error: null });
@@ -306,49 +388,49 @@ const useFabricStore = create((set, get) => ({
   },
 
   assignProductCodesToFabric: async (id, productCodes = []) => {
-  try {
-    set({ formLoading: true, error: null });
+    try {
+      set({ formLoading: true, error: null });
 
-    const res = await patchRequest(
-      `fabrics/${id}/assign-products`,
-      {
-        productCodes,
+      const res = await patchRequest(
+        `fabrics/${id}/assign-products`,
+        {
+          productCodes,
+        }
+      );
+
+      if (res.success) {
+        set((state) => ({
+          fabrics: state.fabrics.map((fabric) =>
+            fabric._id === id ? res.data : fabric
+          ),
+          selectedFabric:
+            state.selectedFabric?._id === id
+              ? res.data
+              : state.selectedFabric,
+        }));
+
+        await get().fetchFabricStats();
       }
-    );
 
-    if (res.success) {
-      set((state) => ({
-        fabrics: state.fabrics.map((fabric) =>
-          fabric._id === id ? res.data : fabric
-        ),
-        selectedFabric:
-          state.selectedFabric?._id === id
-            ? res.data
-            : state.selectedFabric,
-      }));
+      set({ formLoading: false });
+      return res;
+    } catch (error) {
+      const message = getErrorMessage(
+        error,
+        "Failed to assign product codes"
+      );
 
-      await get().fetchFabricStats();
+      set({
+        formLoading: false,
+        error: message,
+      });
+
+      return {
+        success: false,
+        message,
+      };
     }
-
-    set({ formLoading: false });
-    return res;
-  } catch (error) {
-    const message = getErrorMessage(
-      error,
-      "Failed to assign product codes"
-    );
-
-    set({
-      formLoading: false,
-      error: message,
-    });
-
-    return {
-      success: false,
-      message,
-    };
-  }
-},
+  },
 
   updateMovementStatus: async (id, movementStatus) => {
     try {
@@ -476,18 +558,139 @@ const useFabricStore = create((set, get) => ({
     }
   },
 
+  refreshFabricLowStock: async (id) => {
+    try {
+      set({ formLoading: true, error: null });
+
+      const res = await patchRequest(
+        `fabrics/${id}/refresh-low-stock`
+      );
+
+      if (res.success) {
+        set((state) => ({
+          fabrics: state.fabrics.map((fabric) =>
+            fabric._id === id ? res.data : fabric
+          ),
+          selectedFabric:
+            state.selectedFabric?._id === id
+              ? res.data
+              : state.selectedFabric,
+        }));
+
+        await get().fetchLowStockFabrics();
+        await get().fetchFabricStats();
+      }
+
+      set({ formLoading: false });
+
+      return res;
+    } catch (error) {
+      const message = getErrorMessage(
+        error,
+        "Failed to refresh low-stock status"
+      );
+
+      set({
+        formLoading: false,
+        error: message,
+      });
+
+      return {
+        success: false,
+        message,
+      };
+    }
+  },
+
+  refreshAllFabricsLowStock: async () => {
+    try {
+      set({ formLoading: true, error: null });
+
+      const res = await patchRequest(
+        "fabrics/low-stock/refresh-all"
+      );
+
+      if (res.success) {
+        await get().fetchFabrics();
+        await get().fetchLowStockFabrics();
+        await get().fetchFabricStats();
+      }
+
+      set({ formLoading: false });
+
+      return res;
+    } catch (error) {
+      const message = getErrorMessage(
+        error,
+        "Failed to refresh all low-stock fabrics"
+      );
+
+      set({
+        formLoading: false,
+        error: message,
+      });
+
+      return {
+        success: false,
+        message,
+      };
+    }
+  },
+
+  updateAllFabricLowStockThresholds: async (
+    lowStockThreshold
+  ) => {
+    try {
+      set({ formLoading: true, error: null });
+
+      const res = await patchRequest(
+        "fabrics/low-stock/threshold-all",
+        {
+          lowStockThreshold,
+        }
+      );
+
+      if (res.success) {
+        await get().fetchFabrics();
+        await get().fetchLowStockFabrics();
+        await get().fetchFabricStats();
+      }
+
+      set({ formLoading: false });
+
+      return res;
+    } catch (error) {
+      const message = getErrorMessage(
+        error,
+        "Failed to update all fabric thresholds"
+      );
+
+      set({
+        formLoading: false,
+        error: message,
+      });
+
+      return {
+        success: false,
+        message,
+      };
+    }
+  },
+
   clearSelectedFabric: () => {
     set({ selectedFabric: null });
   },
   setSelectedFabric: (fabric) => {
-  set({
-    selectedFabric: fabric || null,
-  });
-},
+    set({
+      selectedFabric: fabric || null,
+    });
+  },
 
   resetfabricStore: () => {
     set({
       fabrics: [],
+      lowStockFabrics: [],
+
       fabricOptions: [],
       fabricStats: null,
       selectedFabric: null,

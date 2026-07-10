@@ -100,40 +100,44 @@ export const sidebarMenus = {
   ],
 
   fabrics: [
-  {
-    label: "Fabric Dashboard",
-    href: "/fabrics",
-  },
-  {
-    label: "Add Fabric",
-    href: "/fabrics/add-fabric",
-  },
-  {
-    label: "Fabric Inventory",
-    href: "/fabrics/inventory",
-  },
-  {
-    label: "Import Fabrics",
-    href: "/fabrics/import",
-  },
-  {
-    label: "Fabric Actions",
-    href: "/fabrics/actions",
-  },
-  {
-    label: "Fabric Logs",
-    href: "/fabrics/logs",
-  },
-  {
-    label: "Fabric Price Logs",
-    href: "/fabrics/price-logs",
-  },
-  {
-  label: "Fabric Product Assignment",
-  href: "/fabrics/fabric-product-assignment",
-},
-]
-,
+    {
+      label: "Fabric Dashboard",
+      href: "/fabrics",
+    },
+    {
+      label: "Add Fabric",
+      href: "/fabrics/add-fabric",
+    },
+    {
+      label: "Fabric Inventory",
+      href: "/fabrics/inventory",
+    },
+    {
+      label: "Import Fabrics",
+      href: "/fabrics/import",
+    },
+    {
+      label: "Fabric Actions",
+      href: "/fabrics/actions",
+    },
+    {
+      label: "Fabric Logs",
+      href: "/fabrics/logs",
+    },
+    {
+      label: "Fabric Price Logs",
+      href: "/fabrics/price-logs",
+    },
+    {
+      label: "Fabric Product Assignment",
+      href: "/fabrics/fabric-product-assignment",
+    },
+    {
+      label: "Low Stock Fabrics",
+      href: "/fabrics/low-stock",
+    },
+  ]
+  ,
 
   media: [
     { label: "Media Library", href: "/media" },
@@ -157,44 +161,44 @@ export const sidebarMenus = {
   ],
 
   products: [
-  { label: "Product Dashboard", href: "/products" },
-  { label: "Add New Product", href: "/products/add" },
-  { label: "Manage Products", href: "/products/manage" },
-  { label: "Search Product", href: "/products/search" },
+    { label: "Product Dashboard", href: "/products" },
+    { label: "Add New Product", href: "/products/add" },
+    { label: "Manage Products", href: "/products/manage" },
+    { label: "Search Product", href: "/products/search" },
 
-  { label: "Categories", href: "/products/category" },
-  { label: "Category Analytics", href: "/products/category-analytics" },
-  { label: "Collections", href: "/products/collections" },
-  { label: "Attributes", href: "/products/attributes" },
-  { label: "Variants", href: "/products/variants" },
-  { label: "Size Charts", href: "/products/size-charts" },
+    { label: "Categories", href: "/products/category" },
+    { label: "Category Analytics", href: "/products/category-analytics" },
+    { label: "Collections", href: "/products/collections" },
+    { label: "Attributes", href: "/products/attributes" },
+    { label: "Variants", href: "/products/variants" },
+    { label: "Size Charts", href: "/products/size-charts" },
 
-  { label: "Fabric Assignment", href: "/products/fabric-assignment" },
-  { label: "Accessories Assignment", href: "/products/accessories-assignment" },
-  { label: "Fabric Product Assignment", href: "/products/fabric-product-assignment" },
-  { label: "Product Colors", href: "/products/colors" },
+    { label: "Fabric Assignment", href: "/products/fabric-assignment" },
+    { label: "Accessories Assignment", href: "/products/accessories-assignment" },
+    { label: "Fabric Product Assignment", href: "/products/fabric-product-assignment" },
+    { label: "Product Colors", href: "/products/colors" },
 
-  { label: "Bestsellers", href: "/products/bestseller" },
-  { label: "Secondary Products", href: "/products/secondary-products" },
-  { label: "Coming Soon", href: "/products/comingsoon" },
+    { label: "Bestsellers", href: "/products/bestseller" },
+    { label: "Secondary Products", href: "/products/secondary-products" },
+    { label: "Coming Soon", href: "/products/comingsoon" },
 
-  { label: "Analytics", href: "/products/analytics" },
-  { label: "Products RMA Insights", href: "/products/products-rma-insights" },
+    { label: "Analytics", href: "/products/analytics" },
+    { label: "Products RMA Insights", href: "/products/products-rma-insights" },
 
-  { label: "Name Edit", href: "/products/name-edit" },
-  { label: "Price Updates", href: "/products/pricing" },
-  { label: "Bulk Price Editor", href: "/products/bulkPriceEditor" },
-  { label: "Inventory Sync", href: "/products/inventory-sync" },
+    { label: "Name Edit", href: "/products/name-edit" },
+    { label: "Price Updates", href: "/products/pricing" },
+    { label: "Bulk Price Editor", href: "/products/bulkPriceEditor" },
+    { label: "Inventory Sync", href: "/products/inventory-sync" },
 
-  { label: "Bulk Import", href: "/products/bulk-import" },
-  { label: "Bulk Export", href: "/products/bulk-export" },
+    { label: "Bulk Import", href: "/products/bulk-import" },
+    { label: "Bulk Export", href: "/products/bulk-export" },
 
-  { label: "Offers & Discounts", href: "/products/offers" },
-  { label: "SEO Manager", href: "/products/seo" },
-  { label: "Reviews & Ratings", href: "/products/reviews" },
+    { label: "Offers & Discounts", href: "/products/offers" },
+    { label: "SEO Manager", href: "/products/seo" },
+    { label: "Reviews & Ratings", href: "/products/reviews" },
 
-  { label: "Media Library", href: "/media" },
-],
+    { label: "Media Library", href: "/media" },
+  ],
 
   orders: [
     { label: "Orders Dashboard", href: "/orders" },
@@ -441,32 +445,32 @@ export const sidebarMenus = {
   ],
 
   shopify: [
-  { label: "Dashboard", href: "/shopify" },
+    { label: "Dashboard", href: "/shopify" },
 
-  { label: "Sales Analytics", href: "/shopify/sales-analytics" },
+    { label: "Sales Analytics", href: "/shopify/sales-analytics" },
 
-  // Orders
-  { label: "Orders", href: "/shopify/orders" },
-  { label: "All Orders", href: "/shopify/all-orders" },
-  { label: "Pending Fulfillment", href: "/shopify/unfulfilled-orders" },
-  { label: "Fulfilled Orders", href: "/shopify/fulfilled-orders" },
-  { label: "Bulk Fulfillment", href: "/shopify/bulk-fulfillment" },
-  { label: "Order Confirmation", href: "/shopify/order-confrimation" },
+    // Orders
+    { label: "Orders", href: "/shopify/orders" },
+    { label: "All Orders", href: "/shopify/all-orders" },
+    { label: "Pending Fulfillment", href: "/shopify/unfulfilled-orders" },
+    { label: "Fulfilled Orders", href: "/shopify/fulfilled-orders" },
+    { label: "Bulk Fulfillment", href: "/shopify/bulk-fulfillment" },
+    { label: "Order Confirmation", href: "/shopify/order-confrimation" },
 
-  // Catalog
-  { label: "Products", href: "/shopify/products" },
-  { label: "Inventory", href: "/shopify/inventory" },
-  { label: "Reserved Stock", href: "/shopify/reserved-inventory" },
-  { label: "Customers", href: "/shopify/customers" },
+    // Catalog
+    { label: "Products", href: "/shopify/products" },
+    { label: "Inventory", href: "/shopify/inventory" },
+    { label: "Reserved Stock", href: "/shopify/reserved-inventory" },
+    { label: "Customers", href: "/shopify/customers" },
 
-  // Production
-  { label: "Production", href: "/shopify/shopify-production" },
-  { label: "Production Matrix", href: "/shopify/production-matrix" },
-  { label: "Cutting List", href: "/shopify/cutting-list" },
+    // Production
+    { label: "Production", href: "/shopify/shopify-production" },
+    { label: "Production Matrix", href: "/shopify/production-matrix" },
+    { label: "Cutting List", href: "/shopify/cutting-list" },
 
-  // Settings
-  { label: "Settings", href: "/shopify/settings" },
-],    
+    // Settings
+    { label: "Settings", href: "/shopify/settings" },
+  ],
 };
 
 export const routeSidebarMap = [

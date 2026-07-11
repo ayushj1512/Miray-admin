@@ -272,6 +272,50 @@ const useFabricStore = create((set, get) => ({
     }
   },
 
+    searchFabrics: async (params = {}) => {
+    try {
+      set({
+        loading: true,
+        error: null,
+      });
+
+      const res = await getRequest(
+        "fabrics/search",
+        params
+      );
+
+      set({
+        searchResults: res.data || [],
+        pagination: {
+          total: res.total || 0,
+          page: res.page || 1,
+          limit: res.limit || 20,
+          totalPages: res.totalPages || 1,
+          count: res.count || 0,
+        },
+        loading: false,
+      });
+
+      return res;
+    } catch (error) {
+      const message = getErrorMessage(
+        error,
+        "Failed to search fabrics"
+      );
+
+      set({
+        loading: false,
+        error: message,
+        searchResults: [],
+      });
+
+      return {
+        success: false,
+        message,
+      };
+    }
+  },
+
   createFabric: async (payload) => {
     try {
       set({ formLoading: true, error: null });
@@ -693,8 +737,8 @@ const useFabricStore = create((set, get) => ({
 
       fabricOptions: [],
       fabricStats: null,
-      selectedFabric: null,
-      loading: false,
+selectedFabric: null,
+searchResults: [],      loading: false,
       formLoading: false,
       error: null,
       filters: defaultFilters,

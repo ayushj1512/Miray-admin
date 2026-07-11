@@ -105,6 +105,10 @@ export const sidebarMenus = {
       href: "/fabrics",
     },
     {
+      label: "Search Fabrics",
+      href: "/fabrics/search",
+    },
+    {
       label: "Add Fabric",
       href: "/fabrics/add-fabric",
     },
@@ -136,8 +140,7 @@ export const sidebarMenus = {
       label: "Low Stock Fabrics",
       href: "/fabrics/low-stock",
     },
-  ]
-  ,
+  ],
 
   media: [
     { label: "Media Library", href: "/media" },

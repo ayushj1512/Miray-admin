@@ -1,4 +1,4 @@
-m// app/products/[slug]/page.jsx
+// app/products/[slug]/page.jsx
 "use client";
 
 import { useEffect, useMemo, useState, use } from "react";

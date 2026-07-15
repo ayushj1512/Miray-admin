@@ -580,6 +580,61 @@ export const useOrderStore = create((set, get) => ({
     return order;
   },
 
+     updateOrderItemSize: async (
+    orderId,
+    lineId,
+    size,
+    {
+      source = "website",
+      quantity = null,
+      notifyCustomer = false,
+    } = {}
+  ) => {
+    if (!orderId || !lineId) return null;
+
+    const normalizedSize = String(size || "")
+      .trim()
+      .toUpperCase();
+
+    if (!normalizedSize) {
+      throw new Error("Size is required");
+    }
+
+    const normalizedSource = String(source || "website")
+      .trim()
+      .toLowerCase();
+
+    const isShopify = normalizedSource === "shopify";
+
+    const path = isShopify
+      ? `/api/shopify/orders/${orderId}/items/${lineId}/size`
+      : `/api/orders/${orderId}/items/${lineId}/size`;
+
+    const payload = isShopify
+      ? {
+          size: normalizedSize,
+          quantity:
+            quantity === null || quantity === ""
+              ? undefined
+              : Number(quantity),
+          notifyCustomer: Boolean(notifyCustomer),
+        }
+      : {
+          size: normalizedSize,
+        };
+
+    const data = await get()._patch(path, payload);
+    const order = get()._normalizeOrder(data);
+
+    if (order?._id) {
+      set({ order });
+      get()._syncOrderInList(order);
+      get()._syncCustomerSupportDetail(order);
+    }
+
+    return order;
+  },
+
   updateOrder: async (orderId, payload) => {
     if (!orderId) return null;
 

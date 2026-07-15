@@ -223,6 +223,7 @@ export const sidebarMenus = {
     },
     { label: "Confirmed Orders", href: "/orders/confirmed-orders" },
     { label: "Unconfirmed Orders", href: "/orders/unconfirmed-orders" },
+    { label: "Size Change", href: "/orders/size-change" },
 
     { label: "Duplicate Orders", href: "/orders/duplicate-orders" },
     { label: "Refund Escalation", href: "/orders/refund-escalation" },
@@ -465,6 +466,7 @@ export const sidebarMenus = {
     { label: "Inventory", href: "/shopify/inventory" },
     { label: "Reserved Stock", href: "/shopify/reserved-inventory" },
     { label: "Customers", href: "/shopify/customers" },
+    { label: "Size Change", href: "/shopify/size-change" },
 
     // Production
     { label: "Production", href: "/shopify/shopify-production" },

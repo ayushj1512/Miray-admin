@@ -29,6 +29,7 @@ import OrderConfirmationDetails from "@/components/orders/OrderConfirmationDetai
 import OrderSourceAttributionCard from "@/components/orders/OrderSourceAttributionCard";
 import OrderCouponDetails from "@/components/orders/OrderCouponDetails";
 import OrderPaymentDetails from "@/components/orders/OrderPaymentDetails";
+import OrderShippingDetailsCard from "@/components/orders/OrderShippingDetailsCard";
 const API = process.env.NEXT_PUBLIC_API_URL;
 const STORE_URL = "https://www.mirayfashions.com";
 
@@ -512,6 +513,11 @@ export default function OrderDetailsClient({ id }) {
 }
             onRefresh={() => fetchOrderById(order._id)}
           />
+
+          <OrderShippingDetailsCard
+  order={order}
+  onRefresh={() => fetchOrderById(order._id)}
+/>
 
           <OrderTrackingCard
             orderId={order._id}

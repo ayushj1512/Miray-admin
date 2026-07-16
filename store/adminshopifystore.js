@@ -77,6 +77,16 @@ bulkFulfillResult: null,
 
   selectedShopifyProduct: null,
 
+    grantedScopes: [],
+  grantedScopesLoading: false,
+  grantedScopesError: null,
+  requiredScopesStatus: {
+    writeOrderEdits: false,
+    readOrderEdits: false,
+    readOrders: false,
+    readProducts: false,
+  },
+
   // initial state me add karo
   orderAnalytics: null,
   orderAnalyticsLoading: false,
@@ -711,7 +721,52 @@ bulkFulfillResult: null,
       fulfillmentOrders: [],
       fulfillmentError: null,
     }),
+  fetchGrantedScopes: async () => {
+    try {
+      set({
+        grantedScopesLoading: true,
+        grantedScopesError: null,
+      });
 
+      const data = await getRequest("scopes");
+
+      set({
+        grantedScopes: Array.isArray(data?.scopes) ? data.scopes : [],
+        requiredScopesStatus: {
+          writeOrderEdits: Boolean(
+            data?.required?.writeOrderEdits
+          ),
+          readOrderEdits: Boolean(
+            data?.required?.readOrderEdits
+          ),
+          readOrders: Boolean(
+            data?.required?.readOrders
+          ),
+          readProducts: Boolean(
+            data?.required?.readProducts
+          ),
+        },
+        grantedScopesLoading: false,
+      });
+
+      return data;
+    } catch (error) {
+      const message = getErrorMessage(
+        error,
+        "Failed to fetch granted Shopify scopes"
+      );
+
+      set({
+        grantedScopesLoading: false,
+        grantedScopesError: message,
+      });
+
+      return {
+        success: false,
+        message,
+      };
+    }
+  },
 
   expireShopifyToken: async () => {
     try {
@@ -739,6 +794,18 @@ bulkFulfillResult: null,
       };
     }
   },
+
+    clearGrantedScopesState: () =>
+    set({
+      grantedScopes: [],
+      grantedScopesError: null,
+      requiredScopesStatus: {
+        writeOrderEdits: false,
+        readOrderEdits: false,
+        readOrders: false,
+        readProducts: false,
+      },
+    }),
 
   // actions ke andar add karo
   fetchShopifyOrderAnalytics: async (params = {}) => {

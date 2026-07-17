@@ -80,6 +80,16 @@ export const useShiprocketStore = create((set, get) => ({
   syncErrorCode: null,
   syncResult: null,
 
+  repairLoading: false,
+  repairingOrderId: null,
+  repairError: null,
+  repairResult: null,
+  bulkRepairResult: null,
+
+  packageUpdateLoading: false,
+  packageUpdateError: null,
+  packageUpdateResult: null,
+
   /* ============================================================
      INTERNAL SETTERS
   ============================================================ */
@@ -126,6 +136,28 @@ export const useShiprocketStore = create((set, get) => ({
           ? "Shiprocket temporary down. Try again in 2 minutes."
           : err?.message || "Tracking sync failed",
       syncErrorCode: err?.code || null,
+    }),
+
+  _startRepair: (orderId = null) =>
+    set({
+      repairLoading: true,
+      repairingOrderId: orderId,
+      repairError: null,
+    }),
+
+  _successRepair: () =>
+    set({
+      repairLoading: false,
+      repairingOrderId: null,
+    }),
+
+  _errorRepair: (err) =>
+    set({
+      repairLoading: false,
+      repairingOrderId: null,
+      repairError:
+        err?.message ||
+        "Unable to repair Shiprocket details",
     }),
 
   /* ============================================================
@@ -300,6 +332,177 @@ export const useShiprocketStore = create((set, get) => ({
   },
 
   /* ============================================================
+   REPAIR SINGLE SHIPROCKET ORDER
+   POST /api/orders/:id/repair
+============================================================ */
+  repairShipment: async (
+    orderId,
+    {
+      courierCompanyId = null,
+      generateShippingLabel = true,
+    } = {}
+  ) => {
+    if (!orderId) {
+      throw new Error("orderId is required");
+    }
+
+    get()._startRepair(orderId);
+
+    try {
+      const res = await fetch(
+        buildUrl(`/api/orders/${orderId}/repair`),
+        {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            courierCompanyId,
+            generateShippingLabel,
+          }),
+        }
+      );
+
+      const data = await safeJson(res);
+
+      if (!res.ok) {
+        throw normalizeError(res, data);
+      }
+
+      set({
+        repairResult: data,
+      });
+
+      get()._successRepair();
+
+      return data;
+    } catch (error) {
+      get()._errorRepair(error);
+      throw error;
+    }
+  },
+
+  /* ============================================================
+   UPDATE SHIPROCKET PACKAGE
+   PATCH /api/orders/:id/package
+============================================================ */
+  updatePackage: async (
+    orderId,
+    {
+      length = 10,
+      breadth = 10,
+      height = 5,
+      weight = 0.5,
+    } = {}
+  ) => {
+    if (!orderId) {
+      throw new Error("orderId is required");
+    }
+
+    set({
+      packageUpdateLoading: true,
+      packageUpdateError: null,
+    });
+
+    try {
+      const res = await fetch(
+        buildUrl(`/api/orders/${orderId}/package`),
+        {
+          method: "PATCH",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            length,
+            breadth,
+            height,
+            weight,
+          }),
+        }
+      );
+
+      const data = await safeJson(res);
+
+      if (!res.ok) {
+        throw normalizeError(res, data);
+      }
+
+      set({
+        packageUpdateLoading: false,
+        packageUpdateResult: data,
+      });
+
+      return data;
+    } catch (error) {
+      set({
+        packageUpdateLoading: false,
+        packageUpdateError:
+          error?.message ||
+          "Unable to update package",
+      });
+
+      throw error;
+    }
+  },
+
+  /* ============================================================
+     REPAIR ALL MISSING SHIPROCKET DETAILS
+     POST /api/orders/repair/bulk
+  ============================================================ */
+  repairMissingShipments: async ({
+    orderIds = [],
+    limit = 100,
+    courierCompanyId = null,
+    generateShippingLabel = true,
+  } = {}) => {
+    get()._startRepair();
+
+    try {
+      const res = await fetch(
+        buildUrl("/api/orders/repair/bulk"),
+        {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            orderIds:
+              Array.isArray(orderIds)
+                ? orderIds
+                : [],
+            limit,
+            courierCompanyId,
+            generateShippingLabel,
+          }),
+        }
+      );
+
+      const data = await safeJson(res);
+
+      if (!res.ok) {
+        throw normalizeError(res, data);
+      }
+
+      set({
+        bulkRepairResult: data,
+      });
+
+      get()._successRepair();
+
+      return data;
+    } catch (error) {
+      get()._errorRepair(error);
+      throw error;
+    }
+  },
+
+  /* ============================================================
      BULK BOOKING (optional)
      POST /api/orders/shiprocket/book-missing
   ============================================================ */
@@ -337,6 +540,26 @@ export const useShiprocketStore = create((set, get) => ({
   clearReverseResult: () => set({ reverseResult: null }),
   clearServiceabilityResult: () => set({ serviceabilityResult: null }),
   clearSyncResult: () => set({ syncResult: null }),
+  clearRepairError: () =>
+    set({
+      repairError: null,
+    }),
+
+  clearRepairResult: () =>
+    set({
+      repairResult: null,
+    }),
+
+  clearPackageUpdate: () =>
+    set({
+      packageUpdateError: null,
+      packageUpdateResult: null,
+    }),
+
+  clearBulkRepairResult: () =>
+    set({
+      bulkRepairResult: null,
+    }),
 
   resetStore: () =>
     set({
@@ -360,5 +583,15 @@ export const useShiprocketStore = create((set, get) => ({
       syncError: null,
       syncErrorCode: null,
       syncResult: null,
+
+      repairLoading: false,
+      repairingOrderId: null,
+      repairError: null,
+      repairResult: null,
+      bulkRepairResult: null,
+
+      packageUpdateLoading: false,
+      packageUpdateError: null,
+      packageUpdateResult: null,
     }),
 }));

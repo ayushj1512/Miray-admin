@@ -81,6 +81,296 @@ const normalizeOrdersPayload = (data) => {
   return { orders: [], meta: data?.meta || null };
 };
 
+/* =========================================================
+   COMMON ORDER NORMALIZATION
+========================================================= */
+
+const toText = (value) => String(value ?? "").trim();
+
+const toNumber = (value, fallback = 0) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+};
+
+const normalizeOrderSource = (order = {}) => {
+  const explicitSource = toText(
+    order?.source ||
+    order?.orderSource ||
+    order?.platform
+  ).toLowerCase();
+
+  if (
+    explicitSource === "shopify" ||
+    order?.shopify?.orderId ||
+    order?.shopifyOrderId
+  ) {
+    return "shopify";
+  }
+
+  return "website";
+};
+
+const normalizeAddress = (address = {}) => ({
+  fullName: toText(
+    address?.fullName ||
+    address?.name ||
+    `${address?.firstName || ""} ${address?.lastName || ""}`
+  ),
+
+  phone: toText(address?.phone || address?.mobile),
+  email: toText(address?.email),
+
+  line1: toText(
+    address?.line1 ||
+    address?.address1 ||
+    address?.address
+  ),
+
+  line2: toText(address?.line2 || address?.address2),
+  city: toText(address?.city),
+  state: toText(address?.state || address?.province),
+  country: toText(address?.country),
+  pincode: toText(
+    address?.pincode ||
+    address?.zip ||
+    address?.postalCode
+  ),
+});
+
+const normalizeOrderItem = (item = {}, index = 0) => {
+  const snapshot = item?.productSnapshot || {};
+  const variant = item?.variant || {};
+
+  const attributes = Array.isArray(variant?.attributes)
+    ? variant.attributes
+    : Array.isArray(item?.attributes)
+      ? item.attributes
+      : [];
+
+  const getAttribute = (...keys) => {
+    const allowed = keys.map((key) => key.toLowerCase());
+
+    const match = attributes.find((attribute) =>
+      allowed.includes(
+        toText(attribute?.key || attribute?.name).toLowerCase()
+      )
+    );
+
+    return toText(match?.value);
+  };
+
+  const quantity = Math.max(
+    1,
+    toNumber(item?.quantity || item?.qty, 1)
+  );
+
+  const price = toNumber(
+    item?.price ??
+    item?.unitPrice ??
+    item?.originalUnitPrice ??
+    snapshot?.price,
+    0
+  );
+
+  return {
+    ...item,
+
+    lineId: toText(
+      item?.lineId ||
+      item?.shopifyLineItemId ||
+      item?.lineItemId ||
+      item?._id ||
+      `line-${index}`
+    ),
+
+    productId:
+      item?.productId?._id ||
+      item?.productId ||
+      item?.product?.id ||
+      null,
+
+    variantId:
+      variant?.variantId ||
+      item?.variantId ||
+      item?.shopifyVariantId ||
+      null,
+
+    title: toText(
+      snapshot?.title ||
+      item?.title ||
+      item?.name ||
+      item?.productTitle
+    ),
+
+    productCode: toText(
+      snapshot?.productCode ||
+      item?.productCode ||
+      item?.sku
+    ),
+
+    sku: toText(
+      variant?.sku ||
+      snapshot?.sku ||
+      item?.sku
+    ),
+
+    image: toText(
+      snapshot?.thumbnail ||
+      snapshot?.images?.[0] ||
+      item?.thumbnail ||
+      item?.image ||
+      item?.imageUrl
+    ),
+
+    selectedSize: toText(
+      item?.selectedSize ||
+      item?.size ||
+      getAttribute("size", "sizes")
+    ),
+
+    selectedColor: toText(
+      item?.selectedColor ||
+      item?.color ||
+      getAttribute("color", "colour")
+    ),
+
+    quantity,
+    price,
+
+    subtotal: toNumber(
+      item?.subtotal ??
+      item?.lineTotal ??
+      price * quantity,
+      price * quantity
+    ),
+
+    fulfillment: {
+      allocatedQty: toNumber(
+        item?.fulfillment?.allocatedQty,
+        0
+      ),
+
+      shippedQty: toNumber(
+        item?.fulfillment?.shippedQty,
+        0
+      ),
+
+      toProduceQty: toNumber(
+        item?.fulfillment?.toProduceQty,
+        quantity
+      ),
+    },
+
+    raw: item,
+  };
+};
+
+/* =========================================================
+   COMMON ORDER NORMALIZER
+   Website + imported Shopify orders
+========================================================= */
+
+export const normalizeOrder = (order = {}) => {
+  if (!order || typeof order !== "object") return null;
+
+  const source =
+    String(order?.source || "").toLowerCase() === "shopify" ||
+      Boolean(order?.shopify?.orderId)
+      ? "shopify"
+      : "website";
+
+  const address =
+    order?.shippingAddressSnapshot ||
+    order?.shippingAddress ||
+    order?.shopify?.raw?.shippingAddress ||
+    {};
+
+  const items = Array.isArray(order?.items)
+    ? order.items
+    : Array.isArray(order?.lineItems)
+      ? order.lineItems
+      : [];
+
+  return {
+    ...order,
+
+    _id: order?._id || order?.id || "",
+    orderNumber:
+      order?.orderNumber ||
+      order?.shopify?.orderName ||
+      order?.name ||
+      "",
+
+    source,
+    isShopify: source === "shopify",
+
+    customerName:
+      address?.fullName ||
+      address?.name ||
+      `${address?.firstName || ""} ${address?.lastName || ""}`.trim(),
+
+    customerPhone:
+      address?.phone ||
+      address?.mobile ||
+      "",
+
+    customerEmail:
+      address?.email ||
+      "",
+
+    items,
+
+    totalItems: items.reduce(
+      (sum, item) => sum + Number(item?.quantity || 0),
+      0
+    ),
+
+    finalPayable: Number(
+      order?.finalPayable ??
+      order?.totalAmount ??
+      order?.shopify?.raw?.currentTotalPriceSet?.shopMoney?.amount ??
+      order?.shopify?.raw?.totalPriceSet?.shopMoney?.amount ??
+      0
+    ),
+
+    fulfillmentStatus: String(
+      order?.fulfillmentStatus ||
+      order?.shipment?.status ||
+      order?.shopify?.fulfillmentStatus ||
+      "processing"
+    ).toLowerCase(),
+
+    paymentStatus: String(
+      order?.paymentStatus ||
+      order?.shopify?.financialStatus ||
+      "pending"
+    ).toLowerCase(),
+
+    awb:
+      order?.shipment?.awb ||
+      order?.trackingDetails?.awb ||
+      "",
+
+    courierName:
+      order?.shipment?.courierName ||
+      order?.trackingDetails?.courierName ||
+      "",
+
+    trackingUrl:
+      order?.shipment?.trackingUrl ||
+      order?.trackingDetails?.trackingUrl ||
+      "",
+
+    labelUrl:
+      order?.shipment?.labelUrl ||
+      "",
+  };
+};
+
+export const normalizeOrders = (orders = []) =>
+  (Array.isArray(orders) ? orders : [])
+    .map(normalizeOrder)
+    .filter(Boolean);
 export const getOrderAttributionLabel = (order = {}) => {
   const attr = order?.attribution || {};
 
@@ -108,7 +398,7 @@ export const useOrderStore = create((set, get) => ({
   confirmationDetailsLoading: false,
   orderDashboard: null,
   orderDashboardLoading: false,
-
+  bulkCancellationLoading: false,
   _start: () => set({ loading: true, error: null }),
   _success: () => set({ loading: false }),
   _fail: (err) =>
@@ -117,7 +407,16 @@ export const useOrderStore = create((set, get) => ({
       error: err?.message || "Something went wrong",
     }),
 
-  _normalizeOrder: (data) => data?.order ?? data ?? null,
+  _normalizeOrder: (data) => {
+    const raw =
+      data?.order ??
+      data?.data?.order ??
+      data?.data ??
+      data ??
+      null;
+
+    return normalizeOrder(raw);
+  },
 
   _syncOrderInList: (updatedOrder) => {
     if (!updatedOrder?._id) return;
@@ -283,7 +582,8 @@ export const useOrderStore = create((set, get) => ({
     if (!customerId) return [];
 
     const data = await get()._get(`/api/orders/customer/${customerId}`);
-    const { orders } = normalizeOrdersPayload(data);
+    const { orders: rawOrders } = normalizeOrdersPayload(data);
+    const orders = normalizeOrders(rawOrders);
 
     set({ orders, ordersMeta: null });
     return orders;
@@ -342,9 +642,16 @@ export const useOrderStore = create((set, get) => ({
 
     const qs = buildQueryString(f);
     const data = await get()._get(`/api/orders${qs}`);
-    const { orders, meta } = normalizeOrdersPayload(data);
+    const { orders: rawOrders, meta } =
+      normalizeOrdersPayload(data);
 
-    set({ orders, ordersMeta: meta || null });
+    const orders = normalizeOrders(rawOrders);
+
+    set({
+      orders,
+      ordersMeta: meta || null,
+    });
+
     return orders;
   },
 
@@ -374,8 +681,10 @@ export const useOrderStore = create((set, get) => ({
 
     const qs = buildQueryString({ ...(filters || {}), page: nextPage, limit });
     const data = await get()._get(`/api/orders${qs}`);
-    const { orders: nextOrders, meta } = normalizeOrdersPayload(data);
+    const { orders: rawOrders, meta } =
+      normalizeOrdersPayload(data);
 
+    const nextOrders = normalizeOrders(rawOrders);
     set((s) => ({
       orders: [...(s.orders || []), ...(nextOrders || [])],
       ordersMeta: meta || s.ordersMeta || null,
@@ -404,9 +713,10 @@ export const useOrderStore = create((set, get) => ({
         });
 
         const data = await get()._get(`/api/orders${qs}`, { silent: true });
-        const { orders: batch, meta } = normalizeOrdersPayload(data);
+        const { orders: rawBatch, meta } =
+          normalizeOrdersPayload(data);
 
-        const safeBatch = Array.isArray(batch) ? batch : [];
+        const safeBatch = normalizeOrders(rawBatch);
         allOrders.push(...safeBatch);
         finalMeta = meta || finalMeta;
 
@@ -449,9 +759,16 @@ export const useOrderStore = create((set, get) => ({
 
     const qs = buildQueryString(f);
     const data = await get()._get(`/api/orders/customer-support${qs}`);
-    const { orders, meta } = normalizeOrdersPayload(data);
+    const { orders: rawOrders, meta } =
+      normalizeOrdersPayload(data);
 
-    set({ orders, ordersMeta: meta || null });
+    const orders = normalizeOrders(rawOrders);
+
+    set({
+      orders,
+      ordersMeta: meta || null,
+    });
+
     return orders;
   },
 
@@ -465,8 +782,10 @@ export const useOrderStore = create((set, get) => ({
 
     const qs = buildQueryString({ ...(filters || {}), page: nextPage, limit });
     const data = await get()._get(`/api/orders/customer-support${qs}`);
-    const { orders: nextOrders, meta } = normalizeOrdersPayload(data);
+    const { orders: rawOrders, meta } =
+      normalizeOrdersPayload(data);
 
+    const nextOrders = normalizeOrders(rawOrders);
     set((s) => ({
       orders: [...(s.orders || []), ...(nextOrders || [])],
       ordersMeta: meta || s.ordersMeta || null,
@@ -498,7 +817,7 @@ export const useOrderStore = create((set, get) => ({
     return order;
   },
 
-  
+
 
   updateOrderStatus: async (orderId, payload) => {
     if (!orderId) return null;
@@ -580,7 +899,7 @@ export const useOrderStore = create((set, get) => ({
     return order;
   },
 
-     updateOrderItemSize: async (
+  updateOrderItemSize: async (
     orderId,
     lineId,
     size,
@@ -612,16 +931,16 @@ export const useOrderStore = create((set, get) => ({
 
     const payload = isShopify
       ? {
-          size: normalizedSize,
-          quantity:
-            quantity === null || quantity === ""
-              ? undefined
-              : Number(quantity),
-          notifyCustomer: Boolean(notifyCustomer),
-        }
+        size: normalizedSize,
+        quantity:
+          quantity === null || quantity === ""
+            ? undefined
+            : Number(quantity),
+        notifyCustomer: Boolean(notifyCustomer),
+      }
       : {
-          size: normalizedSize,
-        };
+        size: normalizedSize,
+      };
 
     const data = await get()._patch(path, payload);
     const order = get()._normalizeOrder(data);
@@ -680,6 +999,160 @@ export const useOrderStore = create((set, get) => ({
 
     return order;
   },
+
+  bulkCancelOrders: async (
+    orderIds = [],
+    {
+      reason = "cancelled_by_admin",
+      cancelledBy = "admin",
+      sendEmail = true,
+    } = {}
+  ) => {
+    const ids = [
+      ...new Set(
+        (Array.isArray(orderIds) ? orderIds : [])
+          .map((id) => String(id || "").trim())
+          .filter(Boolean)
+      ),
+    ];
+
+    if (!ids.length) {
+      throw new Error("Please select at least one order");
+    }
+
+    set({
+      bulkCancellationLoading: true,
+      error: null,
+    });
+
+    try {
+      const data = await get()._post(`/api/orders/bulk-cancel`, {
+        orderIds: ids,
+        reason: String(reason || "").trim() || "cancelled_by_admin",
+        cancelledBy: ["admin", "customer", "system"].includes(
+          String(cancelledBy || "").trim().toLowerCase()
+        )
+          ? String(cancelledBy).trim().toLowerCase()
+          : "admin",
+        sendEmail: Boolean(sendEmail),
+      });
+
+      const results = Array.isArray(data?.results) ? data.results : [];
+
+      const successfulIds = new Set(
+        results
+          .filter((item) => item?.success)
+          .map((item) => String(item?.orderId || ""))
+          .filter(Boolean)
+      );
+
+      const cancelledAt = new Date().toISOString();
+
+      set((state) => ({
+        bulkCancellationLoading: false,
+
+        orders: (state.orders || []).map((order) => {
+          if (!successfulIds.has(String(order?._id))) return order;
+
+          return {
+            ...order,
+            fulfillmentStatus: "cancelled",
+            cancellation: {
+              ...(order?.cancellation || {}),
+              isCancelled: true,
+              cancelledAt:
+                order?.cancellation?.cancelledAt || cancelledAt,
+              cancelledBy:
+                String(cancelledBy || "").trim().toLowerCase() || "admin",
+              reason:
+                String(reason || "").trim() || "cancelled_by_admin",
+            },
+          };
+        }),
+
+        customerSupportOrderDetails: Object.fromEntries(
+          Object.entries(
+            state.customerSupportOrderDetails || {}
+          ).map(([id, order]) => {
+            if (!successfulIds.has(String(id))) {
+              return [id, order];
+            }
+
+            return [
+              id,
+              {
+                ...order,
+                fulfillmentStatus: "cancelled",
+                cancellation: {
+                  ...(order?.cancellation || {}),
+                  isCancelled: true,
+                  cancelledAt:
+                    order?.cancellation?.cancelledAt || cancelledAt,
+                  cancelledBy:
+                    String(cancelledBy || "").trim().toLowerCase() ||
+                    "admin",
+                  reason:
+                    String(reason || "").trim() ||
+                    "cancelled_by_admin",
+                },
+              },
+            ];
+          })
+        ),
+
+        order:
+          state.order?._id &&
+            successfulIds.has(String(state.order._id))
+            ? {
+              ...state.order,
+              fulfillmentStatus: "cancelled",
+              cancellation: {
+                ...(state.order?.cancellation || {}),
+                isCancelled: true,
+                cancelledAt:
+                  state.order?.cancellation?.cancelledAt ||
+                  cancelledAt,
+                cancelledBy:
+                  String(cancelledBy || "").trim().toLowerCase() ||
+                  "admin",
+                reason:
+                  String(reason || "").trim() ||
+                  "cancelled_by_admin",
+              },
+            }
+            : state.order,
+      }));
+
+      return data;
+    } catch (error) {
+      set({
+        bulkCancellationLoading: false,
+        error: error?.message || "Bulk cancellation failed",
+      });
+
+      throw error;
+    }
+  },
+
+  bulkLookupOrders: async (orderNumbers = []) => {
+  const numbers = [
+    ...new Set(
+      (Array.isArray(orderNumbers) ? orderNumbers : [])
+        .map((value) =>
+          String(value || "").trim().toUpperCase()
+        )
+        .filter(Boolean)
+    ),
+  ];
+
+  if (!numbers.length) {
+    throw new Error("No order numbers provided");
+  }
+
+  return get()._post(`/api/orders/bulk-lookup`, {
+    orderNumbers: numbers,
+  });
+},
 
   confirmOrder: async (orderId) => {
     if (!orderId) return null;
@@ -767,171 +1240,183 @@ export const useOrderStore = create((set, get) => ({
   },
 
   fetchOrdersByIdentity: async ({ email, phone } = {}) => {
-    const e = String(email ?? "").trim();
-    const p = String(phone ?? "").trim();
+  const e = String(email ?? "").trim();
+  const p = String(phone ?? "").trim();
 
-    const qs = new URLSearchParams();
-    if (e) qs.set("email", e);
-    if (p) qs.set("phone", p);
+  const qs = new URLSearchParams();
 
-    const data = await get()._get(`/api/orders/lookup?${qs.toString()}`);
-    const { orders } = normalizeOrdersPayload(data);
+  if (e) qs.set("email", e);
+  if (p) qs.set("phone", p);
 
-    set({ orders, ordersMeta: null });
-    return orders;
-  },
+  const data = await get()._get(
+    `/api/orders/lookup?${qs.toString()}`
+  );
 
-  fetchProductOrderCount: async (q) => {
-    const search = String(q ?? "").trim();
+  const { orders: rawOrders } =
+    normalizeOrdersPayload(data);
 
-    if (!search) {
-      set({ productOrderCount: null });
-      return null;
-    }
+  const orders = normalizeOrders(rawOrders);
 
-    const data = await get()._get(
-      `/api/orders/product-order-count?q=${encodeURIComponent(search)}`
-    );
+  set({
+    orders,
+    ordersMeta: null,
+  });
 
-    const result = {
-      query: data?.query || search,
-      totalOrders: Number(data?.totalOrders || 0),
-    };
+  return orders;
+},
 
-    set({ productOrderCount: result });
-    return result;
-  },
+fetchProductOrderCount: async (q) => {
+      const search = String(q ?? "").trim();
 
-
-  // ✅ NEW FUNCTION ONLY
-  searchOrdersByLocation: async (params = {}) => {
-    get()._start();
-
-    try {
-      const query = new URLSearchParams();
-
-      if (params.state) query.set("state", String(params.state).trim());
-      if (params.pincode) query.set("pincode", String(params.pincode).trim());
-      if (params.page != null) query.set("page", String(params.page));
-      if (params.limit != null) query.set("limit", String(params.limit));
-
-      if (params.fulfillmentStatus) {
-        query.set("fulfillmentStatus", String(params.fulfillmentStatus).trim());
-      }
-
-      if (params.paymentMethod) {
-        query.set("paymentMethod", String(params.paymentMethod).trim());
-      }
-
-      if (
-        params.isConfirmed !== undefined &&
-        params.isConfirmed !== null &&
-        params.isConfirmed !== ""
-      ) {
-        query.set("isConfirmed", String(params.isConfirmed));
-      }
-
-      if (params.search) {
-        query.set("search", String(params.search).trim());
+      if (!search) {
+        set({ productOrderCount: null });
+        return null;
       }
 
       const data = await get()._get(
-        `/api/orders/location/search?${query.toString()}`,
-        { silent: true }
+        `/api/orders/product-order-count?q=${encodeURIComponent(search)}`
       );
 
-      set({
-        orders: Array.isArray(data?.orders) ? data.orders : [],
-        ordersMeta: data?.pagination
-          ? {
-            page: Number(data.pagination.page || 1),
-            limit: Number(data.pagination.limit || 100),
-            totalCount: Number(data.pagination.total || 0),
-            totalPages: Number(data.pagination.totalPages || 1),
-            hasMore: Boolean(data.pagination.hasNextPage),
-            hasPrevPage: Boolean(data.pagination.hasPrevPage),
+      const result = {
+        query: data?.query || search,
+        totalOrders: Number(data?.totalOrders || 0),
+      };
+
+      set({ productOrderCount: result });
+      return result;
+    },
+
+
+      // ✅ NEW FUNCTION ONLY
+      searchOrdersByLocation: async (params = {}) => {
+        get()._start();
+
+        try {
+          const query = new URLSearchParams();
+
+          if (params.state) query.set("state", String(params.state).trim());
+          if (params.pincode) query.set("pincode", String(params.pincode).trim());
+          if (params.page != null) query.set("page", String(params.page));
+          if (params.limit != null) query.set("limit", String(params.limit));
+
+          if (params.fulfillmentStatus) {
+            query.set("fulfillmentStatus", String(params.fulfillmentStatus).trim());
           }
-          : {
-            page: 1,
-            limit: Number(params.limit || 100),
-            totalCount: 0,
-            totalPages: 1,
-            hasMore: false,
-            hasPrevPage: false,
+
+          if (params.paymentMethod) {
+            query.set("paymentMethod", String(params.paymentMethod).trim());
+          }
+
+          if (
+            params.isConfirmed !== undefined &&
+            params.isConfirmed !== null &&
+            params.isConfirmed !== ""
+          ) {
+            query.set("isConfirmed", String(params.isConfirmed));
+          }
+
+          if (params.search) {
+            query.set("search", String(params.search).trim());
+          }
+
+          const data = await get()._get(
+            `/api/orders/location/search?${query.toString()}`,
+            { silent: true }
+          );
+
+          set({
+            orders: Array.isArray(data?.orders) ? data.orders : [],
+            ordersMeta: data?.pagination
+              ? {
+                page: Number(data.pagination.page || 1),
+                limit: Number(data.pagination.limit || 100),
+                totalCount: Number(data.pagination.total || 0),
+                totalPages: Number(data.pagination.totalPages || 1),
+                hasMore: Boolean(data.pagination.hasNextPage),
+                hasPrevPage: Boolean(data.pagination.hasPrevPage),
+              }
+              : {
+                page: 1,
+                limit: Number(params.limit || 100),
+                totalCount: 0,
+                totalPages: 1,
+                hasMore: false,
+                hasPrevPage: false,
+              },
+            loading: false,
+            error: null,
+          });
+
+          return data;
+        } catch (error) {
+          console.error("searchOrdersByLocation error:", error);
+          get()._fail(error);
+          throw error;
+        }
+      },
+
+        getWalletSummary: (order = null) => {
+          const o = order || get().order || {};
+
+          return {
+            used: Boolean(o?.walletCredit?.used || o?.analytics?.creditsUsed),
+            amount: Number(
+              o?.walletCredit?.amount ||
+              o?.paymentBreakdown?.walletAmount ||
+              0
+            ),
+            transactionId: o?.walletCredit?.transactionId || "",
+            debitedAt: o?.walletCredit?.debitedAt || null,
+            balanceAfterDebit: Number(o?.walletCredit?.balanceAfterDebit || 0),
+            remainingPayable: Number(o?.finalPayable || 0),
+            paymentMethod: o?.paymentMethod || "",
+            paymentStatus: o?.paymentStatus || "",
+          };
+        },
+
+
+          /* ---------------- DUPLICATE ORDER ALERTS ---------------- */
+
+          // fetch only (no marking)
+          fetchDuplicateOrderAlerts: async () => {
+            const data = await get()._get(`/api/orders/duplicate-alerts`);
+            return data;
           },
-        loading: false,
-        error: null,
-      });
 
-      return data;
-    } catch (error) {
-      console.error("searchOrdersByLocation error:", error);
-      get()._fail(error);
-      throw error;
-    }
-  },
+            // detect + mark in adminRemarks
+            markDuplicateOrderAlerts: async () => {
+              const data = await get()._post(`/api/orders/duplicate-alerts/mark`, {});
+              return data;
+            },
 
-  getWalletSummary: (order = null) => {
-    const o = order || get().order || {};
+              clearOrder: () => set({ order: null }),
+                clearProductOrderCount: () => set({ productOrderCount: null }),
 
-    return {
-      used: Boolean(o?.walletCredit?.used || o?.analytics?.creditsUsed),
-      amount: Number(
-        o?.walletCredit?.amount ||
-        o?.paymentBreakdown?.walletAmount ||
-        0
-      ),
-      transactionId: o?.walletCredit?.transactionId || "",
-      debitedAt: o?.walletCredit?.debitedAt || null,
-      balanceAfterDebit: Number(o?.walletCredit?.balanceAfterDebit || 0),
-      remainingPayable: Number(o?.finalPayable || 0),
-      paymentMethod: o?.paymentMethod || "",
-      paymentStatus: o?.paymentStatus || "",
-    };
-  },
+                  clearOrders: () =>
+                    set({
+                      orders: [],
+                      ordersMeta: null,
+                    }),
 
+                    clearCustomerSupportOrderDetails: () =>
+                      set({
+                        customerSupportOrderDetails: {},
+                      }),
 
-  /* ---------------- DUPLICATE ORDER ALERTS ---------------- */
-
-  // fetch only (no marking)
-  fetchDuplicateOrderAlerts: async () => {
-    const data = await get()._get(`/api/orders/duplicate-alerts`);
-    return data;
-  },
-
-  // detect + mark in adminRemarks
-  markDuplicateOrderAlerts: async () => {
-    const data = await get()._post(`/api/orders/duplicate-alerts/mark`, {});
-    return data;
-  },
-
-  clearOrder: () => set({ order: null }),
-  clearProductOrderCount: () => set({ productOrderCount: null }),
-
-  clearOrders: () =>
-    set({
-      orders: [],
-      ordersMeta: null,
-    }),
-
-  clearCustomerSupportOrderDetails: () =>
-    set({
-      customerSupportOrderDetails: {},
-    }),
-
-  resetStore: () =>
-    set({
-      orders: [],
-      order: null,
-      loading: false,
-      error: null,
-      productOrderCount: null,
-      ordersMeta: null,
-      customerSupportOrderDetails: {},
-      confirmationDetails: null,
-      confirmationDetailsLoading: false,
-      // ✅ dashboard
-      orderDashboard: null,
-      orderDashboardLoading: false,
-    }),
+                      resetStore: () =>
+                        set({
+                          orders: [],
+                          order: null,
+                          loading: false,
+                          error: null,
+                          productOrderCount: null,
+                          ordersMeta: null,
+                          customerSupportOrderDetails: {},
+                          confirmationDetails: null,
+                          confirmationDetailsLoading: false,
+                          // ✅ dashboard
+                          orderDashboard: null,
+                          orderDashboardLoading: false,
+                          bulkCancellationLoading: false,
+                        }),
 }));

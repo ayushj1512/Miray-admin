@@ -225,6 +225,8 @@ export const sidebarMenus = {
     { label: "Unconfirmed Orders", href: "/orders/unconfirmed-orders" },
     { label: "Size Change", href: "/orders/size-change" },
 
+    { label: "Bulk Order Cancellation", href: "/orders/bulk-order-cancellation" },
+
     { label: "Duplicate Orders", href: "/orders/duplicate-orders" },
     { label: "Refund Escalation", href: "/orders/refund-escalation" },
     { label: "Order Analytics", href: "/orders/report" },
@@ -475,6 +477,8 @@ export const sidebarMenus = {
 
     // Settings
     { label: "Settings", href: "/shopify/settings" },
+// Bulk Order Cancellation
+    { label: "Bulk Order Cancellation", href: "/shopify/bulk-order-cancellation" },
   ],
 };
 

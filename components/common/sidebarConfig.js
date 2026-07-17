@@ -39,6 +39,8 @@ export const sidebarMenus = {
     { label: "All Production Jobs", href: "/production/all-production-job" },
     { label: "Confirmed Production Jobs", href: "/production/production-job" },
     { label: "Packed Orders", href: "/production/packed" },
+    { label: "Packed Order Labels", href: "/production/packed-labels" },
+    
     { label: "Sampling", href: "/production/sampling" },
     { label: "Stock Update", href: "/production/stock-update" },
     { label: "Pattern Number", href: "/production/pattern-number" },
@@ -450,36 +452,35 @@ export const sidebarMenus = {
     { label: "Cutting Records", href: "/cutting-batch/pending-reservations" },
   ],
 
-  shopify: [
-    { label: "Dashboard", href: "/shopify" },
+shopify: [
+  { label: "Dashboard", href: "/shopify" },
+  { label: "Sales Analytics", href: "/shopify/sales-analytics" },
 
-    { label: "Sales Analytics", href: "/shopify/sales-analytics" },
+  // Orders
+  { label: "Orders", href: "/shopify/orders" },
+  { label: "All Orders", href: "/shopify/all-orders" },
+  { label: "Shopify Order Search", href: "/shopify/order-search" },
+  { label: "Pending Fulfillment", href: "/shopify/unfulfilled-orders" },
+  { label: "Fulfilled Orders", href: "/shopify/fulfilled-orders" },
+  { label: "Bulk Fulfillment", href: "/shopify/bulk-fulfillment" },
+  { label: "Order Confirmation", href: "/shopify/order-confrimation" },
+  { label: "Bulk Order Cancellation", href: "/shopify/bulk-order-cancellation" },
 
-    // Orders
-    { label: "Orders", href: "/shopify/orders" },
-    { label: "All Orders", href: "/shopify/all-orders" },
-    { label: "Pending Fulfillment", href: "/shopify/unfulfilled-orders" },
-    { label: "Fulfilled Orders", href: "/shopify/fulfilled-orders" },
-    { label: "Bulk Fulfillment", href: "/shopify/bulk-fulfillment" },
-    { label: "Order Confirmation", href: "/shopify/order-confrimation" },
+  // Catalog
+  { label: "Products", href: "/shopify/products" },
+  { label: "Inventory", href: "/shopify/inventory" },
+  { label: "Reserved Stock", href: "/shopify/reserved-inventory" },
+  { label: "Customers", href: "/shopify/customers" },
+  { label: "Size Change", href: "/shopify/size-change" },
 
-    // Catalog
-    { label: "Products", href: "/shopify/products" },
-    { label: "Inventory", href: "/shopify/inventory" },
-    { label: "Reserved Stock", href: "/shopify/reserved-inventory" },
-    { label: "Customers", href: "/shopify/customers" },
-    { label: "Size Change", href: "/shopify/size-change" },
+  // Production
+  { label: "Production", href: "/shopify/shopify-production" },
+  { label: "Production Matrix", href: "/shopify/production-matrix" },
+  { label: "Cutting List", href: "/shopify/cutting-list" },
 
-    // Production
-    { label: "Production", href: "/shopify/shopify-production" },
-    { label: "Production Matrix", href: "/shopify/production-matrix" },
-    { label: "Cutting List", href: "/shopify/cutting-list" },
-
-    // Settings
-    { label: "Settings", href: "/shopify/settings" },
-// Bulk Order Cancellation
-    { label: "Bulk Order Cancellation", href: "/shopify/bulk-order-cancellation" },
-  ],
+  // Settings
+  { label: "Settings", href: "/shopify/settings" },
+],
 };
 
 export const routeSidebarMap = [

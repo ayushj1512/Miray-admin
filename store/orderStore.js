@@ -399,6 +399,9 @@ export const useOrderStore = create((set, get) => ({
   orderDashboard: null,
   orderDashboardLoading: false,
   bulkCancellationLoading: false,
+  packedOrderLabels: [],
+packedOrderLabelsSummary: null,
+downloadingMergedLabels: false,
   _start: () => set({ loading: true, error: null }),
   _success: () => set({ loading: false }),
   _fail: (err) =>
@@ -1238,6 +1241,76 @@ export const useOrderStore = create((set, get) => ({
 
     return data;
   },
+
+  fetchPackedOrderLabels: async (filters = {}) => {
+  const qs = buildQueryString(filters);
+
+  const data = await get()._get(
+    `/api/orders/labels/packed${qs}`
+  );
+
+  set({
+    packedOrderLabels: data?.orders || [],
+    packedOrderLabelsSummary: data?.summary || null,
+  });
+
+  return data;
+},
+
+downloadMergedLabels: async ({
+  orderIds = [],
+  allPackedWithLabels = false,
+} = {}) => {
+  set({
+    downloadingMergedLabels: true,
+    error: null,
+  });
+
+  try {
+    const res = await fetch(
+      `${API}/api/orders/labels/merge`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          orderIds,
+          allPackedWithLabels,
+        }),
+      }
+    );
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.message || "Download failed");
+    }
+
+    const blob = await res.blob();
+
+    const url = window.URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `packed-labels-${Date.now()}.pdf`;
+    a.click();
+
+    window.URL.revokeObjectURL(url);
+
+    set({
+      downloadingMergedLabels: false,
+    });
+
+    return true;
+  } catch (e) {
+    set({
+      downloadingMergedLabels: false,
+      error: e.message,
+    });
+
+    throw e;
+  }
+},
 
   fetchOrdersByIdentity: async ({ email, phone } = {}) => {
   const e = String(email ?? "").trim();

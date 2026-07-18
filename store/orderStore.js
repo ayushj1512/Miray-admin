@@ -274,7 +274,15 @@ export const normalizeOrder = (order = {}) => {
   if (!order || typeof order !== "object") return null;
 
   const source =
-    String(order?.source || "").toLowerCase() === "shopify" ||
+    String(
+      order?.source ||
+      order?.attribution?.source ||
+      order?.orderSource ||
+      order?.platform ||
+      ""
+    )
+      .trim()
+      .toLowerCase() === "shopify" ||
       Boolean(order?.shopify?.orderId)
       ? "shopify"
       : "website";
@@ -400,8 +408,8 @@ export const useOrderStore = create((set, get) => ({
   orderDashboardLoading: false,
   bulkCancellationLoading: false,
   packedOrderLabels: [],
-packedOrderLabelsSummary: null,
-downloadingMergedLabels: false,
+  packedOrderLabelsSummary: null,
+  downloadingMergedLabels: false,
   _start: () => set({ loading: true, error: null }),
   _success: () => set({ loading: false }),
   _fail: (err) =>
@@ -982,15 +990,34 @@ downloadingMergedLabels: false,
     return order;
   },
 
-  cancelOrder: async (orderId, reason = "") => {
-    if (!orderId) return null;
+  cancelOrder: async (
+    orderId,
+    reason = "",
+    {
+      cancelledBy = "admin",
+      notifyCustomer = true,
+    } = {}
+  ) => {
+    if (!orderId) {
+      throw new Error("Order ID is required");
+    }
 
-    const data = await get()._patch(`/api/orders/${orderId}/status`, {
-      fulfillmentStatus: "cancelled",
-      cancelledBy: "admin",
-      reason: String(reason || "").trim(),
-      adminRemarks: "cancelled_by_admin",
-    });
+    const data = await get()._post(
+      `/api/orders/${orderId}/cancel`,
+      {
+        reason:
+          String(reason || "").trim() ||
+          "cancelled_by_admin",
+        cancelledBy,
+        notifyCustomer: Boolean(notifyCustomer),
+      }
+    );
+
+    if (data?.success === false) {
+      throw new Error(
+        data?.message || "Order cancellation failed"
+      );
+    }
 
     const order = get()._normalizeOrder(data);
 
@@ -1138,24 +1165,24 @@ downloadingMergedLabels: false,
   },
 
   bulkLookupOrders: async (orderNumbers = []) => {
-  const numbers = [
-    ...new Set(
-      (Array.isArray(orderNumbers) ? orderNumbers : [])
-        .map((value) =>
-          String(value || "").trim().toUpperCase()
-        )
-        .filter(Boolean)
-    ),
-  ];
+    const numbers = [
+      ...new Set(
+        (Array.isArray(orderNumbers) ? orderNumbers : [])
+          .map((value) =>
+            String(value || "").trim().toUpperCase()
+          )
+          .filter(Boolean)
+      ),
+    ];
 
-  if (!numbers.length) {
-    throw new Error("No order numbers provided");
-  }
+    if (!numbers.length) {
+      throw new Error("No order numbers provided");
+    }
 
-  return get()._post(`/api/orders/bulk-lookup`, {
-    orderNumbers: numbers,
-  });
-},
+    return get()._post(`/api/orders/bulk-lookup`, {
+      orderNumbers: numbers,
+    });
+  },
 
   confirmOrder: async (orderId) => {
     if (!orderId) return null;
@@ -1243,253 +1270,253 @@ downloadingMergedLabels: false,
   },
 
   fetchPackedOrderLabels: async (filters = {}) => {
-  const qs = buildQueryString(filters);
+    const qs = buildQueryString(filters);
 
-  const data = await get()._get(
-    `/api/orders/labels/packed${qs}`
-  );
-
-  set({
-    packedOrderLabels: data?.orders || [],
-    packedOrderLabelsSummary: data?.summary || null,
-  });
-
-  return data;
-},
-
-downloadMergedLabels: async ({
-  orderIds = [],
-  allPackedWithLabels = false,
-} = {}) => {
-  set({
-    downloadingMergedLabels: true,
-    error: null,
-  });
-
-  try {
-    const res = await fetch(
-      `${API}/api/orders/labels/merge`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          orderIds,
-          allPackedWithLabels,
-        }),
-      }
+    const data = await get()._get(
+      `/api/orders/labels/packed${qs}`
     );
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err?.message || "Download failed");
+    set({
+      packedOrderLabels: data?.orders || [],
+      packedOrderLabelsSummary: data?.summary || null,
+    });
+
+    return data;
+  },
+
+  downloadMergedLabels: async ({
+    orderIds = [],
+    allPackedWithLabels = false,
+  } = {}) => {
+    set({
+      downloadingMergedLabels: true,
+      error: null,
+    });
+
+    try {
+      const res = await fetch(
+        `${API}/api/orders/labels/merge`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            orderIds,
+            allPackedWithLabels,
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.message || "Download failed");
+      }
+
+      const blob = await res.blob();
+
+      const url = window.URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `packed-labels-${Date.now()}.pdf`;
+      a.click();
+
+      window.URL.revokeObjectURL(url);
+
+      set({
+        downloadingMergedLabels: false,
+      });
+
+      return true;
+    } catch (e) {
+      set({
+        downloadingMergedLabels: false,
+        error: e.message,
+      });
+
+      throw e;
     }
-
-    const blob = await res.blob();
-
-    const url = window.URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `packed-labels-${Date.now()}.pdf`;
-    a.click();
-
-    window.URL.revokeObjectURL(url);
-
-    set({
-      downloadingMergedLabels: false,
-    });
-
-    return true;
-  } catch (e) {
-    set({
-      downloadingMergedLabels: false,
-      error: e.message,
-    });
-
-    throw e;
-  }
-},
+  },
 
   fetchOrdersByIdentity: async ({ email, phone } = {}) => {
-  const e = String(email ?? "").trim();
-  const p = String(phone ?? "").trim();
+    const e = String(email ?? "").trim();
+    const p = String(phone ?? "").trim();
 
-  const qs = new URLSearchParams();
+    const qs = new URLSearchParams();
 
-  if (e) qs.set("email", e);
-  if (p) qs.set("phone", p);
+    if (e) qs.set("email", e);
+    if (p) qs.set("phone", p);
 
-  const data = await get()._get(
-    `/api/orders/lookup?${qs.toString()}`
-  );
+    const data = await get()._get(
+      `/api/orders/lookup?${qs.toString()}`
+    );
 
-  const { orders: rawOrders } =
-    normalizeOrdersPayload(data);
+    const { orders: rawOrders } =
+      normalizeOrdersPayload(data);
 
-  const orders = normalizeOrders(rawOrders);
+    const orders = normalizeOrders(rawOrders);
 
-  set({
-    orders,
-    ordersMeta: null,
-  });
+    set({
+      orders,
+      ordersMeta: null,
+    });
 
-  return orders;
-},
+    return orders;
+  },
 
-fetchProductOrderCount: async (q) => {
-      const search = String(q ?? "").trim();
+  fetchProductOrderCount: async (q) => {
+    const search = String(q ?? "").trim();
 
-      if (!search) {
-        set({ productOrderCount: null });
-        return null;
+    if (!search) {
+      set({ productOrderCount: null });
+      return null;
+    }
+
+    const data = await get()._get(
+      `/api/orders/product-order-count?q=${encodeURIComponent(search)}`
+    );
+
+    const result = {
+      query: data?.query || search,
+      totalOrders: Number(data?.totalOrders || 0),
+    };
+
+    set({ productOrderCount: result });
+    return result;
+  },
+
+
+  // ✅ NEW FUNCTION ONLY
+  searchOrdersByLocation: async (params = {}) => {
+    get()._start();
+
+    try {
+      const query = new URLSearchParams();
+
+      if (params.state) query.set("state", String(params.state).trim());
+      if (params.pincode) query.set("pincode", String(params.pincode).trim());
+      if (params.page != null) query.set("page", String(params.page));
+      if (params.limit != null) query.set("limit", String(params.limit));
+
+      if (params.fulfillmentStatus) {
+        query.set("fulfillmentStatus", String(params.fulfillmentStatus).trim());
+      }
+
+      if (params.paymentMethod) {
+        query.set("paymentMethod", String(params.paymentMethod).trim());
+      }
+
+      if (
+        params.isConfirmed !== undefined &&
+        params.isConfirmed !== null &&
+        params.isConfirmed !== ""
+      ) {
+        query.set("isConfirmed", String(params.isConfirmed));
+      }
+
+      if (params.search) {
+        query.set("search", String(params.search).trim());
       }
 
       const data = await get()._get(
-        `/api/orders/product-order-count?q=${encodeURIComponent(search)}`
+        `/api/orders/location/search?${query.toString()}`,
+        { silent: true }
       );
 
-      const result = {
-        query: data?.query || search,
-        totalOrders: Number(data?.totalOrders || 0),
-      };
-
-      set({ productOrderCount: result });
-      return result;
-    },
-
-
-      // ✅ NEW FUNCTION ONLY
-      searchOrdersByLocation: async (params = {}) => {
-        get()._start();
-
-        try {
-          const query = new URLSearchParams();
-
-          if (params.state) query.set("state", String(params.state).trim());
-          if (params.pincode) query.set("pincode", String(params.pincode).trim());
-          if (params.page != null) query.set("page", String(params.page));
-          if (params.limit != null) query.set("limit", String(params.limit));
-
-          if (params.fulfillmentStatus) {
-            query.set("fulfillmentStatus", String(params.fulfillmentStatus).trim());
+      set({
+        orders: Array.isArray(data?.orders) ? data.orders : [],
+        ordersMeta: data?.pagination
+          ? {
+            page: Number(data.pagination.page || 1),
+            limit: Number(data.pagination.limit || 100),
+            totalCount: Number(data.pagination.total || 0),
+            totalPages: Number(data.pagination.totalPages || 1),
+            hasMore: Boolean(data.pagination.hasNextPage),
+            hasPrevPage: Boolean(data.pagination.hasPrevPage),
           }
-
-          if (params.paymentMethod) {
-            query.set("paymentMethod", String(params.paymentMethod).trim());
-          }
-
-          if (
-            params.isConfirmed !== undefined &&
-            params.isConfirmed !== null &&
-            params.isConfirmed !== ""
-          ) {
-            query.set("isConfirmed", String(params.isConfirmed));
-          }
-
-          if (params.search) {
-            query.set("search", String(params.search).trim());
-          }
-
-          const data = await get()._get(
-            `/api/orders/location/search?${query.toString()}`,
-            { silent: true }
-          );
-
-          set({
-            orders: Array.isArray(data?.orders) ? data.orders : [],
-            ordersMeta: data?.pagination
-              ? {
-                page: Number(data.pagination.page || 1),
-                limit: Number(data.pagination.limit || 100),
-                totalCount: Number(data.pagination.total || 0),
-                totalPages: Number(data.pagination.totalPages || 1),
-                hasMore: Boolean(data.pagination.hasNextPage),
-                hasPrevPage: Boolean(data.pagination.hasPrevPage),
-              }
-              : {
-                page: 1,
-                limit: Number(params.limit || 100),
-                totalCount: 0,
-                totalPages: 1,
-                hasMore: false,
-                hasPrevPage: false,
-              },
-            loading: false,
-            error: null,
-          });
-
-          return data;
-        } catch (error) {
-          console.error("searchOrdersByLocation error:", error);
-          get()._fail(error);
-          throw error;
-        }
-      },
-
-        getWalletSummary: (order = null) => {
-          const o = order || get().order || {};
-
-          return {
-            used: Boolean(o?.walletCredit?.used || o?.analytics?.creditsUsed),
-            amount: Number(
-              o?.walletCredit?.amount ||
-              o?.paymentBreakdown?.walletAmount ||
-              0
-            ),
-            transactionId: o?.walletCredit?.transactionId || "",
-            debitedAt: o?.walletCredit?.debitedAt || null,
-            balanceAfterDebit: Number(o?.walletCredit?.balanceAfterDebit || 0),
-            remainingPayable: Number(o?.finalPayable || 0),
-            paymentMethod: o?.paymentMethod || "",
-            paymentStatus: o?.paymentStatus || "",
-          };
-        },
-
-
-          /* ---------------- DUPLICATE ORDER ALERTS ---------------- */
-
-          // fetch only (no marking)
-          fetchDuplicateOrderAlerts: async () => {
-            const data = await get()._get(`/api/orders/duplicate-alerts`);
-            return data;
+          : {
+            page: 1,
+            limit: Number(params.limit || 100),
+            totalCount: 0,
+            totalPages: 1,
+            hasMore: false,
+            hasPrevPage: false,
           },
+        loading: false,
+        error: null,
+      });
 
-            // detect + mark in adminRemarks
-            markDuplicateOrderAlerts: async () => {
-              const data = await get()._post(`/api/orders/duplicate-alerts/mark`, {});
-              return data;
-            },
+      return data;
+    } catch (error) {
+      console.error("searchOrdersByLocation error:", error);
+      get()._fail(error);
+      throw error;
+    }
+  },
 
-              clearOrder: () => set({ order: null }),
-                clearProductOrderCount: () => set({ productOrderCount: null }),
+  getWalletSummary: (order = null) => {
+    const o = order || get().order || {};
 
-                  clearOrders: () =>
-                    set({
-                      orders: [],
-                      ordersMeta: null,
-                    }),
+    return {
+      used: Boolean(o?.walletCredit?.used || o?.analytics?.creditsUsed),
+      amount: Number(
+        o?.walletCredit?.amount ||
+        o?.paymentBreakdown?.walletAmount ||
+        0
+      ),
+      transactionId: o?.walletCredit?.transactionId || "",
+      debitedAt: o?.walletCredit?.debitedAt || null,
+      balanceAfterDebit: Number(o?.walletCredit?.balanceAfterDebit || 0),
+      remainingPayable: Number(o?.finalPayable || 0),
+      paymentMethod: o?.paymentMethod || "",
+      paymentStatus: o?.paymentStatus || "",
+    };
+  },
 
-                    clearCustomerSupportOrderDetails: () =>
-                      set({
-                        customerSupportOrderDetails: {},
-                      }),
 
-                      resetStore: () =>
-                        set({
-                          orders: [],
-                          order: null,
-                          loading: false,
-                          error: null,
-                          productOrderCount: null,
-                          ordersMeta: null,
-                          customerSupportOrderDetails: {},
-                          confirmationDetails: null,
-                          confirmationDetailsLoading: false,
-                          // ✅ dashboard
-                          orderDashboard: null,
-                          orderDashboardLoading: false,
-                          bulkCancellationLoading: false,
-                        }),
+  /* ---------------- DUPLICATE ORDER ALERTS ---------------- */
+
+  // fetch only (no marking)
+  fetchDuplicateOrderAlerts: async () => {
+    const data = await get()._get(`/api/orders/duplicate-alerts`);
+    return data;
+  },
+
+  // detect + mark in adminRemarks
+  markDuplicateOrderAlerts: async () => {
+    const data = await get()._post(`/api/orders/duplicate-alerts/mark`, {});
+    return data;
+  },
+
+  clearOrder: () => set({ order: null }),
+  clearProductOrderCount: () => set({ productOrderCount: null }),
+
+  clearOrders: () =>
+    set({
+      orders: [],
+      ordersMeta: null,
+    }),
+
+  clearCustomerSupportOrderDetails: () =>
+    set({
+      customerSupportOrderDetails: {},
+    }),
+
+  resetStore: () =>
+    set({
+      orders: [],
+      order: null,
+      loading: false,
+      error: null,
+      productOrderCount: null,
+      ordersMeta: null,
+      customerSupportOrderDetails: {},
+      confirmationDetails: null,
+      confirmationDetailsLoading: false,
+      // ✅ dashboard
+      orderDashboard: null,
+      orderDashboardLoading: false,
+      bulkCancellationLoading: false,
+    }),
 }));

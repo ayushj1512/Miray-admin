@@ -69,6 +69,9 @@ bulkFulfillError: null,
 bulkFulfillPreviewRows: [],
 bulkFulfillResult: null,
 
+shopifyOrderCancelling: false,
+shopifyOrderCancelError: null,
+
   products: [],
   orders: [],
   customers: [],
@@ -946,6 +949,58 @@ bulkMarkFulfilled: async (rows = []) => {
     };
   }
 },
+
+cancelShopifyOrder: async (
+  orderId,
+  {
+    reason = "customer",
+    notifyCustomer = true,
+    refund = true,
+    restock = true,
+    staffNote = "",
+  } = {}
+) => {
+  try {
+    set({
+      shopifyOrderCancelling: true,
+      shopifyOrderCancelError: null,
+    });
+
+    const data = await postRequest(
+      `orders/${orderId}/cancel`,
+      {
+        reason,
+        notifyCustomer,
+        refund,
+        restock,
+        staffNote,
+      }
+    );
+
+    set({
+      shopifyOrderCancelling: false,
+    });
+
+    return data;
+  } catch (error) {
+    const message = getErrorMessage(
+      error,
+      "Failed to cancel Shopify order"
+    );
+
+    set({
+      shopifyOrderCancelling: false,
+      shopifyOrderCancelError: message,
+    });
+
+    return {
+      success: false,
+      message,
+    };
+  }
+},
+
+
 }));
 
 export default adminShopifyStore;

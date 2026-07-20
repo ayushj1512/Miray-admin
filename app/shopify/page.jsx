@@ -17,6 +17,7 @@ import {
 import adminShopifyStore from "@/store/adminshopifystore";
 import ImportShopifyOrdersButton from "@/components/shopify/ImportShopifyOrdersButton";
 import ShopifyAnalyticsSummary from "@/components/shopify/ShopifyAnalyticsSummary";
+import ShopifyCommandCenter from "@/components/shopify/ShopifyCommandCenter";
 
 const accent = "#800020";
 const tabs = ["Overview", "Products", "Orders", "Customers", "Inventory"];
@@ -63,7 +64,7 @@ export default function ShopifyDashboardPage() {
   } = adminShopifyStore();
 
   useEffect(() => {
-    fetchShopifyDashboard(1000);
+    fetchShopifyDashboard(10);
   }, [fetchShopifyDashboard]);
 
   const inventoryRows = useMemo(() => {
@@ -220,7 +221,7 @@ export default function ShopifyDashboardPage() {
             value={statMoney(shopifyStats?.thisMonthRevenue)}
           />
         </div> */}
-        <ShopifyAnalyticsSummary stats={shopifyStats} />
+        <ShopifyCommandCenter stats={shopifyStats} />
 
         <div className="rounded-full bg-white p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.05)]">
           <div className="flex gap-1 overflow-x-auto">

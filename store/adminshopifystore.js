@@ -113,22 +113,66 @@ shopifyOrderCancelError: null,
   customerCount: 0,
   inventoryCount: 0,
   shopifyStats: {
-    totalRevenue: 0,
-    aov: 0,
-    paidOrders: 0,
-    codOrders: 0,
-    todayOrders: 0,
-    thisMonthRevenue: 0,
+  totalRevenue: 0,
+  totalOrders: 0,
+  aov: 0,
+  totalItems: 0,
+  averageItemsPerOrder: 0,
 
-    // new
-    todayRevenue: 0,
-    todayItems: 0,
-    todayAov: 0,
-    pendingOrders: 0,
-    fulfilledOrders: 0,
-    unfulfilledOrders: 0,
-    cancelledOrders: 0,
-  },
+  todayRevenue: 0,
+  yesterdayRevenue: 0,
+  todayRevenueGrowth: 0,
+
+  todayOrders: 0,
+  yesterdayOrders: 0,
+  todayOrderGrowth: 0,
+
+  todayItems: 0,
+  todayAov: 0,
+
+  thisMonthRevenue: 0,
+  lastMonthRevenue: 0,
+  monthRevenueGrowth: 0,
+
+  thisMonthOrders: 0,
+  lastMonthOrders: 0,
+  monthOrderGrowth: 0,
+
+  paidOrders: 0,
+  codOrders: 0,
+  pendingOrders: 0,
+
+  prepaidRevenue: 0,
+  codRevenue: 0,
+  pendingPaymentValue: 0,
+
+  prepaidOrderPercentage: 0,
+  codOrderPercentage: 0,
+
+  fulfilledOrders: 0,
+  partiallyFulfilledOrders: 0,
+  unfulfilledOrders: 0,
+  fulfillmentRate: 0,
+
+  unfulfilledValue: 0,
+  pendingOver24Hours: 0,
+  pendingOver48Hours: 0,
+
+  cancelledOrders: 0,
+  cancelledRevenue: 0,
+  cancellationRate: 0,
+
+  refundedOrders: 0,
+  refundedRevenue: 0,
+  refundRate: 0,
+
+  inventoryUnits: 0,
+  totalVariants: 0,
+  lowStockVariants: 0,
+  outOfStockVariants: 0,
+  negativeStockVariants: 0,
+  unavailableVariants: 0,
+},
 
   productPageInfo: null,
   orderPageInfo: null,
@@ -209,7 +253,7 @@ shopifyOrderCancelError: null,
     }
   },
 
-  fetchShopifyDashboard: async (limit = 10) => {
+  fetchShopifyDashboard: async (limit = 1000) => {
     try {
       set({ loading: true, error: null });
 
@@ -217,36 +261,24 @@ shopifyOrderCancelError: null,
       const dashboard = data.data || {};
 
       set({
-        shop: dashboard.shop || null,
+  shop: dashboard.shop || null,
 
-        products: dashboard.recent?.products || [],
-        orders: dashboard.recent?.orders || [],
-        customers: dashboard.recent?.customers || [],
+  products: dashboard.recent?.products || [],
+  orders: dashboard.recent?.orders || [],
+  customers: dashboard.recent?.customers || [],
 
-        productCount: dashboard.counts?.products || 0,
-        orderCount: dashboard.counts?.orders || 0,
-        customerCount: dashboard.counts?.customers || 0,
-        inventoryCount: dashboard.counts?.inventory || 0,
+  productCount: dashboard.counts?.products || 0,
+  orderCount: dashboard.counts?.orders || 0,
+  customerCount: dashboard.counts?.customers || 0,
+  inventoryCount: dashboard.counts?.inventory || 0,
 
-        shopifyStats: {
-          totalRevenue: dashboard.stats?.totalRevenue || 0,
-          aov: dashboard.stats?.aov || 0,
-          paidOrders: dashboard.stats?.paidOrders || 0,
-          codOrders: dashboard.stats?.codOrders || 0,
-          todayOrders: dashboard.stats?.todayOrders || 0,
-          thisMonthRevenue: dashboard.stats?.thisMonthRevenue || 0,
+  shopifyStats: {
+    ...get().shopifyStats,
+    ...(dashboard.stats || {}),
+  },
 
-          todayRevenue: dashboard.stats?.todayRevenue || 0,
-          todayItems: dashboard.stats?.todayItems || 0,
-          todayAov: dashboard.stats?.todayAov || 0,
-          pendingOrders: dashboard.stats?.pendingOrders || 0,
-          fulfilledOrders: dashboard.stats?.fulfilledOrders || 0,
-          unfulfilledOrders: dashboard.stats?.unfulfilledOrders || 0,
-          cancelledOrders: dashboard.stats?.cancelledOrders || 0,
-        },
-
-        loading: false,
-      });
+  loading: false,
+});
 
       return data;
     } catch (error) {

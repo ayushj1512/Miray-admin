@@ -29,9 +29,32 @@ export const sidebarMenus = {
 
   design_lab: [
     { label: "Design Lab Home", href: "/design-lab" },
-    { label: "All Tailors", href: "/design-lab/tailors" },
-    { label: "Add Tailor", href: "/design-lab/tailors/new" },
-    { label: "Products RMA Insights", href: "/design-lab/products-rma-insights" },
+    {
+      label: "Products RMA Insights",
+      href: "/design-lab/products-rma-insights",
+    },
+  ],
+
+  tailors: [
+    {
+      label: "All Tailors",
+      href: "/tailors",
+    },
+    {
+      label: "Add Tailor",
+      href: "/tailors/create",
+    },
+  ],
+
+  tailor_production_jobs: [
+    {
+      label: "Production Jobs",
+      href: "/tailor-production-jobs",
+    },
+    {
+      label: "Create Job",
+      href: "/tailor-production-jobs/create",
+    },
   ],
 
   production: [
@@ -40,7 +63,7 @@ export const sidebarMenus = {
     { label: "Confirmed Production Jobs", href: "/production/production-job" },
     { label: "Packed Orders", href: "/production/packed" },
     { label: "Packed Order Labels", href: "/production/packed-labels" },
-    
+
     { label: "Sampling", href: "/production/sampling" },
     { label: "Stock Update", href: "/production/stock-update" },
     { label: "Pattern Number", href: "/production/pattern-number" },
@@ -452,35 +475,35 @@ export const sidebarMenus = {
     { label: "Cutting Records", href: "/cutting-batch/pending-reservations" },
   ],
 
-shopify: [
-  { label: "Dashboard", href: "/shopify" },
-  { label: "Sales Analytics", href: "/shopify/sales-analytics" },
+  shopify: [
+    { label: "Dashboard", href: "/shopify" },
+    { label: "Sales Analytics", href: "/shopify/sales-analytics" },
 
-  // Orders
-  { label: "Orders", href: "/shopify/orders" },
-  { label: "All Orders", href: "/shopify/all-orders" },
-  { label: "Shopify Order Search", href: "/shopify/order-search" },
-  { label: "Pending Fulfillment", href: "/shopify/unfulfilled-orders" },
-  { label: "Fulfilled Orders", href: "/shopify/fulfilled-orders" },
-  { label: "Bulk Fulfillment", href: "/shopify/bulk-fulfillment" },
-  { label: "Order Confirmation", href: "/shopify/order-confrimation" },
-  { label: "Bulk Order Cancellation", href: "/shopify/bulk-order-cancellation" },
+    // Orders
+    { label: "Orders", href: "/shopify/orders" },
+    { label: "All Orders", href: "/shopify/all-orders" },
+    { label: "Shopify Order Search", href: "/shopify/order-search" },
+    { label: "Pending Fulfillment", href: "/shopify/unfulfilled-orders" },
+    { label: "Fulfilled Orders", href: "/shopify/fulfilled-orders" },
+    { label: "Bulk Fulfillment", href: "/shopify/bulk-fulfillment" },
+    { label: "Order Confirmation", href: "/shopify/order-confrimation" },
+    { label: "Bulk Order Cancellation", href: "/shopify/bulk-order-cancellation" },
 
-  // Catalog
-  { label: "Products", href: "/shopify/products" },
-  { label: "Inventory", href: "/shopify/inventory" },
-  { label: "Reserved Stock", href: "/shopify/reserved-inventory" },
-  { label: "Customers", href: "/shopify/customers" },
-  { label: "Size Change", href: "/shopify/size-change" },
+    // Catalog
+    { label: "Products", href: "/shopify/products" },
+    { label: "Inventory", href: "/shopify/inventory" },
+    { label: "Reserved Stock", href: "/shopify/reserved-inventory" },
+    { label: "Customers", href: "/shopify/customers" },
+    { label: "Size Change", href: "/shopify/size-change" },
 
-  // Production
-  { label: "Production", href: "/shopify/shopify-production" },
-  { label: "Production Matrix", href: "/shopify/production-matrix" },
-  { label: "Cutting List", href: "/shopify/cutting-list" },
+    // Production
+    { label: "Production", href: "/shopify/shopify-production" },
+    { label: "Production Matrix", href: "/shopify/production-matrix" },
+    { label: "Cutting List", href: "/shopify/cutting-list" },
 
-  // Settings
-  { label: "Settings", href: "/shopify/settings" },
-],
+    // Settings
+    { label: "Settings", href: "/shopify/settings" },
+  ],
 };
 
 export const routeSidebarMap = [
@@ -495,9 +518,11 @@ export const routeSidebarMap = [
   { prefix: "/reels", key: "reels" },
   { prefix: "/marketing", key: "marketing" },
   { prefix: "/influencer-collaboration-program", key: "collaboration" },
+  { prefix: "/tailor-production-jobs", key: "tailor_production_jobs" },
   { prefix: "/collaboration", key: "collaboration" },
   { prefix: "/shiprocket", key: "shiprocket" },
   { prefix: "/bluedart", key: "bluedart" },
+  { prefix: "/tailors", key: "tailors" },
   { prefix: "/dashboard", key: "dashboard" },
   { prefix: "/design-lab", key: "design_lab" },
   { prefix: "/designing", key: "designing" },

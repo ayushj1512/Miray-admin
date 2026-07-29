@@ -7,10 +7,26 @@ import {
   Loader2,
   PackageSearch,
   RefreshCw,
+  Ruler,
   Search,
 } from "lucide-react";
 
+const DEFAULT_PACKAGE = {
+  length: 10,
+  breadth: 10,
+  height: 5,
+  weight: 0.5,
+};
+
 const text = (value) => String(value || "").trim();
+
+const positiveNumber = (value, fallback) => {
+  const parsed = Number(value);
+
+  return Number.isFinite(parsed) && parsed > 0
+    ? parsed
+    : fallback;
+};
 
 const formatDate = (value) => {
   if (!value) return "-";
@@ -73,20 +89,54 @@ const getMissingFields = (order) => {
   return fields;
 };
 
+const hasPackageError = (order, result) => {
+  if (result?.isPackageError) {
+    return true;
+  }
+
+  const errorText = [
+    result?.message,
+    result?.error,
+    result?.code,
+    order?.shipment?.rawStatus,
+  ]
+    .map(text)
+    .join(" ")
+    .toLowerCase();
+
+  return [
+    "weight",
+    "zero weight",
+    "no weight entered",
+    "dimension",
+    "length",
+    "breadth",
+    "height",
+    "package",
+  ].some((keyword) => errorText.includes(keyword));
+};
+
 export default function LabelsMissingTab({
   orders = [],
   loading = false,
   repairingOrderId = null,
   repairLoading = false,
+  packageUpdatingOrderId = null,
+  packageUpdateLoading = false,
   repairResults = [],
   onRepairOrder,
   onRepairAll,
+  onUpdatePackage,
   onMessage,
 }) {
   const [search, setSearch] = useState("");
+  const [packageForms, setPackageForms] = useState({});
 
   const filteredOrders = useMemo(
-    () => orders.filter((order) => matchesSearch(order, search)),
+    () =>
+      orders.filter((order) =>
+        matchesSearch(order, search)
+      ),
     [orders, search]
   );
 
@@ -100,6 +150,50 @@ export default function LabelsMissingTab({
       ),
     [repairResults]
   );
+
+  const getPackageForm = (orderId) => ({
+    ...DEFAULT_PACKAGE,
+    ...(packageForms[orderId] || {}),
+  });
+
+  const updatePackageField = (
+    orderId,
+    field,
+    value
+  ) => {
+    setPackageForms((current) => ({
+      ...current,
+      [orderId]: {
+        ...DEFAULT_PACKAGE,
+        ...(current[orderId] || {}),
+        [field]: value,
+      },
+    }));
+  };
+
+  const submitPackage = async (orderId) => {
+    const form = getPackageForm(orderId);
+
+    const packageDetails = {
+      length: positiveNumber(form.length, 10),
+      breadth: positiveNumber(form.breadth, 10),
+      height: positiveNumber(form.height, 5),
+      weight: positiveNumber(form.weight, 0.5),
+    };
+
+    const success = await onUpdatePackage?.(
+      orderId,
+      packageDetails
+    );
+
+    if (success) {
+      setPackageForms((current) => {
+        const next = { ...current };
+        delete next[orderId];
+        return next;
+      });
+    }
+  };
 
   const copyOrderNumbers = async () => {
     try {
@@ -127,12 +221,14 @@ export default function LabelsMissingTab({
               <AlertTriangle className="h-5 w-5" />
 
               <h2 className="font-semibold">
-                {orders.length} orders need Shiprocket repair
+                {orders.length} orders need Shiprocket
+                repair
               </h2>
             </div>
 
             <p className="mt-1 text-sm text-amber-800">
-              Repair orders individually or repair all shown orders.
+              Default package: 10 × 10 × 5 cm and
+              0.5 kg.
             </p>
           </div>
 
@@ -156,7 +252,9 @@ export default function LabelsMissingTab({
                   )
                 )
               }
-              disabled={!filteredOrders.length || repairLoading}
+              disabled={
+                !filteredOrders.length || repairLoading
+              }
               className="inline-flex h-10 items-center gap-2 rounded-xl bg-amber-900 px-4 text-sm font-medium text-white disabled:opacity-40"
             >
               {repairLoading && !repairingOrderId ? (
@@ -177,7 +275,9 @@ export default function LabelsMissingTab({
 
           <input
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) =>
+              setSearch(event.target.value)
+            }
             placeholder="Search order, customer, AWB or error..."
             className="h-11 w-full rounded-xl border border-zinc-300 pl-10 pr-4 text-sm outline-none focus:border-zinc-950"
           />
@@ -202,14 +302,16 @@ export default function LabelsMissingTab({
         ) : (
           <>
             <div className="hidden overflow-x-auto lg:block">
-              <table className="w-full min-w-[1000px]">
+              <table className="w-full min-w-[1180px]">
                 <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
                   <tr>
                     <th className="px-4 py-3">Order</th>
                     <th className="px-4 py-3">Customer</th>
                     <th className="px-4 py-3">Missing</th>
                     <th className="px-4 py-3">Details</th>
-                    <th className="px-4 py-3">Last Error</th>
+                    <th className="px-4 py-3">
+                      Last Error
+                    </th>
                     <th className="px-4 py-3">Result</th>
                     <th className="px-4 py-3 text-right">
                       Action
@@ -220,20 +322,48 @@ export default function LabelsMissingTab({
                 <tbody className="divide-y divide-zinc-100">
                   {filteredOrders.map((order) => {
                     const orderId = String(order?._id);
+                    const result = resultMap.get(orderId);
+
                     const repairing =
                       repairingOrderId === orderId;
+
+                    const packageUpdating =
+                      String(packageUpdatingOrderId) ===
+                      orderId;
+
+                    const showPackageForm =
+                      hasPackageError(order, result);
 
                     return (
                       <MissingOrderRow
                         key={orderId}
                         order={order}
-                        result={resultMap.get(orderId)}
+                        result={result}
+                        packageForm={getPackageForm(
+                          orderId
+                        )}
+                        showPackageForm={
+                          showPackageForm
+                        }
                         repairing={repairing}
+                        packageUpdating={
+                          packageUpdating
+                        }
                         disabled={
                           repairLoading && !repairing
                         }
                         onRepair={() =>
                           onRepairOrder?.(orderId)
+                        }
+                        onPackageChange={(field, value) =>
+                          updatePackageField(
+                            orderId,
+                            field,
+                            value
+                          )
+                        }
+                        onPackageSubmit={() =>
+                          submitPackage(orderId)
                         }
                       />
                     );
@@ -245,20 +375,42 @@ export default function LabelsMissingTab({
             <div className="divide-y divide-zinc-100 lg:hidden">
               {filteredOrders.map((order) => {
                 const orderId = String(order?._id);
+                const result = resultMap.get(orderId);
+
                 const repairing =
                   repairingOrderId === orderId;
+
+                const packageUpdating =
+                  String(packageUpdatingOrderId) ===
+                  orderId;
 
                 return (
                   <MissingOrderCard
                     key={orderId}
                     order={order}
-                    result={resultMap.get(orderId)}
+                    result={result}
+                    packageForm={getPackageForm(orderId)}
+                    showPackageForm={hasPackageError(
+                      order,
+                      result
+                    )}
                     repairing={repairing}
+                    packageUpdating={packageUpdating}
                     disabled={
                       repairLoading && !repairing
                     }
                     onRepair={() =>
                       onRepairOrder?.(orderId)
+                    }
+                    onPackageChange={(field, value) =>
+                      updatePackageField(
+                        orderId,
+                        field,
+                        value
+                      )
+                    }
+                    onPackageSubmit={() =>
+                      submitPackage(orderId)
                     }
                   />
                 );
@@ -274,9 +426,14 @@ export default function LabelsMissingTab({
 function MissingOrderRow({
   order,
   result,
+  packageForm,
+  showPackageForm,
   repairing,
+  packageUpdating,
   disabled,
   onRepair,
+  onPackageChange,
+  onPackageSubmit,
 }) {
   const missingFields = getMissingFields(order);
 
@@ -288,7 +445,9 @@ function MissingOrderRow({
         </p>
 
         <p className="mt-1 text-xs text-zinc-500">
-          {formatDate(order?.packedAt || order?.orderDate)}
+          {formatDate(
+            order?.packedAt || order?.orderDate
+          )}
         </p>
       </td>
 
@@ -302,7 +461,10 @@ function MissingOrderRow({
         </p>
 
         <p className="text-xs text-zinc-500">
-          {[order?.customer?.city, order?.customer?.pincode]
+          {[
+            order?.customer?.city,
+            order?.customer?.pincode,
+          ]
             .filter(Boolean)
             .join(" · ") || "-"}
         </p>
@@ -338,14 +500,27 @@ function MissingOrderRow({
 
         <p className="mt-1">
           Provider:{" "}
-          <span className="font-medium">Shiprocket</span>
+          <span className="font-medium">
+            Shiprocket
+          </span>
         </p>
       </td>
 
-      <td className="max-w-64 px-4 py-4">
+      <td className="max-w-72 px-4 py-4">
         <p className="line-clamp-3 text-xs text-red-700">
           {order?.shipment?.rawStatus || "-"}
         </p>
+
+        {showPackageForm && (
+          <div className="mt-3">
+            <PackageForm
+              values={packageForm}
+              loading={packageUpdating}
+              onChange={onPackageChange}
+              onSubmit={onPackageSubmit}
+            />
+          </div>
+        )}
       </td>
 
       <td className="px-4 py-4">
@@ -355,7 +530,7 @@ function MissingOrderRow({
       <td className="px-4 py-4 text-right">
         <RepairButton
           repairing={repairing}
-          disabled={disabled}
+          disabled={disabled || packageUpdating}
           onClick={onRepair}
         />
       </td>
@@ -366,9 +541,14 @@ function MissingOrderRow({
 function MissingOrderCard({
   order,
   result,
+  packageForm,
+  showPackageForm,
   repairing,
+  packageUpdating,
   disabled,
   onRepair,
+  onPackageChange,
+  onPackageSubmit,
 }) {
   const missingFields = getMissingFields(order);
 
@@ -381,19 +561,23 @@ function MissingOrderCard({
           </h2>
 
           <p className="mt-0.5 text-xs text-zinc-500">
-            {formatDate(order?.packedAt || order?.orderDate)}
+            {formatDate(
+              order?.packedAt || order?.orderDate
+            )}
           </p>
         </div>
 
         <RepairButton
           repairing={repairing}
-          disabled={disabled}
+          disabled={disabled || packageUpdating}
           onClick={onRepair}
         />
       </div>
 
       <div className="mt-4">
-        <p className="text-xs text-zinc-500">Missing</p>
+        <p className="text-xs text-zinc-500">
+          Missing
+        </p>
 
         <div className="mt-2 flex flex-wrap gap-1.5">
           {missingFields.map((field) => (
@@ -443,12 +627,106 @@ function MissingOrderCard({
         </div>
       )}
 
+      {showPackageForm && (
+        <div className="mt-4">
+          <PackageForm
+            values={packageForm}
+            loading={packageUpdating}
+            onChange={onPackageChange}
+            onSubmit={onPackageSubmit}
+          />
+        </div>
+      )}
+
       {result && (
         <div className="mt-4">
           <RepairResult result={result} />
         </div>
       )}
     </article>
+  );
+}
+
+function PackageForm({
+  values,
+  loading,
+  onChange,
+  onSubmit,
+}) {
+  const fields = [
+    {
+      key: "length",
+      label: "Length",
+      step: "0.1",
+    },
+    {
+      key: "breadth",
+      label: "Breadth",
+      step: "0.1",
+    },
+    {
+      key: "height",
+      label: "Height",
+      step: "0.1",
+    },
+    {
+      key: "weight",
+      label: "Weight",
+      step: "0.01",
+    },
+  ];
+
+  return (
+    <div className="rounded-xl border border-amber-300 bg-white p-3">
+      <div className="flex items-center gap-2 text-xs font-semibold text-amber-900">
+        <Ruler className="h-4 w-4" />
+        Update Package
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        {fields.map((field) => (
+          <label key={field.key}>
+            <span className="text-[11px] text-zinc-500">
+              {field.label}
+              {field.key === "weight"
+                ? " (kg)"
+                : " (cm)"}
+            </span>
+
+            <input
+              type="number"
+              min="0.01"
+              step={field.step}
+              value={values?.[field.key] ?? ""}
+              onChange={(event) =>
+                onChange?.(
+                  field.key,
+                  event.target.value
+                )
+              }
+              className="mt-1 h-9 w-full rounded-lg border border-zinc-300 px-2 text-xs outline-none focus:border-zinc-950"
+            />
+          </label>
+        ))}
+      </div>
+
+      <button
+        type="button"
+        onClick={onSubmit}
+        disabled={loading}
+        className="mt-3 inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-amber-900 px-3 text-xs font-medium text-white disabled:opacity-40"
+      >
+        {loading ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <RefreshCw className="h-3.5 w-3.5" />
+        )}
+
+        {loading
+          ? "Updating..."
+          : "Update & Repair"}
+      </button>
+    </div>
   );
 }
 
@@ -523,7 +801,8 @@ function EmptyState() {
       </h2>
 
       <p className="mt-1 text-sm text-zinc-500">
-        All packed orders currently have shipping labels.
+        All packed orders currently have shipping
+        labels.
       </p>
     </div>
   );

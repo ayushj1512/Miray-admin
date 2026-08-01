@@ -3,19 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Activity,
   BriefcaseBusiness,
   ChevronLeft,
   ChevronRight,
   CirclePlus,
-  Clock3,
   Eye,
   Loader2,
-  MoreVertical,
   Pencil,
   RefreshCcw,
   Search,
-  Shirt,
   UserRoundCheck,
   UserRoundCog,
   UserRoundX,
@@ -24,143 +20,114 @@ import {
 
 import useTailorStore from "@/store/useTailorStore";
 
-const STATUS_STYLES = {
-  active:
-    "border-emerald-200 bg-emerald-50 text-emerald-700",
+/* =========================================================
+   SMALL UI HELPERS
+========================================================= */
 
-  inactive:
-    "border-gray-200 bg-gray-50 text-gray-600",
-
-  blocked:
-    "border-red-200 bg-red-50 text-red-700",
-};
-
-const AVAILABILITY_STYLES = {
-  available:
-    "border-emerald-200 bg-emerald-50 text-emerald-700",
-
-  busy:
-    "border-amber-200 bg-amber-50 text-amber-700",
-
-  on_leave:
-    "border-blue-200 bg-blue-50 text-blue-700",
-
-  unavailable:
-    "border-gray-200 bg-gray-50 text-gray-600",
-};
-
-const formatLabel = (value) => {
-  if (!value) return "—";
-
-  return String(value)
-    .replaceAll("_", " ")
-    .replace(/\b\w/g, (letter) =>
-      letter.toUpperCase(),
-    );
-};
-
-const getInitials = (name = "") => {
-  return name
+const getInitials = (name = "") =>
+  name
     .split(" ")
     .filter(Boolean)
     .slice(0, 2)
     .map((part) => part[0])
     .join("")
     .toUpperCase();
-};
 
 const SummaryCard = ({
   title,
   value,
   subtitle,
   icon: Icon,
-}) => {
-  return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-medium text-gray-500">
-            {title}
-          </p>
+}) => (
+  <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+    <div className="flex items-start justify-between gap-3">
+      <div>
+        <p className="text-xs font-medium text-gray-500">
+          {title}
+        </p>
 
-          <p className="mt-2 text-2xl font-bold text-gray-950">
-            {value}
-          </p>
+        <p className="mt-2 text-2xl font-bold text-gray-950">
+          {value}
+        </p>
 
-          {subtitle && (
-            <p className="mt-1 text-xs text-gray-400">
-              {subtitle}
-            </p>
-          )}
-        </div>
-
-        <div className="rounded-xl bg-[#800020]/8 p-2.5 text-[#800020]">
-          <Icon size={20} />
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const EmptyState = ({ onCreate }) => {
-  return (
-    <div className="flex min-h-[340px] flex-col items-center justify-center px-6 text-center">
-      <div className="rounded-2xl bg-[#800020]/8 p-4 text-[#800020]">
-        <UserRoundCog size={34} />
+        <p className="mt-1 text-xs text-gray-400">
+          {subtitle}
+        </p>
       </div>
 
-      <h3 className="mt-4 text-lg font-semibold text-gray-950">
-        No tailors found
-      </h3>
-
-      <p className="mt-1 max-w-sm text-sm text-gray-500">
-        Create your first tailor profile or change the
-        current filters.
-      </p>
-
-      <button
-        type="button"
-        onClick={onCreate}
-        className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#800020] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#68001a]"
-      >
-        <CirclePlus size={17} />
-        Create Tailor
-      </button>
+      <div className="rounded-xl bg-[#800020]/8 p-2.5 text-[#800020]">
+        <Icon size={20} />
+      </div>
     </div>
-  );
-};
+  </div>
+);
+
+const EmptyState = ({ onCreate }) => (
+  <div className="flex min-h-[340px] flex-col items-center justify-center px-6 text-center">
+    <div className="rounded-2xl bg-[#800020]/8 p-4 text-[#800020]">
+      <UserRoundCog size={34} />
+    </div>
+
+    <h3 className="mt-4 text-lg font-semibold text-gray-950">
+      No tailors found
+    </h3>
+
+    <p className="mt-1 max-w-sm text-sm text-gray-500">
+      Create a tailor or change the current filters.
+    </p>
+
+    <button
+      type="button"
+      onClick={onCreate}
+      className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#800020] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#68001a]"
+    >
+      <CirclePlus size={17} />
+      Create Tailor
+    </button>
+  </div>
+);
+
+/* =========================================================
+   PAGE
+========================================================= */
 
 export default function TailorsPage() {
   const router = useRouter();
 
   const {
-    tailors,
-    summary,
+    tailors = [],
+    tailorSummary = {},
     pagination,
     filters,
 
     listLoading,
     summaryLoading,
+    updating,
 
     setFilters,
-    setPage,
     fetchTailors,
     fetchTailorSummary,
-    updateTailorAvailability,
+    updateTailorStatus,
   } = useTailorStore();
 
   const [searchInput, setSearchInput] = useState(
     filters.search || "",
   );
 
-  const [openMenuId, setOpenMenuId] =
-    useState(null);
-
+  /* Initial load */
   useEffect(() => {
-    fetchTailors();
-    fetchTailorSummary();
-  }, []);
+    Promise.all([
+      fetchTailors(),
+      fetchTailorSummary(),
+    ]).catch((error) => {
+      console.error(
+        "Failed to load tailor data:",
+        error,
+      );
+    });
+  }, [fetchTailors, fetchTailorSummary]);
 
+  /* Debounced search */
   useEffect(() => {
     const timeout = setTimeout(() => {
       const search = searchInput.trim();
@@ -175,41 +142,52 @@ export default function TailorsPage() {
       fetchTailors({
         search,
         page: 1,
-      });
+      }).catch(console.error);
     }, 400);
 
     return () => clearTimeout(timeout);
-  }, [searchInput]);
+  }, [
+    searchInput,
+    filters.search,
+    setFilters,
+    fetchTailors,
+  ]);
 
+  /* Fallback stats from current list */
   const statistics = useMemo(() => {
+    const active = tailors.filter(
+      (tailor) => tailor.isActive,
+    ).length;
+
+    const inactive = tailors.filter(
+      (tailor) => !tailor.isActive,
+    ).length;
+
     return {
       total:
-        summary?.totalTailors ??
-        summary?.total ??
-        pagination.total ??
-        0,
+        tailorSummary.totalTailors ??
+        pagination?.total ??
+        tailors.length,
 
       active:
-        summary?.activeTailors ??
-        summary?.active ??
-        0,
-
-      available:
-        summary?.availableTailors ??
-        summary?.available ??
-        0,
-
-      busy:
-        summary?.busyTailors ??
-        summary?.busy ??
-        0,
+        tailorSummary.activeTailors ??
+        active,
 
       inactive:
-        summary?.inactiveTailors ??
-        summary?.inactive ??
-        0,
+        tailorSummary.inactiveTailors ??
+        inactive,
+
+      totalJobs:
+        tailorSummary.totalJobs ?? 0,
+
+      totalQuantity:
+        tailorSummary.totalQuantity ?? 0,
     };
-  }, [summary, pagination.total]);
+  }, [
+    tailors,
+    tailorSummary,
+    pagination,
+  ]);
 
   const handleFilterChange = (
     key,
@@ -221,65 +199,86 @@ export default function TailorsPage() {
     };
 
     setFilters(nextFilters);
-    fetchTailors(nextFilters);
+
+    fetchTailors(nextFilters).catch(
+      console.error,
+    );
   };
 
   const handleRefresh = async () => {
-    await Promise.all([
-      fetchTailors(),
-      fetchTailorSummary(),
-    ]);
+    try {
+      await Promise.all([
+        fetchTailors(),
+        fetchTailorSummary(),
+      ]);
+    } catch (error) {
+      console.error(
+        "Failed to refresh tailors:",
+        error,
+      );
+    }
   };
 
-  const handlePageChange = (nextPage) => {
+  const handlePageChange = async (
+    nextPage,
+  ) => {
+    const totalPages =
+      Number(pagination?.totalPages) || 1;
+
     if (
       nextPage < 1 ||
-      nextPage > pagination.totalPages
+      nextPage > totalPages ||
+      listLoading
     ) {
       return;
     }
 
-    setPage(nextPage);
+    setFilters({
+      page: nextPage,
+    });
 
-    fetchTailors({
+    await fetchTailors({
       page: nextPage,
     });
   };
 
-  const handleAvailabilityChange = async (
-    tailorId,
-    availability,
+  const handleStatusChange = async (
+    tailor,
   ) => {
-    setOpenMenuId(null);
+    try {
+      await updateTailorStatus(
+        tailor._id,
+        !tailor.isActive,
+      );
 
-    await updateTailorAvailability(
-      tailorId,
-      availability,
-    );
+      await fetchTailorSummary();
+    } catch (error) {
+      console.error(
+        "Failed to update tailor status:",
+        error,
+      );
+    }
   };
 
   return (
     <main className="min-h-screen bg-[#fcfafb] px-3 py-5 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-[1600px]">
+      <div className="mx-auto max-w-[1500px]">
         {/* Header */}
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <div className="rounded-xl bg-[#800020] p-2 text-white">
-                <UserRoundCog size={22} />
-              </div>
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl bg-[#800020] p-2 text-white">
+              <UserRoundCog size={22} />
+            </div>
 
-              <div>
-                <h1 className="text-xl font-bold text-gray-950 sm:text-2xl">
-                  Tailors
-                </h1>
+            <div>
+              <h1 className="text-xl font-bold text-gray-950 sm:text-2xl">
+                Tailors
+              </h1>
 
-                <p className="text-xs text-gray-500 sm:text-sm">
-                  Manage tailor profiles, skills,
-                  capacity and product assignments.
-                </p>
-              </div>
+              <p className="text-xs text-gray-500 sm:text-sm">
+                Manage tailor profiles and production jobs.
+              </p>
             </div>
           </div>
 
@@ -291,12 +290,13 @@ export default function TailorsPage() {
                 listLoading ||
                 summaryLoading
               }
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 shadow-sm transition hover:border-[#800020]/20 hover:text-[#800020] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 shadow-sm hover:text-[#800020] disabled:opacity-60"
             >
               <RefreshCcw
                 size={16}
                 className={
-                  listLoading
+                  listLoading ||
+                  summaryLoading
                     ? "animate-spin"
                     : ""
                 }
@@ -314,7 +314,7 @@ export default function TailorsPage() {
                   "/tailors/create",
                 )
               }
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#800020] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#68001a]"
+              className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#800020] px-4 text-sm font-semibold text-white hover:bg-[#68001a]"
             >
               <CirclePlus size={17} />
               Add Tailor
@@ -335,22 +335,8 @@ export default function TailorsPage() {
           <SummaryCard
             title="Active"
             value={statistics.active}
-            subtitle="Eligible for work"
+            subtitle="Can receive jobs"
             icon={UserRoundCheck}
-          />
-
-          <SummaryCard
-            title="Available"
-            value={statistics.available}
-            subtitle="Ready for assignment"
-            icon={Activity}
-          />
-
-          <SummaryCard
-            title="Busy"
-            value={statistics.busy}
-            subtitle="Currently working"
-            icon={Clock3}
           />
 
           <SummaryCard
@@ -359,12 +345,26 @@ export default function TailorsPage() {
             subtitle="Not receiving jobs"
             icon={UserRoundX}
           />
+
+          <SummaryCard
+            title="Production Jobs"
+            value={statistics.totalJobs}
+            subtitle="All active history"
+            icon={BriefcaseBusiness}
+          />
+
+          <SummaryCard
+            title="Total Quantity"
+            value={statistics.totalQuantity}
+            subtitle="Pieces allocated"
+            icon={UserRoundCog}
+          />
         </section>
 
         {/* Filters */}
 
         <section className="mt-5 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm sm:p-4">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(240px,1fr)_170px_170px_170px]">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(260px,1fr)_180px_180px]">
             <div className="relative">
               <Search
                 size={17}
@@ -378,66 +378,31 @@ export default function TailorsPage() {
                     event.target.value,
                   )
                 }
-                placeholder="Search name, code or mobile"
-                className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 pl-10 pr-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-[#800020]/40 focus:bg-white focus:ring-4 focus:ring-[#800020]/5"
+                placeholder="Search name, code, mobile or product"
+                className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 pl-10 pr-3 text-sm outline-none focus:border-[#800020]/40 focus:bg-white"
               />
             </div>
 
             <select
-              value={filters.status}
+              value={filters.isActive}
               onChange={(event) =>
                 handleFilterChange(
-                  "status",
+                  "isActive",
                   event.target.value,
                 )
               }
-              className="h-11 rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm text-gray-700 outline-none focus:border-[#800020]/40 focus:bg-white"
+              className="h-11 rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm text-gray-700 outline-none focus:border-[#800020]/40"
             >
-              <option value="all">
+              <option value="">
                 All statuses
               </option>
 
-              <option value="active">
+              <option value="true">
                 Active
               </option>
 
-              <option value="inactive">
+              <option value="false">
                 Inactive
-              </option>
-
-              <option value="blocked">
-                Blocked
-              </option>
-            </select>
-
-            <select
-              value={filters.availability}
-              onChange={(event) =>
-                handleFilterChange(
-                  "availability",
-                  event.target.value,
-                )
-              }
-              className="h-11 rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm text-gray-700 outline-none focus:border-[#800020]/40 focus:bg-white"
-            >
-              <option value="all">
-                All availability
-              </option>
-
-              <option value="available">
-                Available
-              </option>
-
-              <option value="busy">
-                Busy
-              </option>
-
-              <option value="on_leave">
-                On Leave
-              </option>
-
-              <option value="unavailable">
-                Unavailable
               </option>
             </select>
 
@@ -449,7 +414,7 @@ export default function TailorsPage() {
                   event.target.value,
                 )
               }
-              className="h-11 rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm text-gray-700 outline-none focus:border-[#800020]/40 focus:bg-white"
+              className="h-11 rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm text-gray-700 outline-none focus:border-[#800020]/40"
             >
               <option value="newest">
                 Newest first
@@ -467,8 +432,8 @@ export default function TailorsPage() {
                 Name Z-A
               </option>
 
-              <option value="rating_desc">
-                Highest rating
+              <option value="code_asc">
+                Code ascending
               </option>
             </select>
           </div>
@@ -502,7 +467,7 @@ export default function TailorsPage() {
           ) : (
             <>
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[1050px] text-left">
+                <table className="w-full min-w-[900px] text-left">
                   <thead className="border-b border-gray-200 bg-gray-50/80">
                     <tr>
                       <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -510,19 +475,15 @@ export default function TailorsPage() {
                       </th>
 
                       <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                        Skills
+                        Contact
+                      </th>
+
+                      <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        Jobs
                       </th>
 
                       <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
                         Products
-                      </th>
-
-                      <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                        Capacity
-                      </th>
-
-                      <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                        Availability
                       </th>
 
                       <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -536,330 +497,202 @@ export default function TailorsPage() {
                   </thead>
 
                   <tbody className="divide-y divide-gray-100">
-                    {tailors.map(
-                      (tailor) => {
-                        const skills =
-                          Array.isArray(
-                            tailor.skills,
-                          )
-                            ? tailor.skills
-                            : [];
+                    {tailors.map((tailor) => {
+                      const productionJobs =
+                        Array.isArray(
+                          tailor.productionJobs,
+                        )
+                          ? tailor.productionJobs
+                          : [];
 
-                        const assignedProducts =
-                          Array.isArray(
-                            tailor.assignedProducts,
-                          )
-                            ? tailor.assignedProducts
-                            : [];
+                      const productCodes = [
+                        ...new Set(
+                          productionJobs
+                            .map(
+                              (item) =>
+                                item.productCode,
+                            )
+                            .filter(Boolean),
+                        ),
+                      ];
 
-                        const capacity =
-                          tailor.capacity ||
-                          {};
+                      const totalQuantity =
+                        productionJobs.reduce(
+                          (total, item) =>
+                            total +
+                            Number(
+                              item.assignedQuantity ||
+                                0,
+                            ),
+                          0,
+                        );
 
-                        return (
-                          <tr
-                            key={tailor._id}
-                            className="transition hover:bg-[#800020]/[0.018]"
-                          >
-                            <td className="px-4 py-4">
-                              <div className="flex items-center gap-3">
-                                {tailor.photo ? (
-                                  <img
-                                    src={
-                                      tailor.photo
-                                    }
-                                    alt={
-                                      tailor.name ||
-                                      "Tailor"
-                                    }
-                                    className="h-11 w-11 rounded-xl border border-gray-200 object-cover"
-                                  />
-                                ) : (
-                                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#800020]/8 text-sm font-bold text-[#800020]">
-                                    {getInitials(
-                                      tailor.name,
-                                    ) ||
-                                      "T"}
-                                  </div>
-                                )}
-
-                                <div className="min-w-0">
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      router.push(
-                                        `/tailors/${tailor._id}`,
-                                      )
-                                    }
-                                    className="max-w-[220px] truncate text-left text-sm font-semibold text-gray-950 hover:text-[#800020]"
-                                  >
-                                    {tailor.name ||
-                                      "Unnamed Tailor"}
-                                  </button>
-
-                                  <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-500">
-                                    <span>
-                                      {tailor.tailorCode ||
-                                        "No code"}
-                                    </span>
-
-                                    {tailor.mobile && (
-                                      <>
-                                        <span>
-                                          •
-                                        </span>
-
-                                        <span>
-                                          {
-                                            tailor.mobile
-                                          }
-                                        </span>
-                                      </>
-                                    )}
-                                  </div>
-                                </div>
+                      return (
+                        <tr
+                          key={tailor._id}
+                          className="transition hover:bg-[#800020]/[0.018]"
+                        >
+                          <td className="px-4 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#800020]/8 text-sm font-bold text-[#800020]">
+                                {getInitials(
+                                  tailor.name,
+                                ) || "T"}
                               </div>
-                            </td>
 
-                            <td className="px-4 py-4">
-                              <div className="flex max-w-[240px] flex-wrap gap-1.5">
-                                {skills.length >
-                                0 ? (
-                                  <>
-                                    {skills
-                                      .slice(0, 3)
-                                      .map(
-                                        (
-                                          skill,
-                                        ) => (
-                                          <span
-                                            key={
-                                              skill
-                                            }
-                                            className="rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-[11px] font-medium text-gray-600"
-                                          >
-                                            {formatLabel(
-                                              skill,
-                                            )}
-                                          </span>
-                                        ),
-                                      )}
-
-                                    {skills.length >
-                                      3 && (
-                                      <span className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium text-gray-500">
-                                        +
-                                        {skills.length -
-                                          3}
-                                      </span>
-                                    )}
-                                  </>
-                                ) : (
-                                  <span className="text-xs text-gray-400">
-                                    No skills
-                                  </span>
-                                )}
-                              </div>
-                            </td>
-
-                            <td className="px-4 py-4">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  router.push(
-                                    `/tailors/${tailor._id}/products`,
-                                  )
-                                }
-                                className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs font-medium text-gray-700 transition hover:border-[#800020]/20 hover:text-[#800020]"
-                              >
-                                <Shirt
-                                  size={14}
-                                />
-
-                                {
-                                  assignedProducts.length
-                                }{" "}
-                                Products
-                              </button>
-                            </td>
-
-                            <td className="px-4 py-4">
-                              <div className="text-xs text-gray-600">
-                                <div>
-                                  Daily:{" "}
-                                  <span className="font-semibold text-gray-900">
-                                    {capacity.daily ??
-                                      tailor.dailyCapacity ??
-                                      0}
-                                  </span>
-                                </div>
-
-                                <div className="mt-1">
-                                  Monthly:{" "}
-                                  <span className="font-semibold text-gray-900">
-                                    {capacity.monthly ??
-                                      tailor.monthlyCapacity ??
-                                      0}
-                                  </span>
-                                </div>
-                              </div>
-                            </td>
-
-                            <td className="px-4 py-4">
-                              <span
-                                className={[
-                                  "inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold",
-
-                                  AVAILABILITY_STYLES[
-                                    tailor.availability
-                                  ] ||
-                                    AVAILABILITY_STYLES.unavailable,
-                                ].join(
-                                  " ",
-                                )}
-                              >
-                                {formatLabel(
-                                  tailor.availability,
-                                )}
-                              </span>
-                            </td>
-
-                            <td className="px-4 py-4">
-                              <span
-                                className={[
-                                  "inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold",
-
-                                  STATUS_STYLES[
-                                    tailor.status
-                                  ] ||
-                                    STATUS_STYLES.inactive,
-                                ].join(
-                                  " ",
-                                )}
-                              >
-                                {formatLabel(
-                                  tailor.status,
-                                )}
-                              </span>
-                            </td>
-
-                            <td className="relative px-4 py-4">
-                              <div className="flex items-center justify-end gap-1">
+                              <div className="min-w-0">
                                 <button
                                   type="button"
-                                  title="View tailor"
                                   onClick={() =>
                                     router.push(
                                       `/tailors/${tailor._id}`,
                                     )
                                   }
-                                  className="rounded-lg p-2 text-gray-500 transition hover:bg-[#800020]/8 hover:text-[#800020]"
+                                  className="max-w-[220px] truncate text-left text-sm font-semibold text-gray-950 hover:text-[#800020]"
                                 >
-                                  <Eye
-                                    size={17}
-                                  />
+                                  {tailor.name ||
+                                    "Unnamed Tailor"}
                                 </button>
 
-                                <button
-                                  type="button"
-                                  title="Edit tailor"
-                                  onClick={() =>
-                                    router.push(
-                                      `/tailors/${tailor._id}/edit`,
-                                    )
-                                  }
-                                  className="rounded-lg p-2 text-gray-500 transition hover:bg-[#800020]/8 hover:text-[#800020]"
-                                >
-                                  <Pencil
-                                    size={17}
-                                  />
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setOpenMenuId(
-                                      (
-                                        current,
-                                      ) =>
-                                        current ===
-                                        tailor._id
-                                          ? null
-                                          : tailor._id,
-                                    )
-                                  }
-                                  className="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
-                                >
-                                  <MoreVertical
-                                    size={17}
-                                  />
-                                </button>
+                                <p className="mt-0.5 text-xs text-gray-500">
+                                  {tailor.tailorCode ||
+                                    "No code"}
+                                </p>
                               </div>
+                            </div>
+                          </td>
 
-                              {openMenuId ===
-                                tailor._id && (
-                                <div className="absolute right-4 top-12 z-30 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setOpenMenuId(
-                                        null,
-                                      );
+                          <td className="px-4 py-4">
+                            <p className="text-sm font-medium text-gray-800">
+                              {tailor.mobile ||
+                                "No mobile"}
+                            </p>
 
-                                      router.push(
-                                        `/tailors/${tailor._id}/products`,
-                                      );
-                                    }}
-                                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-medium text-gray-700 hover:bg-gray-50"
-                                  >
-                                    <BriefcaseBusiness
-                                      size={
-                                        15
-                                      }
-                                    />
+                            {tailor.alternateMobile && (
+                              <p className="mt-1 text-xs text-gray-500">
+                                Alt:{" "}
+                                {
+                                  tailor.alternateMobile
+                                }
+                              </p>
+                            )}
+                          </td>
 
-                                    Manage
-                                    Products
-                                  </button>
+                          <td className="px-4 py-4">
+                            <p className="text-sm font-semibold text-gray-900">
+                              {
+                                productionJobs.length
+                              }{" "}
+                              jobs
+                            </p>
 
-                                  <div className="my-1 border-t border-gray-100" />
+                            <p className="mt-1 text-xs text-gray-500">
+                              {totalQuantity} pieces
+                            </p>
+                          </td>
 
-                                  {[
-                                    "available",
-                                    "busy",
-                                    "on_leave",
-                                    "unavailable",
-                                  ].map(
-                                    (
-                                      availability,
-                                    ) => (
-                                      <button
-                                        key={
-                                          availability
-                                        }
-                                        type="button"
-                                        onClick={() =>
-                                          handleAvailabilityChange(
-                                            tailor._id,
-                                            availability,
-                                          )
-                                        }
-                                        className="flex w-full items-center rounded-lg px-3 py-2 text-left text-xs font-medium text-gray-700 hover:bg-gray-50"
-                                      >
-                                        Mark{" "}
-                                        {formatLabel(
-                                          availability,
-                                        )}
-                                      </button>
-                                    ),
-                                  )}
-                                </div>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      },
-                    )}
+                          <td className="px-4 py-4">
+                            {productCodes.length ? (
+                              <div className="flex max-w-[260px] flex-wrap gap-1.5">
+                                {productCodes
+                                  .slice(0, 3)
+                                  .map((code) => (
+                                    <span
+                                      key={code}
+                                      className="rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-[11px] font-medium text-gray-700"
+                                    >
+                                      {code}
+                                    </span>
+                                  ))}
+
+                                {productCodes.length >
+                                  3 && (
+                                  <span className="rounded-lg border border-gray-200 px-2 py-1 text-[11px] text-gray-500">
+                                    +
+                                    {productCodes.length -
+                                      3}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-gray-400">
+                                No products assigned
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="px-4 py-4">
+                            <button
+                              type="button"
+                              disabled={updating}
+                              onClick={() =>
+                                handleStatusChange(
+                                  tailor,
+                                )
+                              }
+                              className={[
+                                "inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold disabled:opacity-50",
+
+                                tailor.isActive
+                                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                  : "border-gray-200 bg-gray-50 text-gray-600",
+                              ].join(" ")}
+                            >
+                              {tailor.isActive
+                                ? "Active"
+                                : "Inactive"}
+                            </button>
+                          </td>
+
+                          <td className="px-4 py-4">
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                type="button"
+                                title="View tailor"
+                                onClick={() =>
+                                  router.push(
+                                    `/tailors/${tailor._id}`,
+                                  )
+                                }
+                                className="rounded-lg p-2 text-gray-500 hover:bg-[#800020]/8 hover:text-[#800020]"
+                              >
+                                <Eye size={17} />
+                              </button>
+
+                              <button
+                                type="button"
+                                title="Edit tailor"
+                                onClick={() =>
+                                  router.push(
+                                    `/tailors/${tailor._id}/edit`,
+                                  )
+                                }
+                                className="rounded-lg p-2 text-gray-500 hover:bg-[#800020]/8 hover:text-[#800020]"
+                              >
+                                <Pencil
+                                  size={17}
+                                />
+                              </button>
+
+                              <button
+                                type="button"
+                                title="Create production job"
+                                onClick={() =>
+                                  router.push(
+                                    `/tailor-production-jobs/create?tailorId=${tailor._id}`,
+                                  )
+                                }
+                                className="rounded-lg p-2 text-gray-500 hover:bg-[#800020]/8 hover:text-[#800020]"
+                              >
+                                <BriefcaseBusiness
+                                  size={17}
+                                />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -891,20 +724,16 @@ export default function TailorsPage() {
                         pagination.page - 1,
                       )
                     }
-                    className="inline-flex h-9 items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-gray-700 transition hover:border-[#800020]/20 hover:text-[#800020] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="inline-flex h-9 items-center gap-1 rounded-lg border border-gray-200 px-3 text-xs font-medium text-gray-700 disabled:opacity-40"
                   >
-                    <ChevronLeft
-                      size={15}
-                    />
+                    <ChevronLeft size={15} />
                     Previous
                   </button>
 
                   <span className="min-w-20 text-center text-xs font-medium text-gray-600">
                     Page{" "}
-                    {pagination.page || 1}{" "}
-                    of{" "}
-                    {pagination.totalPages ||
-                      1}
+                    {pagination.page || 1} of{" "}
+                    {pagination.totalPages || 1}
                   </span>
 
                   <button
@@ -918,12 +747,10 @@ export default function TailorsPage() {
                         pagination.page + 1,
                       )
                     }
-                    className="inline-flex h-9 items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-gray-700 transition hover:border-[#800020]/20 hover:text-[#800020] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="inline-flex h-9 items-center gap-1 rounded-lg border border-gray-200 px-3 text-xs font-medium text-gray-700 disabled:opacity-40"
                   >
                     Next
-                    <ChevronRight
-                      size={15}
-                    />
+                    <ChevronRight size={15} />
                   </button>
                 </div>
               </div>

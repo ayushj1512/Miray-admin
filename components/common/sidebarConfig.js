@@ -319,6 +319,7 @@ export const sidebarMenus = {
   customers: [
     { label: "Customer Dashboard", href: "/customers/dashboard" },
     { label: "Customer List", href: "/customers" },
+    { label: "Blacklisted Customers", href: "/customers/blacklisted" },
     { label: "Customer Search", href: "/customers/search" },
 
     { label: "Customer Analytics", href: "/customers/analytics" },

@@ -5,27 +5,39 @@ import {
   useMemo,
   useState,
 } from "react";
-import { useRouter } from "next/navigation";
 import {
-  AlertCircle,
+  useRouter,
+  useSearchParams,
+} from "next/navigation";
+import {
   ArrowLeft,
   CalendarDays,
-  Check,
-  Factory,
+  CirclePlus,
   IndianRupee,
   Loader2,
   Package,
   Plus,
   Save,
   Search,
-  Shirt,
   Trash2,
   UserRoundCog,
 } from "lucide-react";
-import { toast } from "react-hot-toast";
 
-import useTailorProductionJobStore from "@/store/useTailorProductionJobStore";
 import useTailorStore from "@/store/useTailorStore";
+import useTailorProductionJobStore from "@/store/useTailorProductionJobStore";
+import { useAdminProductStore } from "@/store/adminProductStore";
+/* =========================================================
+   OPTIONS
+========================================================= */
+
+const WORK_TYPES = [
+  "full_garment",
+  "sampling",
+  "pattern",
+  "cutting",
+  "stitching",
+  "finishing",
+];
 
 const SIZES = [
   "XS",
@@ -34,917 +46,825 @@ const SIZES = [
   "L",
   "XL",
   "XXL",
+  "3XL",
+  "4XL",
+  "5XL",
   "FREE",
 ];
 
-const WORK_TYPES = [
-  "stitching",
-  "finishing",
-  "alteration",
-  "sampling",
-  "complete-production",
-];
+/* =========================================================
+   DEFAULTS
+========================================================= */
 
-const RATE_TYPES = [
-  {
-    value: "per-piece",
-    label: "Per Piece",
-  },
-  {
-    value: "fixed",
-    label: "Fixed Job Rate",
-  },
-];
+const createEmptySizeRows = () =>
+  SIZES.map((size) => ({
+    size,
+    quantity: "",
+  }));
 
-const initialQuantities = SIZES.reduce(
-  (result, size) => {
-    result[size] = 0;
-    return result;
-  },
-  {},
-);
-
-const initialForm = {
-  tailorId: "",
+const createProductRow = () => ({
+  rowId: crypto.randomUUID(),
   productId: "",
+  productCode: "",
+  productTitle: "",
+  productThumbnail: "",
+  workRate: "",
+  sizes: createEmptySizeRows(),
+});
 
-  workType: "stitching",
-
-  rateType: "per-piece",
-  rateAmount: "",
-
-  issueDate: new Date()
-    .toISOString()
-    .slice(0, 10),
-
-  expectedCompletionDate: "",
-
-  priority: "normal",
-
-  quantities: initialQuantities,
-
-  materialNotes: "",
-  productionNotes: "",
+const INITIAL_FORM = {
+  tailorId: "",
+  workType: "full_garment",
+  products: [createProductRow()],
+  expectedAt: "",
+  notes: "",
 };
 
-const numberValue = (value) => {
-  const parsed = Number(value);
+/* =========================================================
+   HELPERS
+========================================================= */
 
-  return Number.isFinite(parsed)
-    ? parsed
+const clean = (value) =>
+  String(value ?? "").trim();
+
+const numberValue = (value) => {
+  const number = Number(value);
+
+  return Number.isFinite(number)
+    ? number
     : 0;
 };
 
-const cleanText = (value) =>
-  String(value ?? "").trim();
-
-const getTailorId = (tailor) =>
-  tailor?._id || tailor?.id || "";
-
-const getProductId = (product) =>
-  product?._id ||
-  product?.id ||
-  product?.productId ||
-  "";
-
-const getProductTitle = (product) =>
-  product?.title ||
-  product?.name ||
-  product?.productSnapshot?.title ||
-  "Untitled Product";
-
-const getProductCode = (product) =>
-  product?.productCode ||
-  product?.code ||
-  product?.sku ||
-  product?.productSnapshot?.productCode ||
-  "No code";
+const formatCurrency = (value) =>
+  new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(numberValue(value));
 
 const getProductImage = (product) =>
   product?.thumbnail ||
-  product?.image ||
   product?.images?.[0]?.url ||
   product?.images?.[0] ||
-  product?.productSnapshot?.thumbnail ||
   "";
 
-function SectionCard({
+const inputClass =
+  "h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-[#800020]/40 focus:bg-white focus:ring-4 focus:ring-[#800020]/5 disabled:cursor-not-allowed disabled:opacity-60";
+
+const textareaClass =
+  "min-h-28 w-full resize-y rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-[#800020]/40 focus:bg-white focus:ring-4 focus:ring-[#800020]/5";
+
+/* =========================================================
+   SMALL COMPONENTS
+========================================================= */
+
+function Field({
+  label,
+  required = false,
+  children,
+}) {
+  return (
+    <div>
+      <label className="mb-1.5 block text-xs font-semibold text-gray-700">
+        {label}
+
+        {required && (
+          <span className="ml-1 text-red-500">
+            *
+          </span>
+        )}
+      </label>
+
+      {children}
+    </div>
+  );
+}
+
+function Section({
   title,
   description,
   icon: Icon,
   children,
+  action,
 }) {
   return (
-    <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
-      <div className="mb-5 flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#800020]/8 text-[#800020]">
-          <Icon size={19} />
+    <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+      <div className="flex items-start justify-between gap-3 border-b border-gray-100 px-4 py-4 sm:px-5">
+        <div className="flex items-start gap-3">
+          <div className="rounded-xl bg-[#800020]/10 p-2.5 text-[#800020]">
+            <Icon size={18} />
+          </div>
+
+          <div>
+            <h2 className="font-bold text-gray-950">
+              {title}
+            </h2>
+
+            {description && (
+              <p className="mt-0.5 text-xs text-gray-500">
+                {description}
+              </p>
+            )}
+          </div>
         </div>
 
-        <div>
-          <h2 className="text-base font-semibold text-gray-950">
-            {title}
-          </h2>
-
-          <p className="mt-0.5 text-xs leading-5 text-gray-500">
-            {description}
-          </p>
-        </div>
+        {action}
       </div>
 
-      {children}
+      <div className="p-4 sm:p-5">
+        {children}
+      </div>
     </section>
   );
 }
 
-function FieldLabel({
-  children,
-  required = false,
-}) {
-  return (
-    <label className="mb-1.5 block text-xs font-semibold text-gray-700">
-      {children}
+/* =========================================================
+   PRODUCT ROW
+========================================================= */
 
-      {required && (
-        <span className="ml-1 text-red-500">
-          *
-        </span>
+function ProductAllocationCard({
+  index,
+  row,
+  products,
+  onProductChange,
+  onRateChange,
+  onSizeChange,
+  onRemove,
+  canRemove,
+}) {
+  const rowQuantity = row.sizes.reduce(
+    (total, item) =>
+      total + numberValue(item.quantity),
+    0,
+  );
+
+  const rowAmount =
+    rowQuantity *
+    numberValue(row.workRate);
+
+  const availableProducts = products.filter(
+    (product) =>
+      String(product._id) ===
+      String(row.productId) ||
+      true,
+  );
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-gray-50/50 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-bold text-gray-900">
+            Product {index + 1}
+          </p>
+
+          <p className="mt-0.5 text-xs text-gray-500">
+            Select product, quantities and rate.
+          </p>
+        </div>
+
+        {canRemove && (
+          <button
+            type="button"
+            onClick={onRemove}
+            className="rounded-lg p-2 text-gray-400 transition hover:bg-red-50 hover:text-red-600"
+          >
+            <Trash2 size={17} />
+          </button>
+        )}
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_180px]">
+        <Field
+          label="Product"
+          required
+        >
+          <select
+            value={row.productId}
+            onChange={(event) =>
+              onProductChange(
+                event.target.value,
+              )
+            }
+            className={inputClass}
+          >
+            <option value="">
+              Select product
+            </option>
+
+            {availableProducts.map(
+              (product) => (
+                <option
+                  key={product._id}
+                  value={product._id}
+                >
+                  {product.productCode
+                    ? `${product.productCode} — `
+                    : ""}
+                  {product.title}
+                </option>
+              ),
+            )}
+          </select>
+        </Field>
+
+        <Field
+          label="Rate Per Piece"
+          required
+        >
+          <div className="relative">
+            <IndianRupee
+              size={15}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            />
+
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={row.workRate}
+              onChange={(event) =>
+                onRateChange(
+                  event.target.value,
+                )
+              }
+              placeholder="Rate"
+              className={`${inputClass} pl-9`}
+            />
+          </div>
+        </Field>
+      </div>
+
+      {row.productId && (
+        <div className="mt-4 flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-3">
+          {row.productThumbnail ? (
+            <img
+              src={row.productThumbnail}
+              alt={row.productTitle}
+              className="h-14 w-14 rounded-xl border border-gray-200 object-cover"
+            />
+          ) : (
+            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gray-100 text-gray-400">
+              <Package size={22} />
+            </div>
+          )}
+
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-gray-900">
+              {row.productTitle}
+            </p>
+
+            <p className="mt-0.5 text-xs font-medium text-gray-500">
+              {row.productCode}
+            </p>
+          </div>
+        </div>
       )}
-    </label>
+
+      <div className="mt-5">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+          Size-wise Quantity
+        </p>
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
+          {row.sizes.map((item) => (
+            <div
+              key={item.size}
+              className="rounded-xl border border-gray-200 bg-white p-3"
+            >
+              <label className="block text-center text-xs font-bold text-gray-700">
+                {item.size}
+              </label>
+
+              <input
+                type="number"
+                min="0"
+                value={item.quantity}
+                onChange={(event) =>
+                  onSizeChange(
+                    item.size,
+                    event.target.value,
+                  )
+                }
+                placeholder="0"
+                className="mt-2 h-9 w-full rounded-lg border border-gray-200 bg-gray-50 px-2 text-center text-sm font-semibold outline-none focus:border-[#800020]/40 focus:bg-white"
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="rounded-xl border border-gray-200 bg-white p-3">
+          <p className="text-xs text-gray-500">
+            Product Quantity
+          </p>
+
+          <p className="mt-1 text-lg font-bold text-gray-950">
+            {rowQuantity}
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-gray-200 bg-white p-3">
+          <p className="text-xs text-gray-500">
+            Product Amount
+          </p>
+
+          <p className="mt-1 text-lg font-bold text-[#800020]">
+            {formatCurrency(rowAmount)}
+          </p>
+        </div>
+      </div>
+    </div>
   );
 }
 
-export default function CreateTailorProductionJobPage() {
+/* =========================================================
+   PAGE
+========================================================= */
+
+export default function CreateProductionJobPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const preselectedTailorId =
+    searchParams.get("tailorId") || "";
+
+  const {
+    activeTailors = [],
+    activeLoading,
+    fetchActiveTailors,
+  } = useTailorStore();
 
   const {
     createProductionJob,
     creating,
-    error,
-    clearError,
   } = useTailorProductionJobStore();
 
   const {
-    tailors,
-    loading: tailorsLoading,
-    fetchTailors,
-    fetchTailorById,
-  } = useTailorStore();
+    products = [],
+    fetchProducts,
+    loading: productsLoading,
+  } = useAdminProductStore();
 
-  const [form, setForm] =
-    useState(initialForm);
-
-  const [selectedTailor, setSelectedTailor] =
-    useState(null);
-
-  const [assignedProducts, setAssignedProducts] =
-    useState([]);
-
-  const [productsLoading, setProductsLoading] =
-    useState(false);
+  const [form, setForm] = useState({
+    ...INITIAL_FORM,
+    tailorId: preselectedTailorId,
+  });
 
   const [productSearch, setProductSearch] =
     useState("");
 
-  const [formError, setFormError] =
-    useState("");
+  const [error, setError] = useState("");
 
+  /* Load dropdown data */
   useEffect(() => {
-    fetchTailors({
-      page: 1,
-      limit: 100,
-      status: "active",
-    });
-  }, [fetchTailors]);
+    Promise.allSettled([
+      fetchActiveTailors(),
+      fetchProducts?.({
+        page: 1,
+        limit: 100,
+        search: "",
+      }),
+    ]);
+  }, [
+    fetchActiveTailors,
+    fetchProducts,
+  ]);
 
+  /* Apply tailor from query */
   useEffect(() => {
-    clearError?.();
-  }, [clearError]);
+    if (!preselectedTailorId) return;
 
-  const availableTailors = useMemo(() => {
-    if (!Array.isArray(tailors)) {
-      return [];
-    }
+    setForm((current) => ({
+      ...current,
+      tailorId: preselectedTailorId,
+    }));
+  }, [preselectedTailorId]);
 
-    return tailors.filter(
-      (tailor) =>
-        tailor?.status !== "inactive" &&
-        tailor?.availability !==
-          "unavailable",
-    );
-  }, [tailors]);
+  const productList = useMemo(() => {
+    const safeProducts = Array.isArray(products)
+      ? products
+      : [];
 
-  const filteredProducts = useMemo(() => {
-    const search = productSearch
-      .trim()
-      .toLowerCase();
+    const search =
+      productSearch.trim().toLowerCase();
 
     if (!search) {
-      return assignedProducts;
+      return safeProducts;
     }
 
-    return assignedProducts.filter(
-      (product) => {
-        const title = getProductTitle(product)
-          .toLowerCase();
+    return safeProducts.filter((product) =>
+      [
+        product.title,
+        product.productCode,
+      ].some((value) =>
+        String(value || "")
+          .toLowerCase()
+          .includes(search),
+      ),
+    );
+  }, [products, productSearch]);
 
-        const code = getProductCode(product)
-          .toLowerCase();
+  const totals = useMemo(() => {
+    return form.products.reduce(
+      (result, product) => {
+        const quantity =
+          product.sizes.reduce(
+            (total, item) =>
+              total +
+              numberValue(item.quantity),
+            0,
+          );
 
-        return (
-          title.includes(search) ||
-          code.includes(search)
-        );
+        result.totalQuantity +=
+          quantity;
+
+        result.totalAmount +=
+          quantity *
+          numberValue(
+            product.workRate,
+          );
+
+        return result;
+      },
+      {
+        totalQuantity: 0,
+        totalAmount: 0,
       },
     );
-  }, [
-    assignedProducts,
-    productSearch,
-  ]);
+  }, [form.products]);
 
-  const selectedProduct = useMemo(() => {
-    return assignedProducts.find(
-      (product) =>
-        getProductId(product) ===
-        form.productId,
-    );
-  }, [
-    assignedProducts,
-    form.productId,
-  ]);
-
-  const totalQuantity = useMemo(() => {
-    return Object.values(
-      form.quantities,
-    ).reduce(
-      (total, quantity) =>
-        total + numberValue(quantity),
-      0,
-    );
-  }, [form.quantities]);
-
-  const estimatedAmount = useMemo(() => {
-    const rate = numberValue(
-      form.rateAmount,
-    );
-
-    if (form.rateType === "fixed") {
-      return rate;
-    }
-
-    return rate * totalQuantity;
-  }, [
-    form.rateAmount,
-    form.rateType,
-    totalQuantity,
-  ]);
-
-  const handleFieldChange = (
-    event,
-  ) => {
-    const {
-      name,
-      value,
-    } = event.target;
-
-    setForm((current) => ({
-      ...current,
-      [name]: value,
-    }));
-
-    setFormError("");
-  };
-
-  const handleQuantityChange = (
-    size,
+  const updateField = (
+    field,
     value,
   ) => {
-    const quantity = Math.max(
-      0,
-      numberValue(value),
+    setForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  };
+
+  const updateProductRow = (
+    rowId,
+    updater,
+  ) => {
+    setForm((current) => ({
+      ...current,
+
+      products: current.products.map(
+        (row) =>
+          row.rowId === rowId
+            ? updater(row)
+            : row,
+      ),
+    }));
+  };
+
+  const handleProductChange = (
+    rowId,
+    productId,
+  ) => {
+    const product = products.find(
+      (item) =>
+        String(item._id) ===
+        String(productId),
     );
 
-    setForm((current) => ({
-      ...current,
-      quantities: {
-        ...current.quantities,
-        [size]: quantity,
-      },
-    }));
+    updateProductRow(
+      rowId,
+      (row) => ({
+        ...row,
 
-    setFormError("");
+        productId,
+
+        productCode:
+          product?.productCode || "",
+
+        productTitle:
+          product?.title || "",
+
+        productThumbnail:
+          getProductImage(product),
+      }),
+    );
   };
 
-  const resetQuantities = () => {
-    setForm((current) => ({
-      ...current,
-      quantities: {
-        ...initialQuantities,
-      },
-    }));
-  };
-
-  const handleTailorChange = async (
-    event,
+  const handleRateChange = (
+    rowId,
+    workRate,
   ) => {
-    const tailorId = event.target.value;
-
-    setForm((current) => ({
-      ...current,
-      tailorId,
-      productId: "",
-      rateAmount: "",
-    }));
-
-    setAssignedProducts([]);
-    setSelectedTailor(null);
-    setProductSearch("");
-    setFormError("");
-
-    if (!tailorId) {
-      return;
-    }
-
-    setProductsLoading(true);
-
-    try {
-      const response =
-        await fetchTailorById(tailorId);
-
-      const tailor =
-        response?.tailor ||
-        response?.data?.tailor ||
-        response?.data ||
-        response;
-
-      setSelectedTailor(tailor);
-
-      const products =
-        tailor?.assignedProducts ||
-        tailor?.products ||
-        [];
-
-      setAssignedProducts(
-        Array.isArray(products)
-          ? products.filter(
-              (product) =>
-                product?.status !==
-                "inactive",
-            )
-          : [],
-      );
-    } catch (requestError) {
-      toast.error(
-        requestError?.message ||
-          "Unable to load tailor products.",
-      );
-    } finally {
-      setProductsLoading(false);
-    }
+    updateProductRow(
+      rowId,
+      (row) => ({
+        ...row,
+        workRate,
+      }),
+    );
   };
 
-  const handleProductSelect = (
-    product,
+  const handleSizeChange = (
+    rowId,
+    size,
+    quantity,
   ) => {
-    const productId =
-      getProductId(product);
+    updateProductRow(
+      rowId,
+      (row) => ({
+        ...row,
 
-    const rateAmount =
-      product?.rate?.amount ??
-      product?.rateAmount ??
-      product?.defaultRate ??
-      "";
+        sizes: row.sizes.map(
+          (item) =>
+            item.size === size
+              ? {
+                ...item,
+                quantity,
+              }
+              : item,
+        ),
+      }),
+    );
+  };
 
-    const rateType =
-      product?.rate?.type ||
-      product?.rateType ||
-      form.rateType;
-
+  const addProductRow = () => {
     setForm((current) => ({
       ...current,
-      productId,
-      rateAmount:
-        rateAmount === null
-          ? ""
-          : String(rateAmount),
-      rateType,
-    }));
 
-    setFormError("");
+      products: [
+        ...current.products,
+        createProductRow(),
+      ],
+    }));
+  };
+
+  const removeProductRow = (rowId) => {
+    setForm((current) => ({
+      ...current,
+
+      products: current.products.filter(
+        (row) => row.rowId !== rowId,
+      ),
+    }));
   };
 
   const validateForm = () => {
     if (!form.tailorId) {
-      return "Please select a tailor.";
-    }
-
-    if (!form.productId) {
-      return "Please select an assigned product.";
+      return "Select a tailor.";
     }
 
     if (!form.workType) {
-      return "Please select a work type.";
+      return "Select a work type.";
     }
 
-    if (totalQuantity <= 0) {
-      return "Enter at least one production quantity.";
+    if (!form.products.length) {
+      return "Add at least one product.";
     }
 
-    if (
-      numberValue(form.rateAmount) < 0
-    ) {
-      return "Rate amount cannot be negative.";
-    }
+    const productIds = new Set();
 
-    if (!form.issueDate) {
-      return "Please select an issue date.";
-    }
+    for (let index = 0; index < form.products.length; index += 1) {
+      const product =
+        form.products[index];
 
-    if (
-      !form.expectedCompletionDate
-    ) {
-      return "Please select an expected completion date.";
-    }
+      if (!product.productId) {
+        return `Select product ${index + 1
+          }.`;
+      }
 
-    const issueDate = new Date(
-      form.issueDate,
-    );
+      if (
+        productIds.has(
+          product.productId,
+        )
+      ) {
+        return `${product.productCode || "Product"} is added more than once.`;
+      }
 
-    const expectedDate = new Date(
-      form.expectedCompletionDate,
-    );
+      productIds.add(
+        product.productId,
+      );
 
-    if (expectedDate < issueDate) {
-      return "Expected completion date cannot be before issue date.";
+      const quantity =
+        product.sizes.reduce(
+          (total, item) =>
+            total +
+            numberValue(item.quantity),
+          0,
+        );
+
+      if (quantity <= 0) {
+        return `Enter quantity for ${product.productCode ||
+          `product ${index + 1}`
+          }.`;
+      }
+
+      if (
+        numberValue(
+          product.workRate,
+        ) < 0
+      ) {
+        return `Enter a valid rate for ${product.productCode ||
+          `product ${index + 1}`
+          }.`;
+      }
     }
 
     return "";
   };
+
+  const buildPayload = () => ({
+    tailorId: form.tailorId,
+
+    workType: form.workType,
+
+    products: form.products.map(
+      (product) => ({
+        productId:
+          product.productId,
+
+        workRate: numberValue(
+          product.workRate,
+        ),
+
+        sizes: product.sizes
+          .filter(
+            (item) =>
+              numberValue(
+                item.quantity,
+              ) > 0,
+          )
+          .map((item) => ({
+            size: item.size,
+
+            quantity: numberValue(
+              item.quantity,
+            ),
+          })),
+      }),
+    ),
+
+    expectedAt:
+      form.expectedAt || null,
+
+    notes: clean(form.notes),
+  });
 
   const handleSubmit = async (
     event,
   ) => {
     event.preventDefault();
 
+    if (creating) return;
+
+    setError("");
+
     const validationError =
       validateForm();
 
     if (validationError) {
-      setFormError(validationError);
-      toast.error(validationError);
+      setError(validationError);
       return;
     }
 
-    const sizeQuantities = Object.entries(
-      form.quantities,
-    )
-      .filter(
-        ([, quantity]) =>
-          numberValue(quantity) > 0,
-      )
-      .map(([size, quantity]) => ({
-        size,
-        issuedQuantity:
-          numberValue(quantity),
-      }));
-
-    const payload = {
-      tailorId: form.tailorId,
-      productId: form.productId,
-
-      workType: form.workType,
-
-      rate: {
-        type: form.rateType,
-        amount: numberValue(
-          form.rateAmount,
-        ),
-      },
-
-      issueDate: form.issueDate,
-
-      expectedCompletionDate:
-        form.expectedCompletionDate,
-
-      priority: form.priority,
-
-      sizeQuantities,
-
-      totalIssuedQuantity:
-        totalQuantity,
-
-      estimatedAmount,
-
-      materialNotes: cleanText(
-        form.materialNotes,
-      ),
-
-      productionNotes: cleanText(
-        form.productionNotes,
-      ),
-    };
-
     try {
-      const response =
+      const job =
         await createProductionJob(
-          payload,
+          buildPayload(),
         );
-
-      const createdJob =
-        response?.job ||
-        response?.data?.job ||
-        response?.data ||
-        response;
-
-      const jobId =
-        createdJob?._id ||
-        createdJob?.id;
-
-      toast.success(
-        "Production job created successfully.",
-      );
-
-      if (jobId) {
-        router.push(
-          `/tailor-production-jobs/${jobId}`,
-        );
-
-        return;
-      }
 
       router.push(
-        "/tailor-production-jobs",
+        job?._id
+          ? `/tailor-production-jobs/${job._id}`
+          : "/tailor-production-jobs",
       );
-    } catch (requestError) {
-      toast.error(
-        requestError?.message ||
-          "Unable to create production job.",
+    } catch (submitError) {
+      setError(
+        submitError?.message ||
+        "Unable to create production job.",
       );
     }
   };
 
-  return (
-    <main className="min-h-screen bg-[#fcfafb] px-3 py-5 pb-28 sm:px-6 sm:py-7 lg:px-8">
-      <div className="mx-auto max-w-6xl">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-gray-600 transition hover:text-[#800020]"
-        >
-          <ArrowLeft size={17} />
-          Back
-        </button>
+  const canSubmit =
+    Boolean(form.tailorId) &&
+    form.products.length > 0 &&
+    totals.totalQuantity > 0 &&
+    !creating;
 
-        <section className="rounded-2xl border border-[#800020]/10 bg-white p-4 shadow-sm sm:p-6">
-          <div className="flex items-start gap-3">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#800020] text-white">
-              <Factory size={23} />
-            </div>
+  return (
+    <main className="min-h-screen bg-[#fcfafb] px-3 py-5 sm:px-6 lg:px-8">
+      <form
+        onSubmit={handleSubmit}
+        className="mx-auto max-w-6xl"
+      >
+        {/* Header */}
+
+        <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="rounded-xl border border-gray-200 bg-white p-2.5 text-gray-600 shadow-sm hover:text-[#800020]"
+            >
+              <ArrowLeft size={19} />
+            </button>
 
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#800020]">
-                Tailor Production
-              </p>
-
-              <h1 className="mt-1 text-2xl font-bold tracking-tight text-gray-950 sm:text-3xl">
+              <h1 className="text-xl font-bold text-gray-950 sm:text-2xl">
                 Create Production Job
               </h1>
 
-              <p className="mt-1 text-sm leading-6 text-gray-500">
-                Assign an approved product to a
-                tailor and issue size-wise
-                quantities for production.
+              <p className="text-xs text-gray-500 sm:text-sm">
+                Allocate products and quantities to a tailor.
               </p>
             </div>
           </div>
-        </section>
 
-        {(formError || error) && (
-          <div className="mt-4 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            <AlertCircle
-              size={18}
-              className="mt-0.5 shrink-0"
-            />
+          <button
+            type="submit"
+            disabled={!canSubmit}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#800020] px-5 text-sm font-semibold text-white hover:bg-[#68001a] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {creating ? (
+              <Loader2
+                size={17}
+                className="animate-spin"
+              />
+            ) : (
+              <Save size={17} />
+            )}
 
-            <div>
-              <p className="font-semibold">
-                Please check the form
-              </p>
+            {creating
+              ? "Creating..."
+              : "Create Job"}
+          </button>
+        </div>
 
-              <p className="mt-0.5 text-xs leading-5">
-                {formError ||
-                  error ||
-                  "Something went wrong."}
-              </p>
-            </div>
+        {/* Error */}
+
+        {error && (
+          <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            {error}
           </div>
         )}
 
-        <form
-          onSubmit={handleSubmit}
-          className="mt-5 space-y-5"
-        >
-          <SectionCard
-            title="Tailor and Product"
-            description="Select a tailor and one of the products assigned to them."
+        <div className="grid gap-5">
+          {/* Job details */}
+
+          <Section
+            title="Job Details"
+            description="Select tailor and basic production information."
             icon={UserRoundCog}
           >
-            <div className="grid gap-5 lg:grid-cols-2">
-              <div>
-                <FieldLabel required>
-                  Select Tailor
-                </FieldLabel>
-
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <Field
+                label="Tailor"
+                required
+              >
                 <select
-                  name="tailorId"
                   value={form.tailorId}
-                  onChange={
-                    handleTailorChange
+                  onChange={(event) =>
+                    updateField(
+                      "tailorId",
+                      event.target.value,
+                    )
                   }
-                  disabled={tailorsLoading}
-                  className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-800 outline-none transition focus:border-[#800020] focus:ring-2 focus:ring-[#800020]/10 disabled:cursor-not-allowed disabled:bg-gray-50"
+                  disabled={activeLoading}
+                  className={inputClass}
                 >
                   <option value="">
-                    {tailorsLoading
+                    {activeLoading
                       ? "Loading tailors..."
-                      : "Choose tailor"}
+                      : "Select tailor"}
                   </option>
 
-                  {availableTailors.map(
+                  {activeTailors.map(
                     (tailor) => (
                       <option
-                        key={getTailorId(
-                          tailor,
-                        )}
-                        value={getTailorId(
-                          tailor,
-                        )}
+                        key={tailor._id}
+                        value={tailor._id}
                       >
-                        {tailor?.name ||
-                          "Unnamed Tailor"}
-                        {tailor?.tailorCode
-                          ? ` · ${tailor.tailorCode}`
+                        {tailor.tailorCode
+                          ? `${tailor.tailorCode} — `
                           : ""}
+                        {tailor.name}
                       </option>
                     ),
                   )}
                 </select>
+              </Field>
 
-                {selectedTailor && (
-                  <div className="mt-3 rounded-xl border border-[#800020]/10 bg-[#800020]/[0.025] p-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-gray-900">
-                          {selectedTailor?.name}
-                        </p>
-
-                        <p className="mt-0.5 text-xs text-gray-500">
-                          {selectedTailor?.tailorCode ||
-                            "No tailor code"}
-                        </p>
-                      </div>
-
-                      <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
-                        {selectedTailor?.availability ||
-                          "Available"}
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <FieldLabel required>
-                  Assigned Product
-                </FieldLabel>
-
-                {!form.tailorId ? (
-                  <div className="flex min-h-[120px] items-center justify-center rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-center text-xs text-gray-500">
-                    Select a tailor to view their
-                    assigned products.
-                  </div>
-                ) : productsLoading ? (
-                  <div className="flex min-h-[120px] items-center justify-center gap-2 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-500">
-                    <Loader2
-                      size={17}
-                      className="animate-spin text-[#800020]"
-                    />
-                    Loading assigned products...
-                  </div>
-                ) : assignedProducts.length ===
-                  0 ? (
-                  <div className="flex min-h-[120px] flex-col items-center justify-center rounded-xl border border-dashed border-amber-300 bg-amber-50 p-4 text-center">
-                    <Package
-                      size={22}
-                      className="text-amber-600"
-                    />
-
-                    <p className="mt-2 text-sm font-semibold text-amber-800">
-                      No products assigned
-                    </p>
-
-                    <p className="mt-1 text-xs text-amber-700">
-                      Assign products to this
-                      tailor before creating a
-                      production job.
-                    </p>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        router.push(
-                          `/tailors/${form.tailorId}/products`,
-                        )
-                      }
-                      className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-amber-700 px-3 py-2 text-xs font-semibold text-white"
-                    >
-                      <Plus size={14} />
-                      Assign Products
-                    </button>
-                  </div>
-                ) : (
-                  <div>
-                    <div className="relative">
-                      <Search
-                        size={16}
-                        className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                      />
-
-                      <input
-                        type="search"
-                        value={productSearch}
-                        onChange={(event) =>
-                          setProductSearch(
-                            event.target.value,
-                          )
-                        }
-                        placeholder="Search product or code"
-                        className="h-11 w-full rounded-xl border border-gray-200 pl-10 pr-3 text-sm outline-none transition focus:border-[#800020] focus:ring-2 focus:ring-[#800020]/10"
-                      />
-                    </div>
-
-                    <div className="mt-2 max-h-[280px] space-y-2 overflow-y-auto pr-1">
-                      {filteredProducts.map(
-                        (product) => {
-                          const productId =
-                            getProductId(
-                              product,
-                            );
-
-                          const selected =
-                            form.productId ===
-                            productId;
-
-                          const image =
-                            getProductImage(
-                              product,
-                            );
-
-                          return (
-                            <button
-                              key={productId}
-                              type="button"
-                              onClick={() =>
-                                handleProductSelect(
-                                  product,
-                                )
-                              }
-                              className={[
-                                "flex w-full items-center gap-3 rounded-xl border p-3 text-left transition",
-
-                                selected
-                                  ? "border-[#800020] bg-[#800020]/5 ring-1 ring-[#800020]/10"
-                                  : "border-gray-200 bg-white hover:border-[#800020]/20 hover:bg-gray-50",
-                              ].join(" ")}
-                            >
-                              <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gray-100">
-                                {image ? (
-                                  <img
-                                    src={image}
-                                    alt={getProductTitle(
-                                      product,
-                                    )}
-                                    className="h-full w-full object-cover"
-                                  />
-                                ) : (
-                                  <Shirt
-                                    size={20}
-                                    className="text-gray-400"
-                                  />
-                                )}
-                              </div>
-
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm font-semibold text-gray-900">
-                                  {getProductTitle(
-                                    product,
-                                  )}
-                                </p>
-
-                                <p className="mt-0.5 text-xs text-gray-500">
-                                  {getProductCode(
-                                    product,
-                                  )}
-                                </p>
-                              </div>
-
-                              {selected && (
-                                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#800020] text-white">
-                                  <Check
-                                    size={15}
-                                  />
-                                </div>
-                              )}
-                            </button>
-                          );
-                        },
-                      )}
-
-                      {filteredProducts.length ===
-                        0 && (
-                        <div className="rounded-xl border border-dashed border-gray-300 p-4 text-center text-xs text-gray-500">
-                          No assigned products match
-                          your search.
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </SectionCard>
-
-          <SectionCard
-            title="Production Quantities"
-            description="Enter the number of pieces issued for each size."
-            icon={Shirt}
-          >
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
-              {SIZES.map((size) => (
-                <div key={size}>
-                  <FieldLabel>
-                    {size}
-                  </FieldLabel>
-
-                  <input
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={
-                      form.quantities[size]
-                    }
-                    onChange={(event) =>
-                      handleQuantityChange(
-                        size,
-                        event.target.value,
-                      )
-                    }
-                    className="h-11 w-full rounded-xl border border-gray-200 px-3 text-center text-sm font-semibold text-gray-900 outline-none transition focus:border-[#800020] focus:ring-2 focus:ring-[#800020]/10"
-                  />
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-4 flex flex-col gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-xs font-medium text-gray-500">
-                  Total issued quantity
-                </p>
-
-                <p className="mt-1 text-2xl font-bold text-gray-950">
-                  {totalQuantity}
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={resetQuantities}
-                className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+              <Field
+                label="Work Type"
+                required
               >
-                <Trash2 size={14} />
-                Clear Quantities
-              </button>
-            </div>
-          </SectionCard>
-
-          <SectionCard
-            title="Work and Rate"
-            description="Set the production work type and labour rate."
-            icon={IndianRupee}
-          >
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <div>
-                <FieldLabel required>
-                  Work Type
-                </FieldLabel>
-
                 <select
-                  name="workType"
                   value={form.workType}
-                  onChange={
-                    handleFieldChange
+                  onChange={(event) =>
+                    updateField(
+                      "workType",
+                      event.target.value,
+                    )
                   }
-                  className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none transition focus:border-[#800020] focus:ring-2 focus:ring-[#800020]/10"
+                  className={inputClass}
                 >
                   {WORK_TYPES.map(
                     (workType) => (
@@ -953,279 +873,244 @@ export default function CreateTailorProductionJobPage() {
                         value={workType}
                       >
                         {workType
-                          .replaceAll("-", " ")
+                          .replaceAll(
+                            "_",
+                            " ",
+                          )
                           .replace(
                             /\b\w/g,
-                            (character) =>
-                              character.toUpperCase(),
+                            (letter) =>
+                              letter.toUpperCase(),
                           )}
                       </option>
                     ),
                   )}
                 </select>
-              </div>
+              </Field>
 
-              <div>
-                <FieldLabel>
-                  Rate Type
-                </FieldLabel>
-
-                <select
-                  name="rateType"
-                  value={form.rateType}
-                  onChange={
-                    handleFieldChange
-                  }
-                  className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none transition focus:border-[#800020] focus:ring-2 focus:ring-[#800020]/10"
-                >
-                  {RATE_TYPES.map(
-                    (rateType) => (
-                      <option
-                        key={
-                          rateType.value
-                        }
-                        value={
-                          rateType.value
-                        }
-                      >
-                        {rateType.label}
-                      </option>
-                    ),
-                  )}
-                </select>
-              </div>
-
-              <div>
-                <FieldLabel>
-                  Rate Amount
-                </FieldLabel>
-
+              <Field label="Expected Date">
                 <div className="relative">
-                  <IndianRupee
-                    size={15}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  <CalendarDays
+                    size={16}
+                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
                   />
 
                   <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    name="rateAmount"
-                    value={form.rateAmount}
-                    onChange={
-                      handleFieldChange
+                    type="date"
+                    value={form.expectedAt}
+                    onChange={(event) =>
+                      updateField(
+                        "expectedAt",
+                        event.target.value,
+                      )
                     }
-                    placeholder="0"
-                    className="h-11 w-full rounded-xl border border-gray-200 pl-9 pr-3 text-sm outline-none transition focus:border-[#800020] focus:ring-2 focus:ring-[#800020]/10"
+                    className={`${inputClass} pl-9`}
                   />
                 </div>
-              </div>
+              </Field>
             </div>
+          </Section>
 
-            <div className="mt-4 rounded-xl border border-[#800020]/10 bg-[#800020]/[0.025] p-4">
-              <p className="text-xs font-medium text-gray-500">
-                Estimated labour amount
-              </p>
+          {/* Product search */}
 
-              <p className="mt-1 text-xl font-bold text-[#800020]">
-                ₹
-                {estimatedAmount.toLocaleString(
-                  "en-IN",
-                  {
-                    maximumFractionDigits: 2,
-                  },
-                )}
-              </p>
-
-              <p className="mt-1 text-xs text-gray-500">
-                {form.rateType ===
-                "per-piece"
-                  ? `${totalQuantity} pieces × ₹${numberValue(
-                      form.rateAmount,
-                    )}`
-                  : "Fixed amount for this job"}
-              </p>
-            </div>
-          </SectionCard>
-
-          <SectionCard
-            title="Production Schedule"
-            description="Set issue date, expected completion date and priority."
-            icon={CalendarDays}
-          >
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div>
-                <FieldLabel required>
-                  Issue Date
-                </FieldLabel>
-
-                <input
-                  type="date"
-                  name="issueDate"
-                  value={form.issueDate}
-                  onChange={
-                    handleFieldChange
-                  }
-                  className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none transition focus:border-[#800020] focus:ring-2 focus:ring-[#800020]/10"
-                />
-              </div>
-
-              <div>
-                <FieldLabel required>
-                  Expected Completion
-                </FieldLabel>
-
-                <input
-                  type="date"
-                  name="expectedCompletionDate"
-                  value={
-                    form.expectedCompletionDate
-                  }
-                  min={form.issueDate}
-                  onChange={
-                    handleFieldChange
-                  }
-                  className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm outline-none transition focus:border-[#800020] focus:ring-2 focus:ring-[#800020]/10"
-                />
-              </div>
-
-              <div>
-                <FieldLabel>
-                  Priority
-                </FieldLabel>
-
-                <select
-                  name="priority"
-                  value={form.priority}
-                  onChange={
-                    handleFieldChange
-                  }
-                  className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none transition focus:border-[#800020] focus:ring-2 focus:ring-[#800020]/10"
-                >
-                  <option value="low">
-                    Low
-                  </option>
-
-                  <option value="normal">
-                    Normal
-                  </option>
-
-                  <option value="high">
-                    High
-                  </option>
-
-                  <option value="urgent">
-                    Urgent
-                  </option>
-                </select>
-              </div>
-            </div>
-          </SectionCard>
-
-          <SectionCard
-            title="Production Notes"
-            description="Add material instructions and internal production notes."
+          <Section
+            title="Product Allocation"
+            description="Add one or more product codes."
             icon={Package}
+            action={
+              <button
+                type="button"
+                onClick={addProductRow}
+                className="inline-flex h-9 items-center gap-2 rounded-xl bg-[#800020] px-3 text-xs font-semibold text-white hover:bg-[#68001a]"
+              >
+                <Plus size={15} />
+                Add Product
+              </button>
+            }
           >
-            <div className="grid gap-4 lg:grid-cols-2">
-              <div>
-                <FieldLabel>
-                  Material Notes
-                </FieldLabel>
-
-                <textarea
-                  name="materialNotes"
-                  value={form.materialNotes}
-                  onChange={
-                    handleFieldChange
-                  }
-                  rows={5}
-                  placeholder="Fabric, accessories, lining, buttons or material issued..."
-                  className="w-full resize-none rounded-xl border border-gray-200 p-3 text-sm outline-none transition focus:border-[#800020] focus:ring-2 focus:ring-[#800020]/10"
+            <div className="mb-4">
+              <div className="relative max-w-md">
+                <Search
+                  size={16}
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
                 />
-              </div>
 
-              <div>
-                <FieldLabel>
-                  Production Instructions
-                </FieldLabel>
-
-                <textarea
-                  name="productionNotes"
-                  value={
-                    form.productionNotes
-                  }
-                  onChange={
-                    handleFieldChange
-                  }
-                  rows={5}
-                  placeholder="Special stitching, finishing, measurement or quality instructions..."
-                  className="w-full resize-none rounded-xl border border-gray-200 p-3 text-sm outline-none transition focus:border-[#800020] focus:ring-2 focus:ring-[#800020]/10"
-                />
-              </div>
-            </div>
-          </SectionCard>
-
-          <div className="sticky bottom-3 z-20 rounded-2xl border border-gray-200 bg-white/95 p-3 shadow-[0_15px_45px_rgba(0,0,0,0.12)] backdrop-blur sm:p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-semibold text-gray-900">
-                  {selectedProduct
-                    ? getProductTitle(
-                        selectedProduct,
-                      )
-                    : "No product selected"}
-                </p>
-
-                <p className="mt-0.5 text-xs text-gray-500">
-                  {totalQuantity} pieces ·
-                  Estimated ₹
-                  {estimatedAmount.toLocaleString(
-                    "en-IN",
-                    {
-                      maximumFractionDigits: 2,
-                    },
-                  )}
-                </p>
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    router.push(
-                      "/tailor-production-jobs",
+                <input
+                  value={productSearch}
+                  onChange={(event) =>
+                    setProductSearch(
+                      event.target.value,
                     )
                   }
-                  disabled={creating}
-                  className="inline-flex h-11 flex-1 items-center justify-center rounded-xl border border-gray-200 px-5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-60 sm:flex-none"
-                >
-                  Cancel
-                </button>
+                  placeholder="Filter product dropdown by code or title"
+                  className={`${inputClass} pl-9`}
+                />
+              </div>
 
-                <button
-                  type="submit"
-                  disabled={creating}
-                  className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[#800020] px-5 text-sm font-semibold text-white transition hover:bg-[#68001a] disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none"
-                >
-                  {creating ? (
-                    <Loader2
-                      size={17}
-                      className="animate-spin"
-                    />
-                  ) : (
-                    <Save size={17} />
+              {productsLoading && (
+                <p className="mt-2 text-xs text-gray-500">
+                  Loading products...
+                </p>
+              )}
+            </div>
+
+            <div className="grid gap-4">
+              {form.products.map(
+                (row, index) => (
+                  <ProductAllocationCard
+                    key={row.rowId}
+                    index={index}
+                    row={row}
+                    products={productList}
+                    canRemove={
+                      form.products.length >
+                      1
+                    }
+                    onProductChange={(
+                      productId,
+                    ) =>
+                      handleProductChange(
+                        row.rowId,
+                        productId,
+                      )
+                    }
+                    onRateChange={(
+                      workRate,
+                    ) =>
+                      handleRateChange(
+                        row.rowId,
+                        workRate,
+                      )
+                    }
+                    onSizeChange={(
+                      size,
+                      quantity,
+                    ) =>
+                      handleSizeChange(
+                        row.rowId,
+                        size,
+                        quantity,
+                      )
+                    }
+                    onRemove={() =>
+                      removeProductRow(
+                        row.rowId,
+                      )
+                    }
+                  />
+                ),
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={addProductRow}
+              className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[#800020]/30 bg-[#800020]/[0.02] text-sm font-semibold text-[#800020] hover:bg-[#800020]/5"
+            >
+              <CirclePlus size={17} />
+              Add Another Product
+            </button>
+          </Section>
+
+          {/* Notes */}
+
+          <Section
+            title="Notes"
+            description="Optional job instructions."
+            icon={Package}
+          >
+            <textarea
+              value={form.notes}
+              onChange={(event) =>
+                updateField(
+                  "notes",
+                  event.target.value,
+                )
+              }
+              placeholder="Add production instructions, priority notes or quality requirements..."
+              className={textareaClass}
+            />
+          </Section>
+
+          {/* Totals */}
+
+          <Section
+            title="Job Summary"
+            description="Automatically calculated totals."
+            icon={IndianRupee}
+          >
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <p className="text-xs text-gray-500">
+                  Products
+                </p>
+
+                <p className="mt-1 text-2xl font-bold text-gray-950">
+                  {form.products.length}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <p className="text-xs text-gray-500">
+                  Total Quantity
+                </p>
+
+                <p className="mt-1 text-2xl font-bold text-gray-950">
+                  {totals.totalQuantity}
+                </p>
+              </div>
+
+              <div className="col-span-2 rounded-xl border border-[#800020]/10 bg-[#800020]/[0.035] p-4">
+                <p className="text-xs font-medium text-[#800020]/70">
+                  Total Work Amount
+                </p>
+
+                <p className="mt-1 text-2xl font-bold text-[#800020]">
+                  {formatCurrency(
+                    totals.totalAmount,
                   )}
-
-                  {creating
-                    ? "Creating..."
-                    : "Create Job"}
-                </button>
+                </p>
               </div>
             </div>
-          </div>
-        </form>
-      </div>
+          </Section>
+        </div>
+
+        {/* Bottom Actions */}
+
+        <div className="sticky bottom-3 z-20 mt-5 flex justify-end gap-2 rounded-2xl border border-gray-200 bg-white/95 p-3 shadow-lg backdrop-blur">
+          <button
+            type="button"
+            disabled={creating}
+            onClick={() =>
+              router.push(
+                "/tailor-production-jobs",
+              )
+            }
+            className="h-10 rounded-xl border border-gray-200 px-4 text-sm font-semibold text-gray-700 hover:text-[#800020] disabled:opacity-50"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            disabled={!canSubmit}
+            className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#800020] px-5 text-sm font-semibold text-white hover:bg-[#68001a] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {creating ? (
+              <Loader2
+                size={17}
+                className="animate-spin"
+              />
+            ) : (
+              <Save size={17} />
+            )}
+
+            {creating
+              ? "Creating..."
+              : "Create Production Job"}
+          </button>
+        </div>
+      </form>
     </main>
   );
 }

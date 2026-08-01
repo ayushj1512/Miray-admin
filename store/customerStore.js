@@ -343,6 +343,67 @@ export const useCustomerStore = create((set, get) => ({
   },
 
   /* ----------------------------------------------------
+   UPDATE CUSTOMER BLACKLIST
+   PATCH /api/customers/:id/blacklist
+---------------------------------------------------- */
+  updateCustomerBlacklistStatus: async (id, isBlacklisted) => {
+    if (!API || !id) {
+      return { success: false, error: "Missing customer id" };
+    }
+
+    set({ saving: true, error: "" });
+
+    try {
+      const res = await fetch(`${API}/api/customers/${id}/blacklist`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          isBlacklisted,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.message || "Failed to update blacklist");
+      }
+
+      const updated = data?.customer || null;
+
+      if (updated?._id) {
+        const cartAdds = Array.isArray(updated?.cartAdds)
+          ? updated.cartAdds
+          : get().cartAdds || [];
+
+        set({
+          customer: updated,
+          cartAdds,
+          cartAddsTotal: cartAdds.length,
+        });
+
+        get().updateCustomerInList(updated);
+      }
+
+      return {
+        success: true,
+        customer: updated,
+      };
+    } catch (err) {
+      const msg = err?.message || "Failed to update blacklist";
+      set({ error: msg });
+
+      return {
+        success: false,
+        error: msg,
+      };
+    } finally {
+      set({ saving: false });
+    }
+  },
+
+  /* ----------------------------------------------------
      UPDATE CUSTOMER PAYOUT DETAILS
      PATCH /api/customers/:id/payout-details
   ---------------------------------------------------- */

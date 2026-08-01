@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
+import { useOrderStore } from "@/store/orderStore";
 import useAdminProductionStore from "@/store/adminProductionStore";
 
 import ProductionHeader from "@/components/production/ProductionHeader";
@@ -20,6 +21,8 @@ import {
 export default function ProductionDashboardPage() {
   const router = useRouter();
   const store = useAdminProductionStore();
+
+  const cancelOrder = useOrderStore((state) => state.cancelOrder);
 
   const {
     queue,
@@ -62,9 +65,19 @@ export default function ProductionDashboardPage() {
   const [rangeTo, setRangeTo] = useState(filters?.to || "");
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [packingIds, setPackingIds] = useState(() => new Set());
+  const [cancellingIds, setCancellingIds] = useState(() => new Set());
   const [bulkPacking, setBulkPacking] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [jumpPage, setJumpPage] = useState("1");
+
+  const isBlacklistedOrder = (order = {}) => {
+    return Boolean(
+      order?.customerId?.isBlacklisted === true ||
+      order?.customer?.isBlacklisted === true ||
+      order?.customerSnapshot?.isBlacklisted === true ||
+      order?.isCustomerBlacklisted === true
+    );
+  };
 
   const currentPackability = filters?.packability || "all";
   const currentLimit = Number(queuePagination?.limit || filters?.limit || 100);
@@ -147,12 +160,13 @@ export default function ProductionDashboardPage() {
   const packableVisibleIds = useMemo(() => {
     return (queue || [])
       .filter(
-        (o) =>
-          o?.isConfirmed === true &&
-          String(o?.fulfillmentStatus) === "processing" &&
-          o?.isPackable === true
+        (order) =>
+          order?.isConfirmed === true &&
+          String(order?.fulfillmentStatus) === "processing" &&
+          order?.isPackable === true &&
+          !isBlacklistedOrder(order)
       )
-      .map((o) => String(o?._id));
+      .map((order) => String(order?._id));
   }, [queue]);
 
   const allPackableVisibleSelected = useMemo(() => {
@@ -181,6 +195,11 @@ export default function ProductionDashboardPage() {
     const order = (queue || []).find((o) => String(o?._id) === oid);
 
     if (!order) return;
+    if (isBlacklistedOrder(order)) {
+      return toast.error(
+        "Blacklisted customer: this order cannot be packed. Cancel the order instead."
+      );
+    }
     if (!order?.isConfirmed) return toast.error("Only confirmed orders can be packed");
     if (String(order?.fulfillmentStatus) !== "processing") {
       return toast.error("Only processing orders can be packed");
@@ -215,6 +234,60 @@ export default function ProductionDashboardPage() {
       setPackingIds((prev) => {
         const next = new Set(prev);
         next.delete(oid);
+        return next;
+      });
+    }
+  };
+
+  const handleCancelOrder = async (order) => {
+    const orderId = order?._id;
+
+    if (!orderId || cancellingIds.has(String(orderId))) return;
+
+    const customerName =
+      order?.customerId?.name ||
+      order?.customer?.name ||
+      order?.customerName ||
+      "this customer";
+
+    const confirmed = window.confirm(
+      `Cancel order ${order?.orderNumber || ""} for ${customerName}?`
+    );
+
+    if (!confirmed) return;
+
+    const reason = isBlacklistedOrder(order)
+      ? "Customer is blacklisted"
+      : "Cancelled by admin from production queue";
+
+    setCancellingIds((previous) => {
+      const next = new Set(previous);
+      next.add(String(orderId));
+      return next;
+    });
+
+    try {
+      await cancelOrder(orderId, reason, {
+        cancelledBy: "admin",
+        notifyCustomer: true,
+      });
+
+      setSelectedIds((previous) => {
+        const next = new Set(previous);
+        next.delete(String(orderId));
+        return next;
+      });
+
+      toast.success(`Order cancelled: ${order?.orderNumber || orderId}`);
+
+      await runQueueRefresh();
+      await fetchProductionSummary();
+    } catch (error) {
+      toast.error(error?.message || "Failed to cancel order");
+    } finally {
+      setCancellingIds((previous) => {
+        const next = new Set(previous);
+        next.delete(String(orderId));
         return next;
       });
     }
@@ -450,14 +523,26 @@ export default function ProductionDashboardPage() {
               <ProductionOrderCard
                 key={String(order?._id || order?.orderNumber || `order-${idx}`)}
                 order={order}
+                isBlacklisted={isBlacklistedOrder(order)}
                 onOpen={() => router.push(`/production/order/${order._id}`)}
                 onMarkPacked={() => doMarkPacked(order._id)}
-                canMarkPacked={String(order?.fulfillmentStatus) === "processing"}
-                showSelect={fulfillmentStatus === "processing"}
-                isPackable={!!order?.isPackable}
+                onCancel={() => handleCancelOrder(order)}
+                canMarkPacked={
+                  String(order?.fulfillmentStatus) === "processing" &&
+                  !isBlacklistedOrder(order)
+                }
+                showSelect={
+                  fulfillmentStatus === "processing" &&
+                  !isBlacklistedOrder(order)
+                }
+                isPackable={
+                  Boolean(order?.isPackable) &&
+                  !isBlacklistedOrder(order)
+                }
                 selected={selectedIds.has(id)}
                 onToggleSelect={() => toggleSelect(order._id)}
                 packing={packingIds.has(id)}
+                cancelling={cancellingIds.has(id)}
               />
             );
           })

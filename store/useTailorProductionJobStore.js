@@ -2,118 +2,43 @@ import { create } from "zustand";
 import axios from "axios";
 
 /* =========================================================
-   API CONFIG
+   API
 ========================================================= */
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  "http://localhost:6001/api";
-
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: `${process.env.NEXT_PUBLIC_API_URL ||
+    "http://localhost:6001"
+    }/api`,
   withCredentials: true,
 });
 
-/* =========================================================
-   TOKEN INTERCEPTOR
+api.interceptors.request.use((config) => {
+  if (typeof window !== "undefined") {
+    const token =
+      localStorage.getItem("adminToken") ||
+      localStorage.getItem("token");
 
-   Change token key according to your admin auth store.
-========================================================= */
-
-api.interceptors.request.use(
-  (config) => {
-    if (typeof window !== "undefined") {
-      const token =
-        localStorage.getItem("adminToken") ||
-        localStorage.getItem("token");
-
-      if (token) {
-        config.headers.Authorization =
-          `Bearer ${token}`;
-      }
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
+  }
 
-    return config;
-  },
-  (error) => Promise.reject(error),
-);
+  return config;
+});
 
-/* =========================================================
-   RESPONSE HELPERS
-========================================================= */
-
-const extractErrorMessage = (
-  error,
-  fallback = "Something went wrong.",
-) => {
-  return (
-    error?.response?.data?.message ||
-    error?.response?.data?.error ||
-    error?.message ||
-    fallback
-  );
-};
-
-const extractJob = (response) => {
-  return (
-    response?.data?.job ||
-    response?.data?.data?.job ||
-    response?.data?.data ||
-    response?.data ||
-    null
-  );
-};
-
-const extractJobs = (response) => {
-  const data = response?.data;
-
-  const jobs =
-    data?.jobs ||
-    data?.data?.jobs ||
-    data?.data?.items ||
-    data?.items ||
-    [];
-
-  return Array.isArray(jobs)
-    ? jobs
-    : [];
-};
-
-const extractPagination = (response) => {
-  const data = response?.data;
-
-  return (
-    data?.pagination ||
-    data?.data?.pagination || {
-      page: 1,
-      limit: 10,
-      total: 0,
-      totalPages: 1,
-    }
-  );
-};
-
-const extractSummary = (response) => {
-  const data = response?.data;
-
-  return (
-    data?.summary ||
-    data?.data?.summary ||
-    data?.data ||
-    data ||
-    {}
-  );
-};
+const BASE_ROUTE = "/tailor-production-jobs";
 
 /* =========================================================
-   INITIAL STATE
+   DEFAULT STATE
 ========================================================= */
 
 const initialPagination = {
   page: 1,
-  limit: 10,
+  limit: 20,
   total: 0,
   totalPages: 1,
+  hasNextPage: false,
+  hasPreviousPage: false,
 };
 
 const initialFilters = {
@@ -121,9 +46,74 @@ const initialFilters = {
   status: "",
   tailorId: "",
   productId: "",
-  priority: "",
-  startDate: "",
-  endDate: "",
+  productCode: "",
+  workType: "",
+  overdue: "",
+  dateFrom: "",
+  dateTo: "",
+  sort: "newest",
+  page: 1,
+  limit: 20,
+};
+
+/* =========================================================
+   HELPERS
+========================================================= */
+
+const cleanParams = (params = {}) =>
+  Object.fromEntries(
+    Object.entries(params).filter(
+      ([, value]) =>
+        value !== "" &&
+        value !== null &&
+        value !== undefined,
+    ),
+  );
+
+const getErrorMessage = (
+  error,
+  fallback = "Something went wrong.",
+) =>
+  error?.response?.data?.message ||
+  error?.response?.data?.error ||
+  error?.message ||
+  fallback;
+
+const extractJob = (response) =>
+  response?.data?.job || null;
+
+const extractJobs = (response) =>
+  Array.isArray(response?.data?.jobs)
+    ? response.data.jobs
+    : [];
+
+const extractSummary = (response) =>
+  response?.data?.summary || {};
+
+const extractPagination = (response) => {
+  const data = response?.data || {};
+
+  return {
+    page: Number(data.page) || 1,
+    limit: Number(data.limit) || 20,
+    total: Number(data.total) || 0,
+    totalPages: Number(data.totalPages) || 1,
+    hasNextPage: Boolean(data.hasNextPage),
+    hasPreviousPage: Boolean(
+      data.hasPreviousPage,
+    ),
+  };
+};
+
+const replaceJob = (jobs, updatedJob) => {
+  if (!updatedJob?._id) return jobs;
+
+  return jobs.map((job) =>
+    String(job._id) ===
+      String(updatedJob._id)
+      ? updatedJob
+      : job,
+  );
 };
 
 /* =========================================================
@@ -132,118 +122,55 @@ const initialFilters = {
 
 const useTailorProductionJobStore = create(
   (set, get) => ({
-    /* =====================================================
-       DATA
-    ===================================================== */
-
+    /* Data */
     productionJobs: [],
     recentJobs: [],
     currentJob: null,
-    dashboardSummary: {},
+    productionSummary: {},
+    productionCoverage: [],
+    coverageLoading: false,
 
-    pagination: initialPagination,
-    filters: initialFilters,
+    pagination: {
+      ...initialPagination,
+    },
 
-    /* =====================================================
-       LOADING STATES
-    ===================================================== */
+    filters: {
+      ...initialFilters,
+    },
 
-    loading: false,
+    /* Loading */
     listLoading: false,
-    summaryLoading: false,
     detailLoading: false,
+    summaryLoading: false,
     creating: false,
     updating: false,
     statusUpdating: false,
-
-    /* =====================================================
-       ERROR
-    ===================================================== */
+    deleting: false,
 
     error: null,
 
     /* =====================================================
-       FETCH DASHBOARD SUMMARY
-    ===================================================== */
-
-    fetchDashboardSummary: async () => {
-      set({
-        summaryLoading: true,
-        error: null,
-      });
-
-      try {
-        const response = await api.get(
-          "/api/tailor-production-jobs/dashboard",
-        );
-
-        const dashboardSummary =
-          extractSummary(response);
-
-        set({
-          dashboardSummary:
-            dashboardSummary || {},
-          summaryLoading: false,
-        });
-
-        return dashboardSummary;
-      } catch (error) {
-        const message =
-          extractErrorMessage(
-            error,
-            "Unable to load dashboard summary.",
-          );
-
-        set({
-          error: message,
-          summaryLoading: false,
-        });
-
-        throw new Error(message);
-      }
-    },
-
-    /* =====================================================
-       FETCH PRODUCTION JOBS
+       FETCH ALL JOBS
     ===================================================== */
 
     fetchProductionJobs: async (
       params = {},
     ) => {
       set({
-        loading: true,
         listLoading: true,
         error: null,
       });
 
       try {
-        const currentFilters =
-          get().filters;
-
-        const queryParams = {
-          ...currentFilters,
+        const query = cleanParams({
+          ...get().filters,
           ...params,
-        };
-
-        Object.keys(queryParams).forEach(
-          (key) => {
-            const value =
-              queryParams[key];
-
-            if (
-              value === "" ||
-              value === null ||
-              value === undefined
-            ) {
-              delete queryParams[key];
-            }
-          },
-        );
+        });
 
         const response = await api.get(
-          "/api/tailor-production-jobs",
+          BASE_ROUTE,
           {
-            params: queryParams,
+            params: query,
           },
         );
 
@@ -257,13 +184,11 @@ const useTailorProductionJobStore = create(
           productionJobs: jobs,
 
           recentJobs:
-            params?.limit &&
-            Number(params.limit) <= 10
+            Number(query.limit || 0) <= 10
               ? jobs
               : get().recentJobs,
 
           pagination,
-          loading: false,
           listLoading: false,
         });
 
@@ -272,21 +197,62 @@ const useTailorProductionJobStore = create(
           pagination,
         };
       } catch (error) {
-        const message =
-          extractErrorMessage(
-            error,
-            "Unable to load production jobs.",
-          );
+        const message = getErrorMessage(
+          error,
+          "Unable to load production jobs.",
+        );
 
         set({
-          error: message,
-          loading: false,
           listLoading: false,
+          error: message,
         });
 
         throw new Error(message);
       }
     },
+
+    /* =====================================================
+       FETCH SUMMARY
+    ===================================================== */
+
+    fetchProductionSummary: async () => {
+      set({
+        summaryLoading: true,
+        error: null,
+      });
+
+      try {
+        const response = await api.get(
+          `${BASE_ROUTE}/summary`,
+        );
+
+        const summary =
+          extractSummary(response);
+
+        set({
+          productionSummary: summary,
+          summaryLoading: false,
+        });
+
+        return summary;
+      } catch (error) {
+        const message = getErrorMessage(
+          error,
+          "Unable to load production summary.",
+        );
+
+        set({
+          summaryLoading: false,
+          error: message,
+        });
+
+        throw new Error(message);
+      }
+    },
+
+    /* Backward-compatible alias */
+    fetchDashboardSummary: async () =>
+      get().fetchProductionSummary(),
 
     /* =====================================================
        FETCH JOB BY ID
@@ -302,14 +268,13 @@ const useTailorProductionJobStore = create(
       }
 
       set({
-        loading: true,
         detailLoading: true,
         error: null,
       });
 
       try {
         const response = await api.get(
-          `/api/tailor-production-jobs/${jobId}`,
+          `${BASE_ROUTE}/${jobId}`,
         );
 
         const job =
@@ -317,23 +282,20 @@ const useTailorProductionJobStore = create(
 
         set({
           currentJob: job,
-          loading: false,
           detailLoading: false,
         });
 
         return job;
       } catch (error) {
-        const message =
-          extractErrorMessage(
-            error,
-            "Unable to load production job.",
-          );
+        const message = getErrorMessage(
+          error,
+          "Unable to load production job.",
+        );
 
         set({
           currentJob: null,
-          error: message,
-          loading: false,
           detailLoading: false,
+          error: message,
         });
 
         throw new Error(message);
@@ -354,46 +316,44 @@ const useTailorProductionJobStore = create(
 
       try {
         const response = await api.post(
-          "/api/tailor-production-jobs",
+          BASE_ROUTE,
           payload,
         );
 
-        const createdJob =
+        const job =
           extractJob(response);
 
         set((state) => ({
-          productionJobs: createdJob
+          productionJobs: job
             ? [
-                createdJob,
-                ...state.productionJobs,
-              ]
+              job,
+              ...state.productionJobs,
+            ]
             : state.productionJobs,
 
-          recentJobs: createdJob
+          recentJobs: job
             ? [
-                createdJob,
-                ...state.recentJobs,
-              ].slice(0, 8)
+              job,
+              ...state.recentJobs,
+            ].slice(0, 10)
             : state.recentJobs,
 
           currentJob:
-            createdJob ||
-            state.currentJob,
+            job || state.currentJob,
 
           creating: false,
         }));
 
-        return createdJob;
+        return job;
       } catch (error) {
-        const message =
-          extractErrorMessage(
-            error,
-            "Unable to create production job.",
-          );
+        const message = getErrorMessage(
+          error,
+          "Unable to create production job.",
+        );
 
         set({
-          error: message,
           creating: false,
+          error: message,
         });
 
         throw new Error(message);
@@ -420,51 +380,84 @@ const useTailorProductionJobStore = create(
       });
 
       try {
-        const response = await api.put(
-          `/api/tailor-production-jobs/${jobId}`,
+        const response = await api.patch(
+          `${BASE_ROUTE}/${jobId}`,
           payload,
         );
 
-        const updatedJob =
+        const job =
           extractJob(response);
 
         set((state) => ({
+          productionJobs: replaceJob(
+            state.productionJobs,
+            job,
+          ),
+
+          recentJobs: replaceJob(
+            state.recentJobs,
+            job,
+          ),
+
           currentJob:
-            updatedJob ||
-            state.currentJob,
-
-          productionJobs:
-            state.productionJobs.map(
-              (job) =>
-                (job?._id ||
-                  job?.id) === jobId
-                  ? updatedJob || job
-                  : job,
-            ),
-
-          recentJobs:
-            state.recentJobs.map(
-              (job) =>
-                (job?._id ||
-                  job?.id) === jobId
-                  ? updatedJob || job
-                  : job,
-            ),
+            job || state.currentJob,
 
           updating: false,
         }));
 
-        return updatedJob;
+        return job;
       } catch (error) {
-        const message =
-          extractErrorMessage(
-            error,
-            "Unable to update production job.",
-          );
+        const message = getErrorMessage(
+          error,
+          "Unable to update production job.",
+        );
 
         set({
-          error: message,
           updating: false,
+          error: message,
+        });
+
+        throw new Error(message);
+      }
+    },
+
+    /* =====================================================
+   FETCH PRODUCT-WISE ACTIVE PRODUCTION COVERAGE
+===================================================== */
+
+    fetchProductionCoverage: async () => {
+      set({
+        coverageLoading: true,
+        error: null,
+      });
+
+      try {
+        const response = await api.get(
+          `${BASE_ROUTE}/coverage`,
+        );
+
+        const coverage = Array.isArray(
+          response?.data?.coverage,
+        )
+          ? response.data.coverage
+          : [];
+
+        set({
+          productionCoverage: coverage,
+          coverageLoading: false,
+        });
+
+        return coverage;
+      } catch (error) {
+        const message = getErrorMessage(
+          error,
+          "Unable to load production coverage.",
+        );
+
+        set({
+          productionCoverage: [],
+          coverageLoading: false,
+          error: message,
         });
 
         throw new Error(message);
@@ -475,111 +468,78 @@ const useTailorProductionJobStore = create(
        UPDATE STATUS
     ===================================================== */
 
-    updateProductionJobStatus:
-      async (jobId, status) => {
-        if (!jobId) {
-          throw new Error(
-            "Production job ID is required.",
-          );
-        }
+    updateProductionJobStatus: async (
+      jobId,
+      status,
+    ) => {
+      if (!jobId) {
+        throw new Error(
+          "Production job ID is required.",
+        );
+      }
 
-        if (!status) {
-          throw new Error(
-            "Production job status is required.",
-          );
-        }
+      if (!status) {
+        throw new Error(
+          "Production job status is required.",
+        );
+      }
+
+      set({
+        statusUpdating: true,
+        error: null,
+      });
+
+      try {
+        const response = await api.patch(
+          `${BASE_ROUTE}/${jobId}/status`,
+          {
+            status,
+          },
+        );
+
+        const job =
+          extractJob(response);
+
+        set((state) => ({
+          productionJobs: replaceJob(
+            state.productionJobs,
+            job,
+          ),
+
+          recentJobs: replaceJob(
+            state.recentJobs,
+            job,
+          ),
+
+          currentJob:
+            job || state.currentJob,
+
+          statusUpdating: false,
+        }));
+
+        return job;
+      } catch (error) {
+        const message = getErrorMessage(
+          error,
+          "Unable to update production job status.",
+        );
 
         set({
-          statusUpdating: true,
-          error: null,
+          statusUpdating: false,
+          error: message,
         });
 
-        try {
-          const response =
-            await api.patch(
-              `/api/tailor-production-jobs/${jobId}/status`,
-              {
-                status,
-              },
-            );
-
-          const updatedJob =
-            extractJob(response);
-
-          set((state) => {
-            const fallbackJob = {
-              ...state.currentJob,
-              status,
-            };
-
-            const nextJob =
-              updatedJob ||
-              fallbackJob;
-
-            return {
-              currentJob: nextJob,
-
-              productionJobs:
-                state.productionJobs.map(
-                  (job) =>
-                    (job?._id ||
-                      job?.id) ===
-                    jobId
-                      ? {
-                          ...job,
-                          ...nextJob,
-                        }
-                      : job,
-                ),
-
-              recentJobs:
-                state.recentJobs.map(
-                  (job) =>
-                    (job?._id ||
-                      job?.id) ===
-                    jobId
-                      ? {
-                          ...job,
-                          ...nextJob,
-                        }
-                      : job,
-                ),
-
-              statusUpdating: false,
-            };
-          });
-
-          return (
-            updatedJob || {
-              ...get().currentJob,
-              status,
-            }
-          );
-        } catch (error) {
-          const message =
-            extractErrorMessage(
-              error,
-              "Unable to update production job status.",
-            );
-
-          set({
-            error: message,
-            statusUpdating: false,
-          });
-
-          throw new Error(message);
-        }
-      },
+        throw new Error(message);
+      }
+    },
 
     /* =====================================================
-       RECEIVE PRODUCTION
-
-       Ready for future receive page.
+       DELETE / CANCEL JOB
     ===================================================== */
 
-    receiveProduction: async (
+    deleteProductionJob: async (
       jobId,
-      payload,
+      options = {},
     ) => {
       if (!jobId) {
         throw new Error(
@@ -588,57 +548,77 @@ const useTailorProductionJobStore = create(
       }
 
       set({
-        updating: true,
+        deleting: true,
         error: null,
       });
 
       try {
-        const response =
-          await api.post(
-            `/api/tailor-production-jobs/${jobId}/receive`,
-            payload,
-          );
+        const response = await api.delete(
+          `${BASE_ROUTE}/${jobId}`,
+          {
+            params: cleanParams({
+              hard: options.hard,
+            }),
 
-        const updatedJob =
+            data: {
+              reason:
+                options.reason || "",
+            },
+          },
+        );
+
+        const hardDelete =
+          options.hard === true ||
+          options.hard === "true";
+
+        const returnedJob =
           extractJob(response);
 
         set((state) => ({
+          productionJobs: hardDelete
+            ? state.productionJobs.filter(
+              (job) =>
+                String(job._id) !==
+                String(jobId),
+            )
+            : replaceJob(
+              state.productionJobs,
+              returnedJob,
+            ),
+
+          recentJobs: hardDelete
+            ? state.recentJobs.filter(
+              (job) =>
+                String(job._id) !==
+                String(jobId),
+            )
+            : replaceJob(
+              state.recentJobs,
+              returnedJob,
+            ),
+
           currentJob:
-            updatedJob ||
-            state.currentJob,
+            hardDelete &&
+              String(
+                state.currentJob?._id,
+              ) === String(jobId)
+              ? null
+              : returnedJob ||
+              state.currentJob,
 
-          productionJobs:
-            state.productionJobs.map(
-              (job) =>
-                (job?._id ||
-                  job?.id) === jobId
-                  ? updatedJob || job
-                  : job,
-            ),
-
-          recentJobs:
-            state.recentJobs.map(
-              (job) =>
-                (job?._id ||
-                  job?.id) === jobId
-                  ? updatedJob || job
-                  : job,
-            ),
-
-          updating: false,
+          deleting: false,
         }));
 
-        return updatedJob;
+        return response?.data;
       } catch (error) {
-        const message =
-          extractErrorMessage(
-            error,
-            "Unable to receive production quantity.",
-          );
+        const message = getErrorMessage(
+          error,
+          "Unable to delete production job.",
+        );
 
         set({
+          deleting: false,
           error: message,
-          updating: false,
         });
 
         throw new Error(message);
@@ -649,81 +629,77 @@ const useTailorProductionJobStore = create(
        FILTERS
     ===================================================== */
 
-    setFilters: (filters = {}) => {
+    setFilters: (filters = {}) =>
       set((state) => ({
         filters: {
           ...state.filters,
           ...filters,
         },
-      }));
-    },
+      })),
 
-    setFilter: (name, value) => {
+    setFilter: (name, value) =>
       set((state) => ({
         filters: {
           ...state.filters,
           [name]: value,
         },
-      }));
-    },
+      })),
 
-    resetFilters: () => {
+    resetFilters: () =>
       set({
-        filters: initialFilters,
-      });
-    },
+        filters: {
+          ...initialFilters,
+        },
+      }),
 
     /* =====================================================
-       LOCAL JOB UPDATE
+       LOCAL STATE
     ===================================================== */
 
-    setCurrentJob: (job) => {
+    setCurrentJob: (job) =>
       set({
         currentJob: job,
-      });
-    },
+      }),
 
-    /* =====================================================
-       CLEAR HELPERS
-    ===================================================== */
-
-    clearProductionJob: () => {
+    clearProductionJob: () =>
       set({
         currentJob: null,
         detailLoading: false,
-      });
-    },
+      }),
 
-    clearError: () => {
+    clearError: () =>
       set({
         error: null,
-      });
-    },
+      }),
 
-    resetStore: () => {
+    resetStore: () =>
       set({
         productionJobs: [],
         recentJobs: [],
         currentJob: null,
-        dashboardSummary: {},
+        productionSummary: {},
 
-        pagination:
-          initialPagination,
+        pagination: {
+          ...initialPagination,
+        },
 
-        filters:
-          initialFilters,
+        filters: {
+          ...initialFilters,
+        },
 
-        loading: false,
         listLoading: false,
-        summaryLoading: false,
         detailLoading: false,
+        summaryLoading: false,
         creating: false,
         updating: false,
         statusUpdating: false,
+        deleting: false,
+
+        productionCoverage: [],
+coverageLoading: false,
 
         error: null,
-      });
-    },
+      }),
   }),
 );
 

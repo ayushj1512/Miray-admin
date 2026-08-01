@@ -72,10 +72,11 @@ const DOMAIN_LIST = [
   },
   {
     id: "production",
-    name: "Production Jobs",
+    name: "Production Dashboard",
     icon: Factory,
     route: "/production",
   },
+  
   {
     id: "tailors",
     name: "Tailors",

@@ -87,8 +87,40 @@ const extractJobs = (response) =>
     ? response.data.jobs
     : [];
 
-const extractSummary = (response) =>
-  response?.data?.summary || {};
+const extractSummary = (response) => {
+  const summary =
+    response?.data?.summary || {};
+
+  return {
+    totalJobs:
+      Number(summary.totalJobs) || 0,
+
+    totalProducts:
+      Number(summary.totalProducts) || 0,
+
+    totalQuantity:
+      Number(summary.totalQuantity) || 0,
+
+    totalReceivedQuantity:
+      Number(
+        summary.totalReceivedQuantity,
+      ) || 0,
+
+    totalPendingQuantity:
+      Number(
+        summary.totalPendingQuantity,
+      ) || 0,
+
+    totalAmount:
+      Number(summary.totalAmount) || 0,
+
+    overdueCount:
+      Number(summary.overdueCount) || 0,
+
+    statuses:
+      summary.statuses || {},
+  };
+};
 
 const extractPagination = (response) => {
   const data = response?.data || {};
@@ -115,6 +147,27 @@ const replaceJob = (jobs, updatedJob) => {
       : job,
   );
 };
+
+const updateJobEverywhere = (
+  state,
+  job,
+) => ({
+  productionJobs: replaceJob(
+    state.productionJobs,
+    job,
+  ),
+
+  recentJobs: replaceJob(
+    state.recentJobs,
+    job,
+  ),
+
+  currentJob:
+    String(state.currentJob?._id) ===
+      String(job?._id)
+      ? job
+      : state.currentJob,
+});
 
 /* =========================================================
    STORE
@@ -344,6 +397,13 @@ const useTailorProductionJobStore = create(
           creating: false,
         }));
 
+        await Promise.allSettled([
+          get().fetchProductionSummary(),
+          get().fetchProductionCoverage(),
+        ]);
+
+        return job;
+
         return job;
       } catch (error) {
         const message = getErrorMessage(
@@ -404,6 +464,11 @@ const useTailorProductionJobStore = create(
 
           updating: false,
         }));
+
+        await Promise.allSettled([
+          get().fetchProductionSummary(),
+          get().fetchProductionCoverage(),
+        ]);
 
         return job;
       } catch (error) {
@@ -478,9 +543,21 @@ const useTailorProductionJobStore = create(
         );
       }
 
-      if (!status) {
+      const normalizedStatus = String(
+        status || "",
+      )
+        .trim()
+        .toLowerCase();
+
+      /*
+       * assigned / partially_received / completed
+       * inventory receiving se automatically update honge.
+       *
+       * Frontend se sirf cancellation allowed hai.
+       */
+      if (normalizedStatus !== "cancelled") {
         throw new Error(
-          "Production job status is required.",
+          "Production job status is managed automatically through inventory receiving.",
         );
       }
 
@@ -493,12 +570,11 @@ const useTailorProductionJobStore = create(
         const response = await api.patch(
           `${BASE_ROUTE}/${jobId}/status`,
           {
-            status,
+            status: "cancelled",
           },
         );
 
-        const job =
-          extractJob(response);
+        const job = extractJob(response);
 
         set((state) => ({
           productionJobs: replaceJob(
@@ -517,11 +593,16 @@ const useTailorProductionJobStore = create(
           statusUpdating: false,
         }));
 
+        await Promise.allSettled([
+          get().fetchProductionSummary(),
+          get().fetchProductionCoverage(),
+        ]);
+
         return job;
       } catch (error) {
         const message = getErrorMessage(
           error,
-          "Unable to update production job status.",
+          "Unable to cancel production job.",
         );
 
         set({
@@ -609,6 +690,11 @@ const useTailorProductionJobStore = create(
           deleting: false,
         }));
 
+        await Promise.allSettled([
+          get().fetchProductionSummary(),
+          get().fetchProductionCoverage(),
+        ]);
+
         return response?.data;
       } catch (error) {
         const message = getErrorMessage(
@@ -623,6 +709,17 @@ const useTailorProductionJobStore = create(
 
         throw new Error(message);
       }
+    },
+
+    syncProductionJob: (job) => {
+      if (!job?._id) return;
+
+      set((state) => ({
+        ...updateJobEverywhere(
+          state,
+          job,
+        ),
+      }));
     },
 
     /* =====================================================
@@ -696,7 +793,7 @@ const useTailorProductionJobStore = create(
         deleting: false,
 
         productionCoverage: [],
-coverageLoading: false,
+        coverageLoading: false,
 
         error: null,
       }),

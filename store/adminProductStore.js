@@ -1639,7 +1639,7 @@ updateProductProductionDetails: async (id, payload = {}) => {
     throw e;
   } finally {
     set({ saving: false });
-  }opi
+  }
 },
 
  /* ============================================================

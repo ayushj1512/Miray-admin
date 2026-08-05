@@ -125,8 +125,8 @@ const DEFAULT_JOB_FILTERS = {
   to: "",
   sort: "qty_desc",
   page: 1,
-  limit: 50,
-  all: false,
+  limit: 500,
+  all: true,
   orderPrefix: "",
 };
 
@@ -414,8 +414,10 @@ export const useAdminProductionStore = create((set, get) => ({
       const merged = { ...state.productionJobFilters, ...params };
 
       if (merged.page == null || toNum(merged.page) <= 0) merged.page = 1;
-      if (merged.limit == null || toNum(merged.limit) <= 0) merged.limit = 50;
+if (merged.limit == null || toNum(merged.limit) <= 0)
+  merged.limit = 500;
 
+merged.all = true;
       const query = buildQueryString({
         q: merged.q,
         from: merged.from,

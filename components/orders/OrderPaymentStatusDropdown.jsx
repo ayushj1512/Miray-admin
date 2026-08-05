@@ -9,6 +9,7 @@ const PAYMENT_STATUS_OPTIONS = [
   { value: "paid", label: "Paid" },
   { value: "failed", label: "Failed" },
   { value: "refund_pending", label: "Refund Pending" },
+  { value: "partially_refunded", label: "Partially Refunded" },
   { value: "refunded", label: "Refunded" },
   { value: "not_applicable", label: "Not Applicable" },
 ];
@@ -17,16 +18,25 @@ const paymentStatusStyle = (status) => {
   switch (status) {
     case "paid":
       return "bg-green-50 text-green-700 ring-1 ring-green-200";
+
     case "pending":
       return "bg-yellow-50 text-yellow-700 ring-1 ring-yellow-200";
+
     case "failed":
       return "bg-red-50 text-red-700 ring-1 ring-red-200";
+
     case "refund_pending":
       return "bg-orange-50 text-orange-700 ring-1 ring-orange-200";
+
+    case "partially_refunded":
+      return "bg-amber-50 text-amber-700 ring-1 ring-amber-200";
+
     case "refunded":
       return "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200";
+
     case "not_applicable":
       return "bg-gray-100 text-gray-700 ring-1 ring-gray-200";
+
     default:
       return "bg-gray-100 text-gray-700 ring-1 ring-gray-200";
   }
@@ -34,6 +44,7 @@ const paymentStatusStyle = (status) => {
 
 const formatStatus = (status) => {
   if (status === "not_applicable") return "N/A";
+
   return String(status || "pending").replace(/_/g, " ");
 };
 
@@ -52,11 +63,18 @@ export default function OrderPaymentStatusDropdown({
   const [loading, setLoading] = useState(false);
   const [value, setValue] = useState(normalizedPropStatus);
 
-  const lastAppliedRef = useRef({ orderId: null, status: null });
+  const lastAppliedRef = useRef({
+    orderId: null,
+    status: null,
+  });
 
   useEffect(() => {
     if (lastAppliedRef.current.orderId !== orderId) {
-      lastAppliedRef.current = { orderId, status: normalizedPropStatus };
+      lastAppliedRef.current = {
+        orderId,
+        status: normalizedPropStatus,
+      };
+
       setValue(normalizedPropStatus);
       return;
     }
@@ -71,6 +89,7 @@ export default function OrderPaymentStatusDropdown({
 
   const handleChange = async (e) => {
     const newStatus = String(e.target.value || "").toLowerCase();
+
     if (!orderId || newStatus === value) return;
 
     setValue(newStatus);
@@ -78,7 +97,10 @@ export default function OrderPaymentStatusDropdown({
     try {
       setLoading(true);
 
-      const updatedOrder = await updateOrderPaymentStatus(orderId, newStatus);
+      const updatedOrder = await updateOrderPaymentStatus(
+        orderId,
+        newStatus
+      );
 
       const serverStatus = String(
         updatedOrder?.order?.paymentStatus ??
@@ -86,13 +108,21 @@ export default function OrderPaymentStatusDropdown({
           newStatus
       ).toLowerCase();
 
-      lastAppliedRef.current = { orderId, status: serverStatus };
-      setValue(serverStatus);
+      lastAppliedRef.current = {
+        orderId,
+        status: serverStatus,
+      };
 
+      setValue(serverStatus);
       onUpdated?.(updatedOrder);
     } catch (err) {
       alert(err?.message || "Failed to update payment status");
-      lastAppliedRef.current = { orderId, status: normalizedPropStatus };
+
+      lastAppliedRef.current = {
+        orderId,
+        status: normalizedPropStatus,
+      };
+
       setValue(normalizedPropStatus);
     } finally {
       setLoading(false);
@@ -107,6 +137,7 @@ export default function OrderPaymentStatusDropdown({
         )}`}
       >
         {formatStatus(value)}
+
         {loading ? (
           <Loader2 size={14} className="animate-spin" />
         ) : (
@@ -120,9 +151,9 @@ export default function OrderPaymentStatusDropdown({
         onChange={handleChange}
         className="absolute inset-0 cursor-pointer opacity-0 disabled:cursor-not-allowed"
       >
-        {PAYMENT_STATUS_OPTIONS.map((s) => (
-          <option key={s.value} value={s.value}>
-            {s.label}
+        {PAYMENT_STATUS_OPTIONS.map((status) => (
+          <option key={status.value} value={status.value}>
+            {status.label}
           </option>
         ))}
       </select>

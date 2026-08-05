@@ -60,6 +60,8 @@ export const sidebarMenus = {
   production: [
     { label: "Production Dashboard", href: "/production" },
     { label: "All Production Jobs", href: "/production/all-production-job" },
+    { label: "Production + Jobs", href: "/production/all-production-job-with-production-job" },
+
     { label: "Confirmed Production Jobs", href: "/production/production-job" },
     { label: "Packed Orders", href: "/production/packed" },
     { label: "Packed Order Labels", href: "/production/packed-labels" },
@@ -116,12 +118,9 @@ export const sidebarMenus = {
   inventory: [
     { label: "Inventory Dashboard", href: "/inventory" },
     { label: "Modify Inventory", href: "/inventory/modify-inventory" },
-    { label: "Stock Update", href: "/inventory/stock-update" },
     { label: "Available Inventory", href: "/inventory/available-inventory" },
-    { label: "In-Stock Inventory", href: "/inventory/in-stock-inventory" },
     { label: "Reserved Inventory", href: "/inventory/reserved-inventory" },
     { label: "On Demand Inventory", href: "/inventory/on-demand-inventory" },
-    { label: "Zero Inventory", href: "/inventory/zero-inventory" },
   ],
 
   fabrics: [

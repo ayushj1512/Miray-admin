@@ -1,25 +1,141 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useInventoryReservationStore } from "@/store/inventoryReservationStore";
 
-/**
- * Helpers
- */
-const safe = (v, fb = "") => (v == null ? fb : String(v));
-const money = (n) => {
-  const x = Number(n);
-  return Number.isFinite(x) ? x : 0;
-};
-const fmtDateTime = (d) => {
-  if (!d) return "-";
-  const dt = new Date(d);
-  if (Number.isNaN(dt.getTime())) return "-";
-  return dt.toLocaleString();
+const EMPTY_FILTERS = {
+  orderNumber: "",
+  productCode: "",
+  productTitle: "",
+  status: "",
+  refType: "",
+  refId: "",
+  productId: "",
+  variantId: "",
 };
 
-const STATUS_OPTIONS = ["", "reserved", "released", "consumed", "expired"];
-const REF_TYPES = ["", "order", "production", "manual"];
+const STATUS_OPTIONS = [
+  { value: "", label: "All statuses" },
+  { value: "reserved", label: "Reserved" },
+  { value: "released", label: "Released" },
+  { value: "consumed", label: "Consumed" },
+  { value: "expired", label: "Expired" },
+];
+
+const REF_TYPE_OPTIONS = [
+  { value: "", label: "All reference types" },
+  { value: "order", label: "Order" },
+  { value: "production", label: "Production" },
+  { value: "manual", label: "Manual" },
+];
+
+const safeString = (value, fallback = "") => {
+  if (value === null || value === undefined) return fallback;
+  return String(value);
+};
+
+const safeNumber = (value) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : 0;
+};
+
+const normalizeCode = (value) =>
+  safeString(value)
+    .trim()
+    .toUpperCase();
+
+const normalizeText = (value) =>
+  safeString(value)
+    .trim()
+    .replace(/\s+/g, " ");
+
+const formatLabel = (value) => {
+  const text = safeString(value).trim();
+
+  if (!text) return "Not available";
+
+  return text
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+};
+
+const formatDateTime = (value) => {
+  if (!value) return "Not available";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Not available";
+  }
+
+  return date.toLocaleString("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+};
+
+const isOverdue = (value, status) => {
+  if (!value || status !== "reserved") return false;
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return false;
+
+  return date.getTime() <= Date.now();
+};
+
+const fieldClassName =
+  "h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-black focus:ring-2 focus:ring-black/5 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:opacity-60";
+
+const secondaryButtonClassName =
+  "inline-flex h-10 items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-800 transition hover:border-gray-400 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50";
+
+const primaryButtonClassName =
+  "inline-flex h-10 items-center justify-center rounded-xl bg-black px-4 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50";
+
+function StatusBadge({ status }) {
+  const styles = {
+    reserved: "border-amber-200 bg-amber-50 text-amber-700",
+    consumed: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    released: "border-gray-200 bg-gray-100 text-gray-700",
+    expired: "border-red-200 bg-red-50 text-red-700",
+  };
+
+  return (
+    <span
+      className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${styles[status] || "border-gray-200 bg-gray-100 text-gray-700"
+        }`}
+    >
+      {formatLabel(status)}
+    </span>
+  );
+}
+
+function SummaryCard({ label, value, description }) {
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+        {label}
+      </p>
+
+      <p className="mt-2 text-2xl font-bold text-gray-950">{value}</p>
+
+      <p className="mt-1 text-xs text-gray-500">{description}</p>
+    </div>
+  );
+}
+
+function LoadingRows() {
+  return Array.from({ length: 5 }).map((_, index) => (
+    <tr key={index} className="border-b border-gray-100">
+      {Array.from({ length: 11 }).map((__, columnIndex) => (
+        <td key={columnIndex} className="px-4 py-4">
+          <div className="h-4 animate-pulse rounded bg-gray-200" />
+        </td>
+      ))}
+    </tr>
+  ));
+}
 
 export default function ReservedInventoryPage() {
   const {
@@ -39,583 +155,986 @@ export default function ReservedInventoryPage() {
     expireDueReservations,
   } = useInventoryReservationStore();
 
-  // local input states (typing doesn't auto-fetch)
-  const [form, setForm] = useState(filters);
-  const [reasonById, setReasonById] = useState({});
+  const [form, setForm] = useState({
+    ...EMPTY_FILTERS,
+    ...(filters || {}),
+  });
 
-  // ✅ bulk selection + bulk reason
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [reasonById, setReasonById] = useState({});
   const [bulkReason, setBulkReason] = useState("");
 
   useEffect(() => {
-    fetchReservations().catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    fetchReservations().catch(() => { });
+  }, [fetchReservations]);
 
   const list = useMemo(() => {
-    const arr = Array.isArray(reservations) ? reservations : [];
-    return [...arr].sort((a, b) => {
-      const sa = safe(a?.status);
-      const sb = safe(b?.status);
-      if (sa === "reserved" && sb !== "reserved") return -1;
-      if (sb === "reserved" && sa !== "reserved") return 1;
-      return (
-        new Date(b?.createdAt || 0).getTime() - new Date(a?.createdAt || 0).getTime()
-      );
+    const records = Array.isArray(reservations) ? reservations : [];
+
+    return [...records].sort((first, second) => {
+      const firstStatus = safeString(first?.status);
+      const secondStatus = safeString(second?.status);
+
+      if (firstStatus === "reserved" && secondStatus !== "reserved") {
+        return -1;
+      }
+
+      if (secondStatus === "reserved" && firstStatus !== "reserved") {
+        return 1;
+      }
+
+      const firstDate = new Date(first?.createdAt || 0).getTime();
+      const secondDate = new Date(second?.createdAt || 0).getTime();
+
+      return secondDate - firstDate;
     });
   }, [reservations]);
 
-  // ✅ only reserved rows are actionable/selectable
+  const summary = useMemo(() => {
+    return list.reduce(
+      (result, reservation) => {
+        const status = safeString(reservation?.status)
+          .trim()
+          .toLowerCase();
+
+        if (status === "pending") {
+          result.pending += 1;
+        }
+
+        if (status === "reserved") {
+          result.reserved += 1;
+        }
+
+        if (status === "expired") {
+          result.expired += 1;
+        }
+
+        if (status === "consumed") {
+          result.consumed += 1;
+        }
+
+        return result;
+      },
+      {
+        pending: 0,
+        reserved: 0,
+        expired: 0,
+        consumed: 0,
+      },
+    );
+  }, [list]);
+
   const reservedIds = useMemo(() => {
-    const s = new Set();
-    for (const r of list) {
-      if (safe(r?.status) === "reserved") s.add(safe(r?._id));
-    }
-    return s;
+    const ids = new Set();
+
+    list.forEach((reservation) => {
+      const id = safeString(reservation?._id);
+      const status = safeString(reservation?.status);
+
+      if (id && status === "reserved") {
+        ids.add(id);
+      }
+    });
+
+    return ids;
   }, [list]);
 
   const selectedCount = useMemo(() => {
-    let c = 0;
+    let count = 0;
+
     selectedIds.forEach((id) => {
-      if (reservedIds.has(id)) c += 1;
+      if (reservedIds.has(id)) {
+        count += 1;
+      }
     });
-    return c;
+
+    return count;
   }, [selectedIds, reservedIds]);
 
-  const allReservedSelected = useMemo(() => {
-    if (!reservedIds.size) return false;
-    if (!selectedCount) return false;
-    return selectedCount === reservedIds.size;
-  }, [reservedIds.size, selectedCount]);
+  const allReservedSelected =
+    reservedIds.size > 0 && selectedCount === reservedIds.size;
 
-  const anyReservedSelected = selectedCount > 0;
-
-  // ✅ if list changes due to filters/refresh, drop invalid selections
   useEffect(() => {
-    setSelectedIds((prev) => {
-      if (!prev?.size) return prev;
+    setSelectedIds((previous) => {
       const next = new Set();
-      prev.forEach((id) => {
-        if (reservedIds.has(id)) next.add(id);
+
+      previous.forEach((id) => {
+        if (reservedIds.has(id)) {
+          next.add(id);
+        }
       });
+
       return next;
     });
   }, [reservedIds]);
 
+  const updateForm = (key, value) => {
+    setForm((previous) => ({
+      ...previous,
+      [key]: value,
+    }));
+  };
+
   const applyFilters = async () => {
     clearError?.();
-    const next = {
-      productCode: safe(form.productCode).trim(),
-      orderNumber: safe(form.orderNumber).trim(),
-      productTitle: safe(form.productTitle).trim(),
 
-      productId: safe(form.productId).trim(),
-      variantId: safe(form.variantId).trim(),
-
-      status: safe(form.status).trim(),
-      refType: safe(form.refType).trim(),
-      refId: safe(form.refId).trim(),
+    const normalizedFilters = {
+      orderNumber: normalizeCode(form.orderNumber),
+      productCode: normalizeCode(form.productCode),
+      productTitle: normalizeText(form.productTitle),
+      status: normalizeText(form.status).toLowerCase(),
+      refType: normalizeText(form.refType).toLowerCase(),
+      refId: normalizeText(form.refId),
+      productId: normalizeText(form.productId),
+      variantId: normalizeText(form.variantId),
     };
-    setFilters(next);
-    await fetchReservations(next);
+
+    setForm(normalizedFilters);
+    setFilters(normalizedFilters);
+
+    await fetchReservations(normalizedFilters);
   };
 
   const clearFilters = async () => {
     clearError?.();
     resetFilters();
+    setForm(EMPTY_FILTERS);
+    setShowAdvancedFilters(false);
 
-    const empty = {
-      productCode: "",
-      orderNumber: "",
-      productTitle: "",
-      productId: "",
-      variantId: "",
-      status: "",
-      refType: "",
-      refId: "",
-    };
-
-    setForm(empty);
-    await fetchReservations(empty);
+    await fetchReservations(EMPTY_FILTERS);
   };
 
-  const doAction = async (type, id) => {
-    if (!id) return;
-    clearError?.();
-    const reason = safe(reasonById[id]).trim();
-
-    try {
-      if (type === "release") await releaseReservation(id, reason);
-      if (type === "consume") await consumeReservation(id, reason);
-      if (type === "expire") await expireReservation(id);
-
-      await fetchReservations(); // refresh with current filters (store already has them)
-    } catch {}
+  const handleFormSubmit = async (event) => {
+    event.preventDefault();
+    await applyFilters();
   };
 
-  const onExpireDue = async () => {
-    clearError?.();
-    try {
-      await expireDueReservations();
-    } catch {}
-  };
-
-  // ✅ selection handlers
   const toggleOne = (id) => {
-    if (!id) return;
-    if (!reservedIds.has(id)) return; // only reserved selectable
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+    if (!id || !reservedIds.has(id)) return;
+
+    setSelectedIds((previous) => {
+      const next = new Set(previous);
+
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+
       return next;
     });
   };
 
   const toggleAllReserved = () => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      const shouldSelectAll = !allReservedSelected; // if not all selected => select all
-      // first remove all reserved ids
-      reservedIds.forEach((id) => next.delete(id));
-      // then if selecting all, add them back
-      if (shouldSelectAll) reservedIds.forEach((id) => next.add(id));
-      return next;
+    setSelectedIds(() => {
+      if (allReservedSelected) {
+        return new Set();
+      }
+
+      return new Set(reservedIds);
     });
   };
 
-  const clearSelection = () => setSelectedIds(new Set());
-
-  // ✅ bulk action runner
-  const runBulk = async (type) => {
-    clearError?.();
-    const ids = Array.from(selectedIds).filter((id) => reservedIds.has(id));
-    if (!ids.length) return;
-
-    const reason = safe(bulkReason).trim();
-
-    try {
-      // sequential to avoid backend throttling; simple & safe
-      for (const id of ids) {
-        if (type === "release") await releaseReservation(id, reason);
-        if (type === "consume") await consumeReservation(id, reason);
-        if (type === "expire") await expireReservation(id);
-      }
-      clearSelection();
-      setBulkReason("");
-      await fetchReservations();
-    } catch {}
+  const clearSelection = () => {
+    setSelectedIds(new Set());
   };
 
+  const performAction = async (type, id) => {
+    if (!id) return;
+
+    clearError?.();
+
+    const reason = normalizeText(reasonById[id]);
+
+    try {
+      if (type === "release") {
+        await releaseReservation(id, reason);
+      }
+
+      if (type === "consume") {
+        await consumeReservation(id, reason);
+      }
+
+      if (type === "expire") {
+        await expireReservation(id);
+      }
+
+      setReasonById((previous) => ({
+        ...previous,
+        [id]: "",
+      }));
+
+      await fetchReservations();
+    } catch {
+      // Error is handled by Zustand store.
+    }
+  };
+
+  const performBulkAction = async (type) => {
+    clearError?.();
+
+    const validIds = Array.from(selectedIds).filter((id) =>
+      reservedIds.has(id),
+    );
+
+    if (!validIds.length) return;
+
+    const reason = normalizeText(bulkReason);
+
+    try {
+      for (const id of validIds) {
+        if (type === "release") {
+          await releaseReservation(id, reason);
+        }
+
+        if (type === "consume") {
+          await consumeReservation(id, reason);
+        }
+
+        if (type === "expire") {
+          await expireReservation(id);
+        }
+      }
+
+      clearSelection();
+      setBulkReason("");
+
+      await fetchReservations();
+    } catch {
+      // Error is handled by Zustand store.
+    }
+  };
+
+  const handleExpireDue = async () => {
+    clearError?.();
+
+    try {
+      await expireDueReservations();
+      clearSelection();
+      await fetchReservations();
+    } catch {
+      // Error is handled by Zustand store.
+    }
+  };
+
+  const disabled = loading || actionLoading;
+
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900">
-      <div className="p-4 md:p-6 space-y-4">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
+    <main className="min-h-screen bg-gray-50 text-gray-950">
+      <div className="mx-auto max-w-[1800px] space-y-5 p-4 md:p-6">
+        <header className="flex flex-col gap-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <div className="text-2xl font-extrabold tracking-tight">Reserved Inventory</div>
-            <div className="text-sm text-gray-600 mt-1">
-              Total records: <span className="font-semibold">{total}</span>
-              {loading ? <span className="ml-2 text-xs text-gray-500">(loading...)</span> : null}
-            </div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-500">
+              Inventory Management
+            </p>
+
+            <h1 className="mt-1 text-2xl font-bold tracking-tight md:text-3xl">
+              Reserved Inventory
+            </h1>
+
+            <p className="mt-2 text-sm text-gray-500">
+              Review stock reservations, consume allocated stock or release
+              unused quantities.
+            </p>
           </div>
 
           <div className="flex flex-wrap gap-2">
             <button
-              onClick={() => fetchReservations().catch(() => {})}
-              disabled={loading || actionLoading}
-              className="h-10 px-4 rounded-xl bg-white ring-1 ring-black/10 hover:ring-black/20 disabled:opacity-60"
+              type="button"
+              onClick={() => fetchReservations().catch(() => { })}
+              disabled={disabled}
+              className={secondaryButtonClassName}
             >
-              Refresh
+              {loading ? "Refreshing..." : "Refresh"}
             </button>
 
             <button
-              onClick={onExpireDue}
-              disabled={loading || actionLoading}
-              className="h-10 px-4 rounded-xl bg-black text-white hover:bg-black/90 disabled:opacity-60"
-              title="Expire all due reservations (expiresAt <= now)"
+              type="button"
+              onClick={handleExpireDue}
+              disabled={disabled}
+              className={primaryButtonClassName}
             >
-              Expire Due
+              {actionLoading ? "Processing..." : "Expire Due"}
             </button>
           </div>
-        </div>
+        </header>
 
-        {/* Error */}
         {error ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-3">
-            <div className="text-sm font-semibold text-red-700">Error</div>
-            <div className="text-sm text-red-700 mt-1">{error}</div>
-            <button onClick={() => clearError?.()} className="mt-2 text-xs underline text-red-700">
-              Dismiss
-            </button>
-          </div>
+          <section className="rounded-2xl border border-red-200 bg-red-50 p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-bold text-red-700">
+                  Unable to complete request
+                </p>
+
+                <p className="mt-1 text-sm text-red-600">{error}</p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => clearError?.()}
+                className="text-sm font-semibold text-red-700 underline"
+              >
+                Dismiss
+              </button>
+            </div>
+          </section>
         ) : null}
 
-        {/* Filters */}
-        <div className="rounded-2xl bg-white ring-1 ring-black/10 p-4">
-          <div className="font-bold">Filters</div>
+        <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <SummaryCard
+            label="Pending"
+            value={summary.pending}
+            description="Waiting for reservation"
+          />
 
-          <div className="mt-3 grid grid-cols-1 md:grid-cols-9 gap-2">
-            <input
-              value={form.orderNumber || ""}
-              onChange={(e) => setForm((s) => ({ ...s, orderNumber: e.target.value }))}
-              placeholder="orderNumber (MIRAY-000187)"
-              className="h-10 px-3 rounded-xl bg-gray-100/70 ring-1 ring-black/10 outline-none md:col-span-2"
-            />
+          <SummaryCard
+            label="Reserved"
+            value={summary.reserved}
+            description="Inventory currently locked"
+          />
 
-            <input
-              value={form.productCode || ""}
-              onChange={(e) => setForm((s) => ({ ...s, productCode: e.target.value }))}
-              placeholder="productCode (00197)"
-              className="h-10 px-3 rounded-xl bg-gray-100/70 ring-1 ring-black/10 outline-none"
-            />
+          <SummaryCard
+            label="Expired"
+            value={summary.expired}
+            description="Reservation validity ended"
+          />
 
-            <input
-              value={form.productTitle || ""}
-              onChange={(e) => setForm((s) => ({ ...s, productTitle: e.target.value }))}
-              placeholder="product title"
-              className="h-10 px-3 rounded-xl bg-gray-100/70 ring-1 ring-black/10 outline-none md:col-span-2"
-            />
+          <SummaryCard
+            label="Consumed"
+            value={summary.consumed}
+            description="Inventory successfully used"
+          />
+        </section>
 
-            <select
-              value={form.status || ""}
-              onChange={(e) => setForm((s) => ({ ...s, status: e.target.value }))}
-              className="h-10 px-3 rounded-xl bg-gray-100/70 ring-1 ring-black/10 outline-none"
-            >
-              {STATUS_OPTIONS.map((x) => (
-                <option key={x} value={x}>
-                  {x ? `status: ${x}` : "status: (any)"}
-                </option>
-              ))}
-            </select>
+        <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm md:p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="font-bold">Search and filters</h2>
 
-            <select
-              value={form.refType || ""}
-              onChange={(e) => setForm((s) => ({ ...s, refType: e.target.value }))}
-              className="h-10 px-3 rounded-xl bg-gray-100/70 ring-1 ring-black/10 outline-none"
-            >
-              {REF_TYPES.map((x) => (
-                <option key={x} value={x}>
-                  {x ? `refType: ${x}` : "refType: (any)"}
-                </option>
-              ))}
-            </select>
-
-            <input
-              value={form.refId || ""}
-              onChange={(e) => setForm((s) => ({ ...s, refId: e.target.value }))}
-              placeholder="refId (orderId etc.)"
-              className="h-10 px-3 rounded-xl bg-gray-100/70 ring-1 ring-black/10 outline-none md:col-span-2"
-            />
-
-            {/* advanced (optional) */}
-            <input
-              value={form.productId || ""}
-              onChange={(e) => setForm((s) => ({ ...s, productId: e.target.value }))}
-              placeholder="productId"
-              className="h-10 px-3 rounded-xl bg-gray-100/70 ring-1 ring-black/10 outline-none md:col-span-2"
-            />
-            <input
-              value={form.variantId || ""}
-              onChange={(e) => setForm((s) => ({ ...s, variantId: e.target.value }))}
-              placeholder="variantId"
-              className="h-10 px-3 rounded-xl bg-gray-100/70 ring-1 ring-black/10 outline-none md:col-span-2"
-            />
-          </div>
-
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              onClick={applyFilters}
-              disabled={loading || actionLoading}
-              className="h-10 px-4 rounded-xl bg-black text-white hover:bg-black/90 disabled:opacity-60"
-            >
-              Apply
-            </button>
-
-            <button
-              onClick={clearFilters}
-              disabled={loading || actionLoading}
-              className="h-10 px-4 rounded-xl bg-white ring-1 ring-black/10 hover:ring-black/20 disabled:opacity-60"
-            >
-              Clear
-            </button>
-
-            <div className="ml-auto text-xs text-gray-500 flex items-center">
-              {actionLoading ? "Working..." : ""}
+              <p className="mt-1 text-xs text-gray-500">
+                Search by order number, product code, title or reservation
+                status.
+              </p>
             </div>
+
+            <button
+              type="button"
+              onClick={() => setShowAdvancedFilters((previous) => !previous)}
+              className="text-sm font-semibold text-gray-700 underline"
+            >
+              {showAdvancedFilters
+                ? "Hide advanced filters"
+                : "Show advanced filters"}
+            </button>
           </div>
-        </div>
 
-        {/* ✅ Bulk Actions Bar */}
-        <div className="rounded-2xl bg-white ring-1 ring-black/10 p-4">
-          <div className="flex flex-col md:flex-row md:items-center gap-3">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={toggleAllReserved}
-                disabled={loading || actionLoading || reservedIds.size === 0}
-                className="h-10 px-4 rounded-xl bg-white ring-1 ring-black/10 hover:ring-black/20 disabled:opacity-60"
-                title="Select all RESERVED rows on this page"
-              >
-                {allReservedSelected ? "Unselect All" : "Select All"}
-              </button>
+          <form onSubmit={handleFormSubmit} className="mt-4 space-y-4">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+              <label className="space-y-1.5">
+                <span className="text-xs font-semibold text-gray-600">
+                  Order number
+                </span>
 
-              <button
-                onClick={clearSelection}
-                disabled={loading || actionLoading || !selectedIds.size}
-                className="h-10 px-4 rounded-xl bg-white ring-1 ring-black/10 hover:ring-black/20 disabled:opacity-60"
-              >
-                Clear Selection
-              </button>
+                <input
+                  value={form.orderNumber || ""}
+                  onChange={(event) =>
+                    updateForm("orderNumber", event.target.value)
+                  }
+                  placeholder="Example: MIRAY-000187"
+                  className={fieldClassName}
+                />
+              </label>
 
-              <div className="text-sm text-gray-700">
-                Selected:{" "}
-                <span className="font-semibold">
-                  {selectedCount}/{reservedIds.size}
-                </span>{" "}
-                <span className="text-xs text-gray-500">(reserved only)</span>
+              <label className="space-y-1.5">
+                <span className="text-xs font-semibold text-gray-600">
+                  Product code
+                </span>
+
+                <input
+                  value={form.productCode || ""}
+                  onChange={(event) =>
+                    updateForm("productCode", event.target.value)
+                  }
+                  placeholder="Example: 00197"
+                  className={fieldClassName}
+                />
+              </label>
+
+              <label className="space-y-1.5 md:col-span-2 xl:col-span-1">
+                <span className="text-xs font-semibold text-gray-600">
+                  Product title
+                </span>
+
+                <input
+                  value={form.productTitle || ""}
+                  onChange={(event) =>
+                    updateForm("productTitle", event.target.value)
+                  }
+                  placeholder="Search product title"
+                  className={fieldClassName}
+                />
+              </label>
+
+              <label className="space-y-1.5">
+                <span className="text-xs font-semibold text-gray-600">
+                  Reservation status
+                </span>
+
+                <select
+                  value={form.status || ""}
+                  onChange={(event) =>
+                    updateForm("status", event.target.value)
+                  }
+                  className={fieldClassName}
+                >
+                  {STATUS_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="space-y-1.5">
+                <span className="text-xs font-semibold text-gray-600">
+                  Reference type
+                </span>
+
+                <select
+                  value={form.refType || ""}
+                  onChange={(event) =>
+                    updateForm("refType", event.target.value)
+                  }
+                  className={fieldClassName}
+                >
+                  {REF_TYPE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            {showAdvancedFilters ? (
+              <div className="grid gap-3 border-t border-gray-100 pt-4 md:grid-cols-2 xl:grid-cols-3">
+                <label className="space-y-1.5">
+                  <span className="text-xs font-semibold text-gray-600">
+                    Reference ID
+                  </span>
+
+                  <input
+                    value={form.refId || ""}
+                    onChange={(event) =>
+                      updateForm("refId", event.target.value)
+                    }
+                    placeholder="Order ID, production ID or manual reference"
+                    className={fieldClassName}
+                  />
+                </label>
+
+                <label className="space-y-1.5">
+                  <span className="text-xs font-semibold text-gray-600">
+                    Product ID
+                  </span>
+
+                  <input
+                    value={form.productId || ""}
+                    onChange={(event) =>
+                      updateForm("productId", event.target.value)
+                    }
+                    placeholder="MongoDB product ID"
+                    className={fieldClassName}
+                  />
+                </label>
+
+                <label className="space-y-1.5">
+                  <span className="text-xs font-semibold text-gray-600">
+                    Variant ID
+                  </span>
+
+                  <input
+                    value={form.variantId || ""}
+                    onChange={(event) =>
+                      updateForm("variantId", event.target.value)
+                    }
+                    placeholder="MongoDB variant ID"
+                    className={fieldClassName}
+                  />
+                </label>
               </div>
+            ) : null}
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="submit"
+                disabled={disabled}
+                className={primaryButtonClassName}
+              >
+                {loading ? "Applying..." : "Apply filters"}
+              </button>
+
+              <button
+                type="button"
+                onClick={clearFilters}
+                disabled={disabled}
+                className={secondaryButtonClassName}
+              >
+                Clear filters
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <section className="sticky top-3 z-20 rounded-2xl border border-gray-200 bg-white/95 p-4 shadow-lg backdrop-blur">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-end">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={toggleAllReserved}
+                disabled={disabled || reservedIds.size === 0}
+                className={secondaryButtonClassName}
+              >
+                {allReservedSelected
+                  ? "Unselect all"
+                  : `Select reserved (${reservedIds.size})`}
+              </button>
+
+              <button
+                type="button"
+                onClick={clearSelection}
+                disabled={disabled || selectedCount === 0}
+                className={secondaryButtonClassName}
+              >
+                Clear selection
+              </button>
+
+              <span className="rounded-xl bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-700">
+                {selectedCount} selected
+              </span>
             </div>
 
             <div className="flex-1" />
 
-            <div className="flex flex-col md:flex-row md:items-center gap-2">
-              <input
-                value={bulkReason}
-                onChange={(e) => setBulkReason(e.target.value)}
-                placeholder="bulk reason (optional)"
-                className="h-10 px-3 rounded-xl bg-gray-100/70 ring-1 ring-black/10 outline-none text-sm w-full md:w-[320px]"
-                disabled={actionLoading}
-              />
+            <div className="grid gap-2 md:grid-cols-[minmax(220px,1fr)_auto]">
+              <label className="space-y-1">
+                <span className="text-xs font-semibold text-gray-600">
+                  Bulk action reason
+                </span>
 
-              <div className="flex gap-2">
+                <input
+                  value={bulkReason}
+                  onChange={(event) => setBulkReason(event.target.value)}
+                  placeholder="Optional note for selected reservations"
+                  disabled={actionLoading}
+                  className={fieldClassName}
+                />
+              </label>
+
+              <div className="flex flex-wrap items-end gap-2">
                 <button
-                  onClick={() => runBulk("release")}
-                  disabled={!anyReservedSelected || actionLoading || loading}
-                  className="h-10 px-4 rounded-xl bg-white ring-1 ring-black/10 hover:ring-black/20 disabled:opacity-50"
-                  title="Bulk Release selected reserved reservations"
+                  type="button"
+                  onClick={() => performBulkAction("release")}
+                  disabled={disabled || selectedCount === 0}
+                  className={secondaryButtonClassName}
                 >
-                  Bulk Release
+                  Release
                 </button>
 
                 <button
-                  onClick={() => runBulk("consume")}
-                  disabled={!anyReservedSelected || actionLoading || loading}
-                  className="h-10 px-4 rounded-xl bg-black text-white hover:bg-black/90 disabled:opacity-50"
-                  title="Bulk Consume selected reserved reservations"
+                  type="button"
+                  onClick={() => performBulkAction("consume")}
+                  disabled={disabled || selectedCount === 0}
+                  className={primaryButtonClassName}
                 >
-                  Bulk Consume
+                  Consume
                 </button>
 
                 <button
-                  onClick={() => runBulk("expire")}
-                  disabled={!anyReservedSelected || actionLoading || loading}
-                  className="h-10 px-4 rounded-xl bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
-                  title="Bulk Expire selected reserved reservations"
+                  type="button"
+                  onClick={() => performBulkAction("expire")}
+                  disabled={disabled || selectedCount === 0}
+                  className="inline-flex h-10 items-center justify-center rounded-xl bg-red-600 px-4 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Bulk Expire
+                  Expire
                 </button>
               </div>
             </div>
           </div>
+        </section>
 
-          <div className="mt-2 text-xs text-gray-500">
-            Note: Bulk actions apply only to <span className="font-semibold">reserved</span> rows.
-          </div>
-        </div>
+        <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+          <div className="flex flex-col gap-2 border-b border-gray-200 px-4 py-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-sm font-bold text-gray-950">
+                Reservations
+              </h2>
 
-        {/* Table */}
-        <div className="rounded-2xl bg-white ring-1 ring-black/10 overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-            <div className="font-bold">Reservations</div>
-            <div className="text-xs text-gray-500">
-              Showing: <span className="font-semibold">{list.length}</span>
+              <p className="mt-0.5 text-[11px] text-gray-500">
+                {list.length} record{list.length === 1 ? "" : "s"} •{" "}
+                {summary.reserved} reserved • {summary.consumed} consumed
+              </p>
             </div>
+
+            {actionLoading ? (
+              <span className="text-xs font-semibold text-gray-500">
+                Processing action...
+              </span>
+            ) : null}
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-gray-600">
+          <div className="w-full overflow-x-auto">
+            <table className="w-full table-fixed text-left text-[12px]">
+              <thead className="sticky top-0 z-20 border-b border-gray-200 bg-gray-50 text-[10px] uppercase tracking-wide text-gray-500">
                 <tr>
-                  {/* ✅ select column */}
-                  <th className="text-left font-semibold px-4 py-3 w-[56px]">
+                  <th className="w-[38px] px-2 py-2">
                     <input
                       type="checkbox"
                       checked={allReservedSelected}
                       onChange={toggleAllReserved}
-                      disabled={loading || actionLoading || reservedIds.size === 0}
-                      className="h-4 w-4 accent-black"
-                      title="Select all reserved"
+                      disabled={disabled || reservedIds.size === 0}
+                      className="h-3.5 w-3.5 accent-black"
+                      aria-label="Select all reserved inventory"
                     />
                   </th>
 
-                  <th className="text-left font-semibold px-4 py-3">Status</th>
-                  <th className="text-left font-semibold px-4 py-3">Order</th>
-                  <th className="text-left font-semibold px-4 py-3">Product</th>
-                  <th className="text-left font-semibold px-4 py-3">Variant</th>
-                  <th className="text-right font-semibold px-4 py-3">Qty</th>
-                  <th className="text-left font-semibold px-4 py-3">Ref</th>
-                  <th className="text-left font-semibold px-4 py-3">Expires</th>
-                  <th className="text-left font-semibold px-4 py-3">Created</th>
-                  <th className="text-left font-semibold px-4 py-3">Notes</th>
-                  <th className="text-left font-semibold px-4 py-3">Actions</th>
+                  <th className="w-[90px] px-2 py-2">Status</th>
+                  <th className="w-[110px] px-2 py-2">Order</th>
+                  <th className="w-[230px] px-2 py-2">Product</th>
+                  <th className="w-[145px] px-2 py-2">Variant</th>
+                  <th className="w-[55px] px-2 py-2 text-center">Qty</th>
+                  <th className="w-[135px] px-2 py-2">Reference</th>
+                  <th className="w-[110px] px-2 py-2">Expires</th>
+                  <th className="w-[110px] px-2 py-2">Created</th>
+                  <th className="w-[140px] px-2 py-2">Notes</th>
+                  <th className="w-[205px] px-2 py-2">Actions</th>
                 </tr>
               </thead>
 
               <tbody className="divide-y divide-gray-100">
-                {!list.length ? (
+                {loading && !list.length ? (
+                  <LoadingRows />
+                ) : !list.length ? (
                   <tr>
-                    <td className="px-4 py-10 text-center text-gray-500" colSpan={11}>
-                      {loading ? "Loading..." : "No reservations found"}
+                    <td colSpan={11} className="px-4 py-12 text-center">
+                      <div className="mx-auto max-w-sm">
+                        <div className="font-bold text-gray-900">
+                          No reservations found
+                        </div>
+
+                        <p className="mt-1 text-sm text-gray-500">
+                          Try clearing the filters or use another order number or
+                          product code.
+                        </p>
+
+                        <button
+                          type="button"
+                          onClick={clearFilters}
+                          className={`${secondaryButtonClassName} mt-4`}
+                        >
+                          Clear filters
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ) : (
-                  list.map((r) => {
-                    const id = safe(r?._id);
-                    const status = safe(r?.status, "-");
+                  list.map((reservation) => {
+                    const id = safeString(reservation?._id);
+
+                    const status = safeString(
+                      reservation?.status,
+                      "unknown",
+                    )
+                      .trim()
+                      .toLowerCase();
+
                     const isReserved = status === "reserved";
 
-                    const title = safe(r?.productTitle) || "-";
-                    const code = safe(r?.productCode) || "-";
-                    const img = safe(r?.productImage);
-                    const orderNo = safe(r?.orderNumber) || "-";
+                    const overdue = isOverdue(
+                      reservation?.expiresAt,
+                      status,
+                    );
 
-                    const checked = selectedIds.has(id) && reservedIds.has(id);
+                    const checked =
+                      selectedIds.has(id) && reservedIds.has(id);
+
+                    const productTitle =
+                      safeString(reservation?.productTitle).trim() ||
+                      "Untitled product";
+
+                    const productCode =
+                      safeString(reservation?.productCode).trim() ||
+                      "No code";
+
+                    const productImage = safeString(
+                      reservation?.productImage,
+                    ).trim();
+
+                    const selectedSize = safeString(
+                      reservation?.selectedSize,
+                    ).trim();
+
+                    const selectedColor = safeString(
+                      reservation?.selectedColor,
+                    ).trim();
+
+                    const variantSku = safeString(
+                      reservation?.variantSku,
+                    ).trim();
+
+                    const statusClasses = {
+                      pending: "bg-blue-50 text-blue-700",
+                      reserved: "bg-amber-50 text-amber-700",
+                      consumed: "bg-emerald-50 text-emerald-700",
+                      released: "bg-gray-100 text-gray-700",
+                      expired: "bg-red-50 text-red-700",
+                    };
 
                     return (
-                      <tr key={id} className="hover:bg-gray-50/70">
-                        {/* ✅ row checkbox */}
-                        <td className="px-4 py-3">
+                      <tr
+                        key={id}
+                        className={`align-middle transition hover:bg-gray-50 ${checked ? "bg-blue-50/50" : ""
+                          }`}
+                      >
+                        <td className="px-2 py-2">
                           <input
                             type="checkbox"
                             checked={checked}
                             onChange={() => toggleOne(id)}
-                            disabled={!isReserved || loading || actionLoading}
-                            className="h-4 w-4 accent-black disabled:opacity-50"
-                            title={isReserved ? "Select" : "Only reserved rows selectable"}
+                            disabled={!isReserved || disabled}
+                            className="h-3.5 w-3.5 accent-black disabled:opacity-30"
+                            aria-label={`Select reservation ${id}`}
                           />
                         </td>
 
-                        <td className="px-4 py-3">
-                          <span
-                            className={[
-                              "inline-flex items-center px-2 py-1 rounded-lg text-xs font-semibold",
-                              status === "reserved"
-                                ? "bg-yellow-50 text-yellow-700"
-                                : status === "consumed"
-                                ? "bg-green-50 text-green-700"
-                                : status === "released"
-                                ? "bg-gray-100 text-gray-700"
-                                : status === "expired"
-                                ? "bg-red-50 text-red-700"
-                                : "bg-gray-100 text-gray-700",
-                            ].join(" ")}
-                          >
-                            {status}
-                          </span>
-                        </td>
+                        <td className="px-2 py-2">
+                          <div className="space-y-1">
+                            <span
+                              className={`inline-flex rounded-full px-2 py-1 text-[10px] font-semibold ${statusClasses[status] ||
+                                "bg-gray-100 text-gray-700"
+                                }`}
+                            >
+                              {formatLabel(status)}
+                            </span>
 
-                        {/* Order */}
-                        <td className="px-4 py-3">
-                          <div className="font-semibold">{orderNo}</div>
-                          <div className="text-xs text-gray-500 break-all">
-                            {safe(r?.refType)} • {safe(r?.refId)}
+                            {overdue ? (
+                              <div className="text-[9px] font-semibold text-red-600">
+                                Overdue
+                              </div>
+                            ) : null}
                           </div>
                         </td>
 
-                        {/* Product */}
-                        <td className="px-4 py-3">
-                          <div className="flex items-start gap-3 min-w-[260px]">
-                            <div className="h-12 w-12 rounded-xl bg-gray-100 ring-1 ring-black/5 overflow-hidden shrink-0">
-                              {img ? (
+                        <td className="px-2 py-2">
+                          <div
+                            className="truncate font-semibold text-gray-950"
+                            title={safeString(reservation?.orderNumber)}
+                          >
+                            {safeString(reservation?.orderNumber).trim() ||
+                              "No order"}
+                          </div>
+
+                          <div className="truncate text-[10px] text-gray-400">
+                            {formatLabel(reservation?.refType)}
+                          </div>
+                        </td>
+
+                        <td className="px-2 py-2">
+                          <div className="flex items-center gap-2">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-gray-100">
+                              {productImage ? (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img
-                                  src={img}
-                                  alt={title}
-                                  className="h-full w-full object-contain"
+                                  src={productImage}
+                                  alt={productTitle}
                                   loading="lazy"
+                                  className="h-full w-full object-cover"
                                 />
-                              ) : null}
+                              ) : (
+                                <span className="text-[8px] font-semibold text-gray-400">
+                                  No Image
+                                </span>
+                              )}
                             </div>
 
                             <div className="min-w-0">
-                              <div className="font-semibold truncate">{title}</div>
-                              <div className="text-xs text-gray-500">
-                                <span className="font-semibold">{code}</span>
+                              <div
+                                className="truncate font-semibold text-gray-950"
+                                title={productTitle}
+                              >
+                                {productTitle}
                               </div>
-                              <div className="text-xs text-gray-500 break-all">
-                                {safe(r?.productId) || "-"}
+
+                              <div
+                                className="truncate text-[10px] text-gray-500"
+                                title={productCode}
+                              >
+                                Code: {productCode}
                               </div>
                             </div>
                           </div>
                         </td>
 
-                        {/* Variant */}
-                        <td className="px-4 py-3">
-                          <div className="text-xs text-gray-700 break-all">
-                            {safe(r?.variantId) || "-"}
+                        <td className="px-2 py-2">
+                          <div className="flex flex-wrap gap-1">
+                            {selectedSize ? (
+                              <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold">
+                                {selectedSize.toUpperCase()}
+                              </span>
+                            ) : null}
+
+                            {selectedColor ? (
+                              <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold">
+                                {selectedColor.toUpperCase()}
+                              </span>
+                            ) : null}
                           </div>
-                          <div className="text-[11px] text-gray-500">
-                            {safe(r?.variantSku) ? `SKU: ${safe(r?.variantSku)}` : ""}
+
+                          <div
+                            className="mt-1 truncate text-[10px] text-gray-500"
+                            title={variantSku}
+                          >
+                            {variantSku || "SKU unavailable"}
                           </div>
-                          <div className="text-[11px] text-gray-500">
-                            {(safe(r?.selectedSize) || safe(r?.selectedColor)) &&
-                              `${safe(r?.selectedSize) || "-"} • ${safe(r?.selectedColor) || "-"}`}
+                        </td>
+
+                        <td className="px-2 py-2 text-center">
+                          <span className="inline-flex min-w-7 justify-center rounded-md bg-black px-2 py-1 text-[11px] font-bold text-white">
+                            {safeNumber(reservation?.qty)}
+                          </span>
+                        </td>
+
+                        <td className="px-2 py-2">
+                          <div className="truncate text-[10px] font-semibold uppercase text-gray-700">
+                            {formatLabel(reservation?.refType)}
+                          </div>
+
+                          <div
+                            className="truncate text-[10px] text-gray-500"
+                            title={safeString(reservation?.refId)}
+                          >
+                            {safeString(reservation?.refId).trim() || "-"}
                           </div>
                         </td>
 
-                        <td className="px-4 py-3 text-right font-semibold">{money(r?.qty)}</td>
+                        <td className="px-2 py-2">
+                          <div
+                            className={`text-[10px] leading-4 ${overdue
+                                ? "font-semibold text-red-600"
+                                : "text-gray-600"
+                              }`}
+                          >
+                            {reservation?.expiresAt ? (
+                              <>
+                                <div>
+                                  {new Date(
+                                    reservation.expiresAt,
+                                  ).toLocaleDateString("en-IN", {
+                                    day: "2-digit",
+                                    month: "short",
+                                  })}
+                                </div>
 
-                        {/* Ref */}
-                        <td className="px-4 py-3">
-                          <div className="text-xs">
-                            <span className="font-semibold">{safe(r?.refType) || "-"}</span>
+                                <div>
+                                  {new Date(
+                                    reservation.expiresAt,
+                                  ).toLocaleTimeString("en-IN", {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                                </div>
+                              </>
+                            ) : (
+                              "-"
+                            )}
                           </div>
-                          <div className="text-xs text-gray-500 break-all">{safe(r?.refId) || "-"}</div>
                         </td>
 
-                        <td className="px-4 py-3 text-xs">
-                          {r?.expiresAt ? fmtDateTime(r.expiresAt) : "-"}
+                        <td className="px-2 py-2">
+                          <div className="text-[10px] leading-4 text-gray-600">
+                            {reservation?.createdAt ? (
+                              <>
+                                <div>
+                                  {new Date(
+                                    reservation.createdAt,
+                                  ).toLocaleDateString("en-IN", {
+                                    day: "2-digit",
+                                    month: "short",
+                                  })}
+                                </div>
+
+                                <div>
+                                  {new Date(
+                                    reservation.createdAt,
+                                  ).toLocaleTimeString("en-IN", {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                                </div>
+                              </>
+                            ) : (
+                              "-"
+                            )}
+                          </div>
                         </td>
 
-                        <td className="px-4 py-3 text-xs">
-                          {r?.createdAt ? fmtDateTime(r.createdAt) : "-"}
+                        <td className="px-2 py-2">
+                          <div
+                            className="line-clamp-2 break-words text-[10px] leading-4 text-gray-600"
+                            title={safeString(reservation?.notes)}
+                          >
+                            {safeString(reservation?.notes).trim() ||
+                              "No notes"}
+                          </div>
                         </td>
 
-                        <td className="px-4 py-3 text-xs text-gray-600 max-w-[320px]">
-                          <div className="line-clamp-3 break-words">{safe(r?.notes) || "-"}</div>
-                        </td>
-
-                        <td className="px-4 py-3">
-                          <div className="flex flex-col gap-2 min-w-[220px]">
+                        <td className="px-2 py-2">
+                          <div className="space-y-1.5">
                             <input
-                              value={safe(reasonById[id])}
-                              onChange={(e) => setReasonById((m) => ({ ...m, [id]: e.target.value }))}
-                              placeholder="reason (optional)"
-                              className="h-9 px-3 rounded-xl bg-gray-100/70 ring-1 ring-black/10 outline-none text-xs"
+                              value={reasonById[id] || ""}
+                              onChange={(event) =>
+                                setReasonById((previous) => ({
+                                  ...previous,
+                                  [id]: event.target.value,
+                                }))
+                              }
+                              placeholder="Reason"
                               disabled={!isReserved || actionLoading}
+                              className="h-7 w-full rounded-lg border border-gray-200 bg-white px-2 text-[10px] outline-none focus:border-black disabled:bg-gray-100 disabled:opacity-50"
                             />
 
-                            <div className="flex gap-2">
+                            <div className="flex gap-1">
                               <button
-                                onClick={() => doAction("release", id)}
-                                disabled={!isReserved || actionLoading}
-                                className="h-9 px-3 rounded-xl bg-white ring-1 ring-black/10 hover:ring-black/20 text-xs disabled:opacity-50"
+                                type="button"
+                                onClick={() =>
+                                  performAction("release", id)
+                                }
+                                disabled={!isReserved || disabled}
+                                className="h-7 rounded-md border border-gray-200 bg-white px-2 text-[10px] font-semibold hover:bg-gray-50 disabled:opacity-40"
                               >
                                 Release
                               </button>
 
                               <button
-                                onClick={() => doAction("consume", id)}
-                                disabled={!isReserved || actionLoading}
-                                className="h-9 px-3 rounded-xl bg-black text-white hover:bg-black/90 text-xs disabled:opacity-50"
+                                type="button"
+                                onClick={() =>
+                                  performAction("consume", id)
+                                }
+                                disabled={!isReserved || disabled}
+                                className="h-7 rounded-md bg-black px-2 text-[10px] font-semibold text-white hover:bg-gray-800 disabled:opacity-40"
                               >
                                 Consume
                               </button>
 
                               <button
-                                onClick={() => doAction("expire", id)}
-                                disabled={!isReserved || actionLoading}
-                                className="h-9 px-3 rounded-xl bg-red-600 text-white hover:bg-red-700 text-xs disabled:opacity-50"
+                                type="button"
+                                onClick={() =>
+                                  performAction("expire", id)
+                                }
+                                disabled={!isReserved || disabled}
+                                className="h-7 rounded-md bg-red-600 px-2 text-[10px] font-semibold text-white hover:bg-red-700 disabled:opacity-40"
                               >
                                 Expire
                               </button>
@@ -630,12 +1149,12 @@ export default function ReservedInventoryPage() {
             </table>
           </div>
 
-          <div className="px-4 py-3 border-t border-gray-100 text-xs text-gray-500">
-            Tip: “Expire Due” expires all reservations where{" "}
-            <span className="font-semibold">expiresAt ≤ now</span>.
+          <div className="border-t border-gray-200 bg-gray-50 px-4 py-2 text-[10px] text-gray-500">
+            Expire Due processes reserved entries whose expiry date has already
+            passed.
           </div>
-        </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }

@@ -131,7 +131,6 @@ export default function ModifyInventoryPage() {
     const base = clampStock(current);
     const value = clampStock(qty);
 
-    if (mode === "add") return base + value;
     if (mode === "subtract") return Math.max(0, base - value);
     return value;
   };
@@ -316,7 +315,7 @@ export default function ModifyInventoryPage() {
           </h1>
           <p className="mt-1 text-sm text-gray-600">
             Search product, review stock, reserved stock, available stock, and
-            directly set, add, or subtract inventory.
+            directly set or subtract inventory.
           </p>
         </div>
 
@@ -597,8 +596,7 @@ export default function ModifyInventoryPage() {
                                 disabled={!size}
                               >
                                 <option value="set">Set Final Stock</option>
-                                <option value="add">Add Stock</option>
-                                <option value="subtract">Subtract Stock</option>
+                                           <option value="subtract">Subtract Stock</option>
                               </select>
                             </td>
 
@@ -654,8 +652,8 @@ export default function ModifyInventoryPage() {
                 </div>
 
                 <div className="mt-3 text-xs text-gray-500">
-                  Set = final stock exact value, Add = current ke upar add hoga,
-                  Subtract = current se minus hoga, Available = Stock - Reserved.
+                  Set = final stock exact value, Subtract = current se minus hoga,
+                  Available = Stock - Reserved.
                 </div>
               </>
             )}

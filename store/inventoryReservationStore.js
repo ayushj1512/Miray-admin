@@ -63,6 +63,9 @@ const DEFAULT_FILTERS = {
   refId: "",
   refIds: [],
   orderLineId: "",
+   // New
+  orderState: "",
+  orderFulfillmentStatus: "",
 };
 
 export const useInventoryReservationStore = create((set, get) => ({
@@ -408,6 +411,67 @@ fetchShopifyReservations: async (overrideFilters = null) => {
     return get().cancelOrderReservations(orderId, reason || "order cancelled", "released");
   },
 
+  expireStaleOrderReservations: async ({
+  orderPrefix = "MIRAY",
+  includeMissingOrders = true,
+  limit = 500,
+} = {}) => {
+  set({
+    actionLoading: true,
+    error: null,
+  });
+
+  invLog(
+    "expireStaleOrderReservations ->",
+    {
+      orderPrefix,
+      includeMissingOrders,
+      limit,
+    }
+  );
+
+  try {
+    const { data } = await api.post(
+      "/api/inventory-reservations/expire-stale-orders",
+      {
+        orderPrefix,
+        includeMissingOrders,
+        limit,
+      }
+    );
+
+    set({
+      actionLoading: false,
+    });
+
+    await get().fetchReservations();
+
+    invLog(
+      "expireStaleOrderReservations <-",
+      data
+    );
+
+    return data;
+  } catch (error) {
+    const message = msg(
+      error,
+      "Failed to expire stale order reservations"
+    );
+
+    set({
+      actionLoading: false,
+      error: message,
+    });
+
+    invLog(
+      "expireStaleOrderReservations ERROR",
+      message
+    );
+
+    throw error;
+  }
+},
+
   /* ---------------- expire due ---------------- */
   expireDueReservations: async () => {
     set({ actionLoading: true, error: null });
@@ -426,4 +490,78 @@ fetchShopifyReservations: async (overrideFilters = null) => {
       throw e;
     }
   },
+
+  deleteStalePendingOrderReservations: async ({
+  orderPrefix = "MIRAY",
+  includeMissingOrders = true,
+  limit = 1000,
+  ids = [],
+} = {}) => {
+  set({
+    actionLoading: true,
+    error: null,
+  });
+
+  const selectedIds = Array.from(
+    new Set(
+      (Array.isArray(ids) ? ids : [])
+        .map((id) => String(id || "").trim())
+        .filter(Boolean)
+    )
+  );
+
+  invLog(
+    "deleteStalePendingOrderReservations ->",
+    {
+      orderPrefix,
+      includeMissingOrders,
+      limit,
+      selectedIds,
+    }
+  );
+
+  try {
+    const { data } = await api.delete(
+      "/api/inventory-reservations/stale-pending-orders",
+      {
+        data: {
+          orderPrefix,
+          includeMissingOrders,
+          limit,
+          ids: selectedIds,
+        },
+      }
+    );
+
+    set({
+      actionLoading: false,
+    });
+
+    await get().fetchReservations();
+
+    invLog(
+      "deleteStalePendingOrderReservations <-",
+      data
+    );
+
+    return data;
+  } catch (error) {
+    const message = msg(
+      error,
+      "Failed to delete stale pending reservations"
+    );
+
+    set({
+      actionLoading: false,
+      error: message,
+    });
+
+    invLog(
+      "deleteStalePendingOrderReservations ERROR",
+      message
+    );
+
+    throw error;
+  }
+},
 }));

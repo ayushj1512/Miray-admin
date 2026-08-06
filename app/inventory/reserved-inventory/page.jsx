@@ -12,14 +12,26 @@ const EMPTY_FILTERS = {
   refId: "",
   productId: "",
   variantId: "",
+  orderState: "",
+  orderFulfillmentStatus: "",
 };
 
 const STATUS_OPTIONS = [
   { value: "", label: "All statuses" },
+  { value: "pending", label: "Pending" },
   { value: "reserved", label: "Reserved" },
   { value: "released", label: "Released" },
   { value: "consumed", label: "Consumed" },
   { value: "expired", label: "Expired" },
+];
+
+const ORDER_STATE_OPTIONS = [
+  { value: "", label: "All order states" },
+  { value: "stale", label: "Needs cleanup" },
+  { value: "cancelled", label: "Cancelled orders" },
+  { value: "shipped", label: "Shipped / completed orders" },
+  { value: "active", label: "Active orders" },
+  { value: "missing", label: "Order missing" },
 ];
 
 const REF_TYPE_OPTIONS = [
@@ -153,6 +165,8 @@ export default function ReservedInventoryPage() {
     consumeReservation,
     expireReservation,
     expireDueReservations,
+    expireStaleOrderReservations,
+    deleteStalePendingOrderReservations,
   } = useInventoryReservationStore();
 
   const [form, setForm] = useState({
@@ -225,14 +239,20 @@ export default function ReservedInventoryPage() {
     );
   }, [list]);
 
-  const reservedIds = useMemo(() => {
+  const selectableIds = useMemo(() => {
     const ids = new Set();
 
     list.forEach((reservation) => {
-      const id = safeString(reservation?._id);
-      const status = safeString(reservation?.status);
+      const id = safeString(reservation?._id).trim();
 
-      if (id && status === "reserved") {
+      const status = safeString(reservation?.status)
+        .trim()
+        .toLowerCase();
+
+      if (
+        id &&
+        ["pending", "reserved"].includes(status)
+      ) {
         ids.add(id);
       }
     });
@@ -240,34 +260,59 @@ export default function ReservedInventoryPage() {
     return ids;
   }, [list]);
 
-  const selectedCount = useMemo(() => {
-    let count = 0;
+  const selectedPendingIds = useMemo(() => {
+    return Array.from(selectedIds).filter((id) => {
+      const reservation = list.find(
+        (row) => safeString(row?._id) === id
+      );
 
-    selectedIds.forEach((id) => {
-      if (reservedIds.has(id)) {
-        count += 1;
-      }
+      return (
+        safeString(reservation?.status)
+          .trim()
+          .toLowerCase() === "pending"
+      );
     });
+  }, [selectedIds, list]);
 
-    return count;
-  }, [selectedIds, reservedIds]);
+  const selectedReservedIds = useMemo(() => {
+    return Array.from(selectedIds).filter((id) => {
+      const reservation = list.find(
+        (row) => safeString(row?._id) === id
+      );
 
-  const allReservedSelected =
-    reservedIds.size > 0 && selectedCount === reservedIds.size;
+      return (
+        safeString(reservation?.status)
+          .trim()
+          .toLowerCase() === "reserved"
+      );
+    });
+  }, [selectedIds, list]);
+
+  const selectedCount = useMemo(() => {
+    return Array.from(selectedIds).filter((id) =>
+      selectableIds.has(id)
+    ).length;
+  }, [selectedIds, selectableIds]);
+
+  const allSelectableSelected =
+    selectableIds.size > 0 &&
+    selectedCount === selectableIds.size;
 
   useEffect(() => {
     setSelectedIds((previous) => {
       const next = new Set();
 
       previous.forEach((id) => {
-        if (reservedIds.has(id)) {
+        if (selectableIds.has(id)) {
           next.add(id);
         }
       });
 
       return next;
     });
-  }, [reservedIds]);
+  }, [selectableIds]);
+
+
 
   const updateForm = (key, value) => {
     setForm((previous) => ({
@@ -288,6 +333,10 @@ export default function ReservedInventoryPage() {
       refId: normalizeText(form.refId),
       productId: normalizeText(form.productId),
       variantId: normalizeText(form.variantId),
+      orderState: normalizeText(form.orderState).toLowerCase(),
+      orderFulfillmentStatus: normalizeText(
+        form.orderFulfillmentStatus,
+      ).toLowerCase(),
     };
 
     setForm(normalizedFilters);
@@ -311,7 +360,9 @@ export default function ReservedInventoryPage() {
   };
 
   const toggleOne = (id) => {
-    if (!id || !reservedIds.has(id)) return;
+    if (!id || !selectableIds.has(id)) {
+      return;
+    }
 
     setSelectedIds((previous) => {
       const next = new Set(previous);
@@ -328,11 +379,11 @@ export default function ReservedInventoryPage() {
 
   const toggleAllReserved = () => {
     setSelectedIds(() => {
-      if (allReservedSelected) {
+      if (allSelectableSelected) {
         return new Set();
       }
 
-      return new Set(reservedIds);
+      return new Set(selectableIds);
     });
   };
 
@@ -374,9 +425,7 @@ export default function ReservedInventoryPage() {
   const performBulkAction = async (type) => {
     clearError?.();
 
-    const validIds = Array.from(selectedIds).filter((id) =>
-      reservedIds.has(id),
-    );
+    const validIds = selectedReservedIds;
 
     if (!validIds.length) return;
 
@@ -418,6 +467,77 @@ export default function ReservedInventoryPage() {
     }
   };
 
+  const handleExpireStaleOrders = async () => {
+    clearError?.();
+
+    try {
+      const result = await expireStaleOrderReservations({
+        orderPrefix: "MIRAY",
+        includeMissingOrders: true,
+        limit: 500,
+      });
+
+      clearSelection();
+
+      setForm((previous) => ({
+        ...previous,
+        status: "",
+        refType: "order",
+        orderState: "stale",
+      }));
+
+      setFilters({
+        status: "",
+        refType: "order",
+        orderState: "stale",
+      });
+
+      await fetchReservations({
+        ...filters,
+        status: "",
+        refType: "order",
+        orderState: "stale",
+      });
+
+      window.alert(
+        `${Number(result?.expiredCount || 0)} stale MIRAY reservation(s) expired.`,
+      );
+    } catch {
+      // Error is handled by Zustand store.
+    }
+  };
+
+  const handleDeleteStalePending = async () => {
+    clearError?.();
+
+    const confirmed = window.confirm(
+      "Delete all pending MIRAY reservations whose orders are no longer processing or packed?"
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const result =
+        await deleteStalePendingOrderReservations({
+          orderPrefix: "MIRAY",
+          includeMissingOrders: true,
+          limit: 1000,
+        });
+
+      clearSelection();
+
+      await fetchReservations();
+
+      window.alert(
+        `${Number(
+          result?.deletedCount || 0
+        )} stale pending reservations deleted.`
+      );
+    } catch {
+      // Store handles error.
+    }
+  };
+
   const disabled = loading || actionLoading;
 
   return (
@@ -451,12 +571,33 @@ export default function ReservedInventoryPage() {
 
             <button
               type="button"
+              onClick={handleExpireStaleOrders}
+              disabled={disabled}
+              className="inline-flex h-10 items-center justify-center rounded-xl bg-red-600 px-4 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {actionLoading ? "Processing..." : "Expire stale MIRAY"}
+            </button>
+
+            <button
+              type="button"
               onClick={handleExpireDue}
               disabled={disabled}
               className={primaryButtonClassName}
             >
               {actionLoading ? "Processing..." : "Expire Due"}
             </button>
+
+            <button
+              type="button"
+              onClick={handleDeleteStalePending}
+              disabled={disabled}
+              className="inline-flex h-10 items-center justify-center rounded-xl bg-red-600 px-4 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {actionLoading
+                ? "Cleaning..."
+                : "Delete stale pending"}
+            </button>
+
           </div>
         </header>
 
@@ -531,7 +672,7 @@ export default function ReservedInventoryPage() {
           </div>
 
           <form onSubmit={handleFormSubmit} className="mt-4 space-y-4">
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
               <label className="space-y-1.5">
                 <span className="text-xs font-semibold text-gray-600">
                   Order number
@@ -616,6 +757,26 @@ export default function ReservedInventoryPage() {
                   ))}
                 </select>
               </label>
+
+              <label className="space-y-1.5">
+                <span className="text-xs font-semibold text-gray-600">
+                  Order lifecycle
+                </span>
+
+                <select
+                  value={form.orderState || ""}
+                  onChange={(event) =>
+                    updateForm("orderState", event.target.value)
+                  }
+                  className={fieldClassName}
+                >
+                  {ORDER_STATE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
 
             {showAdvancedFilters ? (
@@ -664,6 +825,24 @@ export default function ReservedInventoryPage() {
                     className={fieldClassName}
                   />
                 </label>
+
+                <label className="space-y-1.5">
+                  <span className="text-xs font-semibold text-gray-600">
+                    Exact fulfillment status
+                  </span>
+
+                  <input
+                    value={form.orderFulfillmentStatus || ""}
+                    onChange={(event) =>
+                      updateForm(
+                        "orderFulfillmentStatus",
+                        event.target.value,
+                      )
+                    }
+                    placeholder="Example: cancelled, shipped, delivered"
+                    className={fieldClassName}
+                  />
+                </label>
               </div>
             ) : null}
 
@@ -694,12 +873,12 @@ export default function ReservedInventoryPage() {
               <button
                 type="button"
                 onClick={toggleAllReserved}
-                disabled={disabled || reservedIds.size === 0}
+                disabled={disabled || selectableIds.size === 0}
                 className={secondaryButtonClassName}
               >
-                {allReservedSelected
+                {allSelectableSelected
                   ? "Unselect all"
-                  : `Select reserved (${reservedIds.size})`}
+                  : `Select Active (${selectableIds.size})`}
               </button>
 
               <button
@@ -760,6 +939,35 @@ export default function ReservedInventoryPage() {
                 >
                   Expire
                 </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!selectedPendingIds.length) return;
+
+                    const ok = window.confirm(
+                      `Delete ${selectedPendingIds.length} selected pending reservation(s)?`
+                    );
+
+                    if (!ok) return;
+
+                    try {
+                      await deleteStalePendingOrderReservations({
+                        ids: selectedPendingIds,
+                      });
+
+                      clearSelection();
+
+                      await fetchReservations();
+                    } catch { }
+                  }}
+                  disabled={
+                    disabled ||
+                    selectedPendingIds.length === 0
+                  }
+                  className="inline-flex h-10 items-center justify-center rounded-xl bg-red-600 px-4 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
+                >
+                  Delete Pending ({selectedPendingIds.length})
+                </button>
               </div>
             </div>
           </div>
@@ -792,9 +1000,9 @@ export default function ReservedInventoryPage() {
                   <th className="w-[38px] px-2 py-2">
                     <input
                       type="checkbox"
-                      checked={allReservedSelected}
+                      checked={allSelectableSelected}
                       onChange={toggleAllReserved}
-                      disabled={disabled || reservedIds.size === 0}
+                      disabled={disabled || selectableIds.size === 0}
                       className="h-3.5 w-3.5 accent-black"
                       aria-label="Select all reserved inventory"
                     />
@@ -857,8 +1065,14 @@ export default function ReservedInventoryPage() {
                       status,
                     );
 
+                    const isPending = status === "pending";
+
+                    const isSelectable =
+                      isPending || isReserved;
+
                     const checked =
-                      selectedIds.has(id) && reservedIds.has(id);
+                      selectedIds.has(id) &&
+                      selectableIds.has(id);
 
                     const productTitle =
                       safeString(reservation?.productTitle).trim() ||
@@ -895,7 +1109,11 @@ export default function ReservedInventoryPage() {
                     return (
                       <tr
                         key={id}
-                        className={`align-middle transition hover:bg-gray-50 ${checked ? "bg-blue-50/50" : ""
+                        className={`align-middle transition hover:bg-gray-50 ${reservation?.staleReservation
+                          ? "bg-red-50/60"
+                          : checked
+                            ? "bg-blue-50/50"
+                            : ""
                           }`}
                       >
                         <td className="px-2 py-2">
@@ -903,7 +1121,7 @@ export default function ReservedInventoryPage() {
                             type="checkbox"
                             checked={checked}
                             onChange={() => toggleOne(id)}
-                            disabled={!isReserved || disabled}
+                            disabled={!isSelectable || disabled}
                             className="h-3.5 w-3.5 accent-black disabled:opacity-30"
                             aria-label={`Select reservation ${id}`}
                           />
@@ -939,6 +1157,25 @@ export default function ReservedInventoryPage() {
                           <div className="truncate text-[10px] text-gray-400">
                             {formatLabel(reservation?.refType)}
                           </div>
+
+                          {reservation?.refType === "order" ? (
+                            <div
+                              className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[9px] font-semibold ${reservation?.staleReservation
+                                ? "bg-red-50 text-red-700"
+                                : "bg-gray-100 text-gray-600"
+                                }`}
+                              title={safeString(
+                                reservation?.orderFulfillmentStatus,
+                              )}
+                            >
+                              {reservation?.orderExists === false
+                                ? "Order missing"
+                                : formatLabel(
+                                  reservation?.orderFulfillmentStatus ||
+                                  reservation?.orderState,
+                                )}
+                            </div>
+                          ) : null}
                         </td>
 
                         <td className="px-2 py-2">
@@ -1022,8 +1259,8 @@ export default function ReservedInventoryPage() {
                         <td className="px-2 py-2">
                           <div
                             className={`text-[10px] leading-4 ${overdue
-                                ? "font-semibold text-red-600"
-                                : "text-gray-600"
+                              ? "font-semibold text-red-600"
+                              : "text-gray-600"
                               }`}
                           >
                             {reservation?.expiresAt ? (
@@ -1138,6 +1375,8 @@ export default function ReservedInventoryPage() {
                               >
                                 Expire
                               </button>
+
+
                             </div>
                           </div>
                         </td>

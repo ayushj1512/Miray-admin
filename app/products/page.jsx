@@ -1,14 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, memo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   RefreshCw,
   Search,
   Pencil,
   Trash2,
   ArrowUpDown,
-  Check,
-  X,
   Loader2,
   ChevronLeft,
   ChevronRight,
@@ -20,7 +18,6 @@ import ExportFilteredProductsButton from "@/components/product/ExportFilteredPro
 const API = process.env.NEXT_PUBLIC_BACKEND_URL;
 const PAGE_SIZE = 100;
 
-const str = (v) => String(v ?? "");
 
 function useDebouncedValue(value, delay = 400) {
   const [debounced, setDebounced] = useState(value);
@@ -46,254 +43,6 @@ function getVisiblePages(current, total) {
   return [1, "...", current - 1, current, current + 1, "...", total];
 }
 
-const PriceInlineEditor = memo(function PriceInlineEditor({ id, value }) {
-  const { updatePriceInline, saving } = useAdminProductStore();
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value ?? "");
-
-  useEffect(() => setDraft(value ?? ""), [value]);
-
-  const save = async () => {
-    const next = Number(draft);
-    if (!next || next <= 0) return alert("Enter valid price");
-    await updatePriceInline(id, next);
-    setEditing(false);
-  };
-
-  if (!editing) {
-    return (
-      <div className="flex items-center gap-2">
-        <span className="font-medium">₹{value ?? "-"}</span>
-        <button onClick={() => setEditing(true)} className="icon blue" title="Edit Price">
-          <Pencil size={14} />
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-2">
-      <input
-        type="number"
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        className="w-24 rounded-md border px-2 py-1 text-sm"
-      />
-      <button onClick={save} disabled={saving} className="icon blue" title="Save">
-        {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-      </button>
-      <button
-        onClick={() => {
-          setDraft(value ?? "");
-          setEditing(false);
-        }}
-        className="icon red"
-        title="Cancel"
-      >
-        <X size={14} />
-      </button>
-    </div>
-  );
-});
-
-const TitleInlineEditor = memo(function TitleInlineEditor({ id, value }) {
-  const { updateTitleInline, saving } = useAdminProductStore();
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value ?? "");
-
-  useEffect(() => setDraft(value ?? ""), [value]);
-
-  const save = async () => {
-    const next = str(draft).trim();
-    if (!next) return alert("Enter valid title");
-    await updateTitleInline(id, next);
-    setEditing(false);
-  };
-
-  const cancel = () => {
-    setDraft(value ?? "");
-    setEditing(false);
-  };
-
-  if (!editing) {
-    return (
-      <div className="flex items-center gap-2">
-        <span className="font-medium text-gray-900">{value ?? "-"}</span>
-        <button onClick={() => setEditing(true)} className="icon blue" title="Edit Title">
-          <Pencil size={14} />
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-2">
-      <input
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") save();
-          if (e.key === "Escape") cancel();
-        }}
-        autoFocus
-        className="w-64 rounded-md border px-2 py-1 text-sm"
-      />
-      <button onClick={save} disabled={saving} className="icon blue" title="Save">
-        {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-      </button>
-      <button onClick={cancel} className="icon red" title="Cancel">
-        <X size={14} />
-      </button>
-    </div>
-  );
-});
-
-const ComparePriceInlineEditor = memo(function ComparePriceInlineEditor({
-  id,
-  value,
-}) {
-  const { updateComparePriceInline, saving } = useAdminProductStore();
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value ?? "");
-
-  useEffect(() => setDraft(value ?? ""), [value]);
-
-  const save = async () => {
-    const next = draft === "" ? null : Number(draft);
-    if (next !== null && (Number.isNaN(next) || next < 0)) {
-      return alert("Enter valid compare price");
-    }
-    await updateComparePriceInline(id, next);
-    setEditing(false);
-  };
-
-  if (!editing) {
-    return (
-      <div className="flex items-center gap-2">
-        <span className="font-medium">
-          {value === null || value === undefined || value === "" ? "-" : `₹${value}`}
-        </span>
-        <button
-          onClick={() => setEditing(true)}
-          className="icon blue"
-          title="Edit Compare Price"
-        >
-          <Pencil size={14} />
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-2">
-      <input
-        type="number"
-        min="0"
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        className="w-24 rounded-md border px-2 py-1 text-sm"
-      />
-      <button onClick={save} disabled={saving} className="icon blue" title="Save">
-        {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-      </button>
-      <button
-        onClick={() => {
-          setDraft(value ?? "");
-          setEditing(false);
-        }}
-        className="icon red"
-        title="Cancel"
-      >
-        <X size={14} />
-      </button>
-    </div>
-  );
-});
-
-const CategoryInlineEditor = memo(function CategoryInlineEditor({
-  id,
-  value = [],
-  allCategories = [],
-}) {
-  const { updateCategoriesInline, saving } = useAdminProductStore();
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(Array.isArray(value) ? value : []);
-
-  useEffect(() => {
-    if (!editing) setDraft(Array.isArray(value) ? value : []);
-  }, [value, editing]);
-
-  const toggleCategory = (cat) => {
-    setDraft((prev) =>
-      prev.includes(cat) ? prev.filter((x) => x !== cat) : [...prev, cat]
-    );
-  };
-
-  const save = async () => {
-    await updateCategoriesInline(id, draft);
-    setEditing(false);
-  };
-
-  if (!editing) {
-    return (
-      <div className="flex items-center gap-2">
-        {draft.length ? (
-          <span className="max-w-60 truncate text-sm text-gray-700">
-            {draft.join(", ")}
-          </span>
-        ) : (
-          <span className="text-sm text-gray-400">-</span>
-        )}
-        <button onClick={() => setEditing(true)} className="icon blue" title="Edit Categories">
-          <Pencil size={14} />
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex max-w-80 flex-col gap-2">
-      <div className="flex flex-wrap gap-2 rounded-xl border bg-gray-50 p-2">
-        {allCategories.map((c) => {
-          const key = c.slug || c.name;
-          const checked = draft.includes(key);
-
-          return (
-            <button
-              key={key}
-              type="button"
-              onClick={() => toggleCategory(key)}
-              className={`rounded-full border px-3 py-1 text-xs font-bold ${
-                checked
-                  ? "border-blue-600 bg-blue-600 text-white"
-                  : "border-gray-300 bg-white text-gray-700"
-              }`}
-            >
-              {c.name}
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="flex gap-2">
-        <button onClick={save} disabled={saving} className="icon blue" title="Save">
-          {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-        </button>
-        <button
-          onClick={() => {
-            setDraft(Array.isArray(value) ? value : []);
-            setEditing(false);
-          }}
-          className="icon red"
-          title="Cancel"
-        >
-          <X size={14} />
-        </button>
-      </div>
-    </div>
-  );
-});
-
 export default function ProductsPage() {
   const router = useRouter();
   const firstLoadRef = useRef(false);
@@ -301,21 +50,18 @@ export default function ProductsPage() {
   const {
     products,
     loading,
-    saving,
     page,
     pages,
     total,
     fetchProducts,
     deleteProduct,
     bulkDelete,
-    togglePublish,
-    bulkPublish,
-    bulkStatus,
   } = useAdminProductStore();
 
   const [categories, setCategories] = useState([]);
   const [selectedIds, setSelectedIds] = useState(new Set());
-
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   const [searchDraft, setSearchDraft] = useState("");
   const debouncedSearch = useDebouncedValue(searchDraft, 400);
 
@@ -575,31 +321,6 @@ export default function ProductsPage() {
     });
   };
 
-  const updateProductStatus = async (id, nextStatus) => {
-    if (nextStatus === "published") return togglePublish(id, true);
-    if (nextStatus === "draft") return bulkStatus?.([id], "draft");
-    return togglePublish(id, false);
-  };
-
-  const handleBulkStatusChange = async (nextStatus) => {
-    const ids = [...selectedIds];
-    if (!ids.length) return;
-    if (!confirm(`Change status of ${ids.length} products to "${nextStatus}"?`)) return;
-
-    if (nextStatus === "published") await bulkPublish(ids, true);
-    else if (nextStatus === "unpublished") await bulkPublish(ids, false);
-    else if (nextStatus === "draft") await bulkStatus?.(ids, "draft");
-
-    clearSelection();
-  };
-
-  const handleBulkPublish = async (value) => {
-    const ids = [...selectedIds];
-    if (!ids.length) return;
-    if (!confirm(`${value ? "Publish" : "Unpublish"} ${ids.length} products?`)) return;
-    await bulkPublish(ids, value);
-    clearSelection();
-  };
 
   const handleBulkDelete = async () => {
     const ids = [...selectedIds];
@@ -607,6 +328,22 @@ export default function ProductsPage() {
     if (!confirm(`Delete ${ids.length} products? This cannot be undone.`)) return;
     await bulkDelete(ids);
     clearSelection();
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget?._id || deleting) return;
+
+    try {
+      setDeleting(true);
+
+      await deleteProduct(deleteTarget._id);
+
+      setDeleteTarget(null);
+    } catch (error) {
+      console.error("Delete product failed:", error);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -622,24 +359,24 @@ export default function ProductsPage() {
           </p>
         </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-  <button onClick={() => loadProducts(page || 1)} className="btn btn-dark">
-    {loading ? <Loader2 className="animate-spin" size={18} /> : <RefreshCw size={18} />}
-  </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={() => loadProducts(page || 1)} className="btn btn-dark">
+            {loading ? <Loader2 className="animate-spin" size={18} /> : <RefreshCw size={18} />}
+          </button>
 
-  <button onClick={resetFilters} className="btn btn-dark">
-    Clear Filters
-  </button>
+          <button onClick={resetFilters} className="btn btn-dark">
+            Clear Filters
+          </button>
 
-  <ExportFilteredProductsButton
-    buildQuery={buildQuery}
-    fileName="products-filtered-export"
-  />
+          <ExportFilteredProductsButton
+            buildQuery={buildQuery}
+            fileName="products-filtered-export"
+          />
 
-  <button onClick={() => router.push("/products/add")} className="btn btn-primary">
-    + Add Product
-  </button>
-</div>
+          <button onClick={() => router.push("/products/add")} className="btn btn-primary">
+            + Add Product
+          </button>
+        </div>
       </div>
 
       {!loading && (
@@ -678,12 +415,8 @@ export default function ProductsPage() {
 
         <BulkBar
           selectedCount={selectedCount}
-          saving={saving}
-          onPublish={() => handleBulkPublish(true)}
-          onUnpublish={() => handleBulkPublish(false)}
           onDelete={handleBulkDelete}
           onClear={clearSelection}
-          onChangeStatus={handleBulkStatusChange}
         />
       </div>
 
@@ -810,8 +543,9 @@ export default function ProductsPage() {
                         className="h-10 w-10 rounded-md border border-gray-200 object-cover"
                       />
                       <div className="flex flex-col leading-tight">
-                        <TitleInlineEditor id={p._id} value={p.title} />
-                        <span className="text-xs text-gray-400">
+                        <span className="font-semibold text-gray-900">
+                          {p.title || "-"}
+                        </span>                          <span className="text-xs text-gray-400">
                           {p.productType || "-"} • {p.sku || "-"} •{" "}
                           <span className="font-semibold text-gray-600">{p.productCode || "-"}</span>
                         </span>
@@ -820,23 +554,28 @@ export default function ProductsPage() {
                   </td>
 
                   <td className="px-4 py-3">
-                    <PriceInlineEditor id={p._id} value={p.price} />
-                  </td>
+                    <span className="font-medium text-gray-900">
+                      ₹{p.price ?? "-"}
+                    </span>                    </td>
 
                   <td className="px-4 py-3">
-                    <ComparePriceInlineEditor id={p._id} value={p.compareAtPrice} />
-                  </td>
+                    <span className="font-medium text-gray-700">
+                      {p.compareAtPrice === null ||
+                        p.compareAtPrice === undefined ||
+                        p.compareAtPrice === ""
+                        ? "-"
+                        : `₹${p.compareAtPrice}`}
+                    </span>                    </td>
 
                   <td className="px-4 py-3">
-                    <CategoryInlineEditor id={p._id} value={p.categories} allCategories={categories} />
-                  </td>
+                    <span className="block max-w-60 truncate text-sm text-gray-700">
+                      {Array.isArray(p.categories) && p.categories.length
+                        ? p.categories.join(", ")
+                        : "-"}
+                    </span>                    </td>
 
                   <td className="px-4 py-3">
-                    <StatusDropdown
-                      value={getProductStatus(p)}
-                      loading={saving}
-                      onChange={(next) => updateProductStatus(p._id, next)}
-                    />
+                    <ProductStatusBadge value={getProductStatus(p)} />
                   </td>
 
                   <td className="px-4 py-3 text-gray-500">
@@ -853,7 +592,14 @@ export default function ProductsPage() {
                         <Pencil size={16} />
                       </button>
                       <button
-                        onClick={() => deleteProduct(p._id)}
+                        onClick={() =>
+                          setDeleteTarget({
+                            _id: p._id,
+                            title: p.title,
+                            productCode: p.productCode,
+                            image: p.thumbnail || p.images?.[0] || "",
+                          })
+                        }
                         className="rounded-lg p-2 text-red-600 transition hover:bg-red-50"
                         title="Delete"
                       >
@@ -920,84 +666,166 @@ export default function ProductsPage() {
       </div>
 
       <style jsx>{`
-        .btn {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          border-radius: 12px;
-          padding: 10px 14px;
-          font-weight: 700;
-        }
-        .btn-dark {
-          background: #111827;
-          color: #fff;
-        }
-        .btn-primary {
-          background: #2563eb;
-          color: #fff;
-        }
-        .btn-danger {
-          background: #dc2626;
-          color: #fff;
-        }
-        .btn-muted {
-          background: #e5e7eb;
-          color: #111827;
-        }
-        .page-btn {
-          min-width: 40px;
-          height: 40px;
-          border-radius: 12px;
-          background: white;
-          color: #111827;
-          font-weight: 700;
-          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
-          padding: 0 12px;
-        }
-        .page-btn-active {
-          background: #2563eb;
-          color: white;
-        }
-        .search {
-          display: flex;
-          min-width: 260px;
-          align-items: center;
-          gap: 8px;
-          border-radius: 12px;
-          background: #fff;
-          padding: 10px 12px;
-          box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
-        }
-        .search input {
-          width: 100%;
-          border: none;
-          outline: none;
-          background: transparent;
-        }
-        .select {
-          border: none;
-          outline: none;
-          border-radius: 12px;
-          background: #fff;
-          padding: 10px 12px;
-          box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
-        }
-        .icon {
-          width: 36px;
-          height: 36px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 10px;
-          color: #fff;
-        }
-        .icon.blue {
-          background: #2563eb;
-        }
-        .icon.red {
-          background: #dc2626;
-        }
-      `}</style>
+          .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border-radius: 12px;
+            padding: 10px 14px;
+            font-weight: 700;
+          }
+          .btn-dark {
+            background: #111827;
+            color: #fff;
+          }
+          .btn-primary {
+            background: #2563eb;
+            color: #fff;
+          }
+          .btn-danger {
+            background: #dc2626;
+            color: #fff;
+          }
+          .btn-muted {
+            background: #e5e7eb;
+            color: #111827;
+          }
+          .page-btn {
+            min-width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: white;
+            color: #111827;
+            font-weight: 700;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+            padding: 0 12px;
+          }
+          .page-btn-active {
+            background: #2563eb;
+            color: white;
+          }
+          .search {
+            display: flex;
+            min-width: 260px;
+            align-items: center;
+            gap: 8px;
+            border-radius: 12px;
+            background: #fff;
+            padding: 10px 12px;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+          }
+          .search input {
+            width: 100%;
+            border: none;
+            outline: none;
+            background: transparent;
+          }
+          .select {
+            border: none;
+            outline: none;
+            border-radius: 12px;
+            background: #fff;
+            padding: 10px 12px;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+          }
+          .icon {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            color: #fff;
+          }
+          .icon.blue {
+            background: #2563eb;
+          }
+          .icon.red {
+            background: #dc2626;
+          }
+        `}</style>
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 px-4">
+          <div
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-600">
+                <Trash2 size={22} />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <h2 className="text-lg font-bold text-gray-950">
+                  Delete product?
+                </h2>
+
+                <p className="mt-1 text-sm leading-5 text-gray-500">
+                  This action cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3">
+              <img
+                src={deleteTarget.image || "/no-image.png"}
+                alt=""
+                className="h-14 w-14 rounded-lg border border-gray-200 bg-white object-cover"
+              />
+
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold text-gray-900">
+                  {deleteTarget.title || "Untitled Product"}
+                </p>
+
+                <p className="mt-1 text-xs font-medium text-gray-500">
+                  Product Code:{" "}
+                  <span className="text-gray-900">
+                    {deleteTarget.productCode || "-"}
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 rounded-xl border border-red-100 bg-red-50 px-4 py-3">
+              <p className="text-sm font-medium text-red-700">
+                This will delete the product from Shopify and MIRAY.
+              </p>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => setDeleteTarget(null)}
+                className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={handleConfirmDelete}
+                className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {deleting ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={16} />
+                    Delete Product
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -1039,69 +867,57 @@ function Checkbox({ checked, indeterminate, onChange }) {
 
 function BulkBar({
   selectedCount,
-  saving,
-  onPublish,
-  onUnpublish,
   onDelete,
   onClear,
-  onChangeStatus,
 }) {
   if (!selectedCount) return null;
 
   return (
     <div className="ml-auto flex flex-wrap items-center gap-2">
-      <span className="text-sm font-semibold text-gray-700">{selectedCount} selected</span>
+      <span className="text-sm font-semibold text-gray-700">
+        {selectedCount} selected
+      </span>
 
-      <select
-        disabled={saving}
-        defaultValue=""
-        onChange={(e) => {
-          const val = e.target.value;
-          if (!val) return;
-          onChangeStatus(val);
-          e.target.value = "";
-        }}
-        className="select text-sm font-semibold"
+      <button
+        onClick={onDelete}
+        className="btn btn-danger"
       >
-        <option value="">Change Status…</option>
-        <option value="published">Published</option>
-        <option value="draft">Draft</option>
-        <option value="unpublished">Unpublished</option>
-      </select>
-
-      <button disabled={saving} onClick={onPublish} className="btn btn-primary">
-        Publish
-      </button>
-      <button disabled={saving} onClick={onUnpublish} className="btn btn-dark">
-        Unpublish
-      </button>
-      <button disabled={saving} onClick={onDelete} className="btn btn-danger">
+        <Trash2 size={16} />
         Delete
       </button>
-      <button disabled={saving} onClick={onClear} className="btn btn-muted">
+
+      <button
+        onClick={onClear}
+        className="btn btn-muted"
+      >
         Clear
       </button>
     </div>
   );
 }
 
-function StatusDropdown({ value, onChange, loading }) {
+function ProductStatusBadge({ value }) {
   const styles = {
-    published: "bg-green-50 text-green-700 border-green-200",
-    draft: "bg-yellow-50 text-yellow-700 border-yellow-200",
-    unpublished: "bg-gray-100 text-gray-500 border-gray-200",
+    published:
+      "border-green-200 bg-green-50 text-green-700",
+    draft:
+      "border-yellow-200 bg-yellow-50 text-yellow-700",
+    unpublished:
+      "border-gray-200 bg-gray-100 text-gray-500",
+  };
+
+  const labels = {
+    published: "Published",
+    draft: "Draft",
+    unpublished: "Unpublished",
   };
 
   return (
-    <select
-      value={value}
-      disabled={loading}
-      onChange={(e) => onChange(e.target.value)}
-      className={`rounded-full border bg-white px-2 py-1 text-xs font-semibold ${styles[value]}`}
+    <span
+      className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${styles[value] || styles.unpublished
+        }`}
     >
-      <option value="published">Published</option>
-      <option value="draft">Draft</option>
-      <option value="unpublished">Unpublished</option>
-    </select>
+      {labels[value] || "Unpublished"}
+    </span>
   );
 }

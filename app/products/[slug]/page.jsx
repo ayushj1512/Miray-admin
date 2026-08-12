@@ -1,8 +1,9 @@
 // app/products/[slug]/page.jsx
+
 "use client";
 
-import { useEffect, useMemo, useState, use } from "react";
-import { Pencil, Trash2, Save, ArrowLeft } from "lucide-react";
+import { use, useEffect, useState } from "react";
+import { ArrowLeft, Pencil, Save, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import CategoryMultiSelect from "@/components/product/CategoryMultiSelect";
@@ -13,31 +14,42 @@ import ProductImagesEditor from "@/components/product/ProductImagesEditor";
 import ProductAdvancedFields from "@/components/product/ProductAdvancedFields";
 import CrossSellSelector from "@/components/product/CrossSellSelector";
 import CollectionMultiSelect from "@/components/product/CollectionMultiSelect";
-import FabricAdd from "@/components/product/FabricAdd"; // ✅ NEW (replaces ProductFabricAssignment)
+import FabricAdd from "@/components/product/FabricAdd";
 import OriginalProductLinkField from "@/components/product/OriginalProductLinkField";
 import ProductProductionDetails from "@/components/product/ProductProductionDetails";
 import ProductSamplingPattern from "@/components/product/ProductSamplingPattern";
 
 const BACKEND = (process.env.NEXT_PUBLIC_BACKEND_URL || "").replace(/\/+$/, "");
 
-/* ---------------- tiny helpers ---------------- */
 const s = (v) => (v == null ? "" : String(v));
 const n = (v, fb = 0) => {
   const x = Number(v);
   return Number.isFinite(x) ? x : fb;
 };
-const uniqLower = (arr) =>
-  Array.from(
-    new Set((arr || []).map((x) => s(x).trim().toLowerCase()).filter(Boolean)),
+const arr = (v) => (Array.isArray(v) ? v : []);
+const uniq = (v) =>
+  [...new Set(arr(v).map((x) => s(x).trim().toLowerCase()).filter(Boolean))];
+
+function Card({ title, children }) {
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-4">
+      <h2 className="mb-3 text-sm font-bold text-gray-900">{title}</h2>
+      {children}
+    </div>
   );
+}
 
-const safeArr = (v) => (Array.isArray(v) ? v : []);
-const safeImages = (p) => safeArr(p?.images).filter(Boolean);
+function Field({ label, children }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-xs font-semibold text-gray-500">{label}</span>
+      {children}
+    </label>
+  );
+}
 
-const isApparelCategory = (categories) =>
-  safeArr(categories)
-    .map((c) => s(c).trim().toLowerCase())
-    .some((c) => ["apparel", "apparels", "clothing", "garments"].includes(c));
+const input =
+  "w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-gray-400 focus:bg-white";
 
 export default function ProductDetailsPage({ params }) {
   const router = useRouter();
@@ -49,13 +61,14 @@ export default function ProductDetailsPage({ params }) {
 
   const [product, setProduct] = useState(null);
   const [collections, setCollections] = useState([]);
-  const [allAttributes, setAllAttributes] = useState([]);
+  const [attributes, setAttributes] = useState([]);
   const [variantsDirty, setVariantsDirty] = useState(false);
 
   const [form, setForm] = useState({
     title: "",
     price: 0,
     compareAtPrice: "",
+    hsnCode: "",
     categories: [],
     isActive: true,
 
@@ -69,44 +82,45 @@ export default function ProductDetailsPage({ params }) {
 
     attributes: [],
     variants: [],
-    isSamplingDone: false,
-    isPatternReady: false,
 
     images: [],
     thumbnail: "",
 
-    fabrics: [], // ✅ NEW
+    fabrics: [],
     avgFabricConsumption: {
       value: 0,
       unit: "meter",
       wastePercentage: 5,
     },
-
     accessories: [],
-    crossSellProducts: [],
+
     collections: [],
+    crossSellProducts: [],
     originalProductLink: "",
 
     highlights: [],
     weight: 0,
-    dimensions: { length: 0, width: 0, height: 0, unit: "cm" },
+    dimensions: {
+      length: 0,
+      width: 0,
+      height: 0,
+      unit: "cm",
+    },
+
     metaTitle: "",
     metaDescription: "",
     keywords: [],
+
     isFeatured: false,
     isDraft: false,
+    isSamplingDone: false,
+    isPatternReady: false,
   });
 
-  const showHsn = useMemo(
-    () => isApparelCategory(editing ? form.categories : product?.categories),
-    [editing, form.categories, product?.categories],
-  );
-
-  /* ---------------- load master data ---------------- */
   useEffect(() => {
     if (!slug) return;
 
-    const run = async () => {
+    const load = async () => {
       try {
         setLoading(true);
 
@@ -118,185 +132,147 @@ export default function ProductDetailsPage({ params }) {
           fetch(`${BACKEND}/api/attributes`, { cache: "no-store" }),
         ]);
 
-        const pData = await pRes.json().catch(() => null);
-        if (!pRes.ok) throw new Error(pData?.message || "Failed to load product");
+        const p = await pRes.json();
+        if (!pRes.ok) throw new Error(p?.message || "Product load failed");
 
-        const colData = await cRes.json().catch(() => []);
-        const attrData = await aRes.json().catch(() => []);
+        setProduct(p);
+        setCollections((await cRes.json().catch(() => [])) || []);
+        setAttributes((await aRes.json().catch(() => [])) || []);
 
-        setProduct(pData);
-        setCollections(Array.isArray(colData) ? colData : []);
-        setAllAttributes(Array.isArray(attrData) ? attrData : []);
-        setVariantsDirty(false);
-
-        const imgs = safeImages(pData);
-        const thumb =
-          pData?.thumbnail && imgs.includes(pData.thumbnail) ? pData.thumbnail : imgs[0] || "";
+        const images = arr(p.images).filter(Boolean);
 
         setForm({
-          title: s(pData?.title),
-          price: n(pData?.price),
-          compareAtPrice: pData?.compareAtPrice ?? "",
-          categories: safeArr(pData?.categories),
-          isActive: !!pData?.isActive,
+          title: s(p.title),
+          price: n(p.price),
+          compareAtPrice: p.compareAtPrice ?? "",
+          hsnCode: s(p.hsnCode),
+          categories: arr(p.categories),
+          isActive: !!p.isActive,
 
-          shortDescription: s(pData?.shortDescription),
-          howToStyle: s(pData?.howToStyle),
-          fabricDetails: s(pData?.fabricDetails),
-          keyFeaturesText: safeArr(pData?.keyFeatures).filter(Boolean).join(", "),
-          specifications: safeArr(pData?.specifications),
-          tagsText: safeArr(pData?.tags).join(", "),
-          colorsText: safeArr(pData?.colors).join(", "),
+          shortDescription: s(p.shortDescription),
+          howToStyle: s(p.howToStyle),
+          fabricDetails: s(p.fabricDetails),
+          keyFeaturesText: arr(p.keyFeatures).join(", "),
+          specifications: arr(p.specifications),
+          tagsText: arr(p.tags).join(", "),
+          colorsText: arr(p.colors).join(", "),
 
-          attributes: safeArr(pData?.attributes).map((a) => ({
-            attribute: a?.attribute || null,
-            key: a?.key || "",
-            values: safeArr(a?.values),
-            mode: a?.attribute ? "select" : "custom",
-          })),
+          attributes: arr(p.attributes),
+          variants: arr(p.variants),
 
-          variants: safeArr(pData?.variants).map((v) => ({
-            _id: v?._id,
-            sku: s(v?.sku),
-            barcode: s(v?.barcode),
-            weight: n(v?.weight),
-            patternNumber: s(v?.patternNumber).trim(),
-            attributes: safeArr(v?.attributes),
-          })),
+          images,
+          thumbnail: p.thumbnail || images[0] || "",
 
-
-          isSamplingDone: Boolean(pData?.isSamplingDone),
-          isPatternReady: Boolean(pData?.isPatternReady),
-
-          images: imgs,
-          thumbnail: thumb,
-
-          fabrics: safeArr(pData?.fabrics), // ✅ NEW
+          fabrics: arr(p.fabrics),
           avgFabricConsumption:
-            pData?.avgFabricConsumption || {
+            p.avgFabricConsumption || {
               value: 0,
               unit: "meter",
               wastePercentage: 5,
             },
+          accessories: arr(p.accessories),
 
-          accessories: safeArr(pData?.accessories),
-          crossSellProducts: safeArr(pData?.crossSellProducts).map((x) =>
-            typeof x === "string" ? x : x?._id,
+          collections: arr(p.collections),
+          crossSellProducts: arr(p.crossSellProducts).map((x) =>
+            typeof x === "string" ? x : x?._id
           ),
-          collections: safeArr(pData?.collections),
-          originalProductLink: s(pData?.originalProductLink),
-          highlights: safeArr(pData?.highlights),
-          weight: n(pData?.weight),
-          dimensions: pData?.dimensions || { length: 0, width: 0, height: 0, unit: "cm" },
-          metaTitle: s(pData?.metaTitle),
-          metaDescription: s(pData?.metaDescription),
-          keywords: safeArr(pData?.keywords),
-          isFeatured: !!pData?.isFeatured,
-          isDraft: !!pData?.isDraft,
+          originalProductLink: s(p.originalProductLink),
+
+          highlights: arr(p.highlights),
+          weight: n(p.weight),
+          dimensions:
+            p.dimensions || {
+              length: 0,
+              width: 0,
+              height: 0,
+              unit: "cm",
+            },
+
+          metaTitle: s(p.metaTitle),
+          metaDescription: s(p.metaDescription),
+          keywords: arr(p.keywords),
+
+          isFeatured: !!p.isFeatured,
+          isDraft: !!p.isDraft,
+          isSamplingDone: !!p.isSamplingDone,
+          isPatternReady: !!p.isPatternReady,
         });
       } catch (e) {
-        console.error("❌ load error:", e);
+        alert(e.message);
         setProduct(null);
-        alert(e?.message || "Failed to load product");
       } finally {
         setLoading(false);
       }
     };
 
-    run();
+    load();
   }, [slug]);
 
-  /* ---------------- handlers ---------------- */
-  const handleChange = (e) => {
+  const change = (e) => {
     const { name, value, type, checked } = e.target;
-    setForm((p) => ({ ...p, [name]: type === "checkbox" ? checked : value }));
+    setForm((p) => ({
+      ...p,
+      [name]: type === "checkbox" ? checked : value,
+    }));
   };
 
-  const reload = async () => {
-    setEditing(false);
-    router.refresh?.();
-    window.location.reload();
-  };
-
-  /* ---------------- save ---------------- */
-  const saveProduct = async () => {
-    if (!product?._id) return;
+  const save = async () => {
+    if (!product?._id || saving) return;
 
     try {
       setSaving(true);
 
-      const cleanedAttributes = safeArr(form.attributes)
-        .filter((a) => s(a?.key).trim() && safeArr(a?.values).length)
-        .map((a) => ({
-          attribute: a.attribute || null,
-          key: s(a.key).trim(),
-          values: safeArr(a.values),
-        }));
-
-      const cleanedVariants = safeArr(form.variants).map((v) => ({
-        _id: v?._id,
-        sku: s(v?.sku).trim(),
-        barcode: s(v?.barcode).trim(),
-        weight: n(v?.weight),
-        attributes: safeArr(v?.attributes),
-        patternNumber: s(v?.patternNumber).trim(),
-      }));
-
-      // ✅ fabrics: only keep rows that have fabricName
-      const cleanedFabrics = safeArr(form.fabrics)
-        .map((f) => ({
-          fabricName: s(f?.fabricName).trim(),
-          fabricCode: s(f?.fabricCode).trim(),
-          role: s(f?.role || "main").trim().toLowerCase(),
-          color: s(f?.color).trim(), // ✅ NEW: fabric color
-        }))
-        .filter((f) => !!f.fabricName);
-
       const payload = {
         title: s(form.title).trim(),
         price: n(form.price),
-        compareAtPrice: form.compareAtPrice === "" ? null : n(form.compareAtPrice),
 
-        categories: safeArr(form.categories).filter(Boolean),
+        compareAtPrice:
+          form.compareAtPrice === "" ? null : n(form.compareAtPrice),
+
+        hsnCode: s(form.hsnCode).replace(/\D/g, ""),
+
+        categories: arr(form.categories),
         isActive: !!form.isActive,
 
         shortDescription: s(form.shortDescription).trim(),
         howToStyle: s(form.howToStyle).trim(),
         fabricDetails: s(form.fabricDetails).trim(),
+
         keyFeatures: s(form.keyFeaturesText)
           .split(",")
           .map((x) => x.trim())
           .filter(Boolean),
-        specifications: safeArr(form.specifications)
-          .map((r) => ({ key: s(r?.key).trim(), value: s(r?.value).trim() }))
-          .filter((r) => r.key),
 
-        images: safeArr(form.images).filter(Boolean),
-        thumbnail: safeArr(form.images)[0] || "",
+        specifications: arr(form.specifications),
 
-        tags: uniqLower(s(form.tagsText).split(",")),
-        colors: uniqLower(s(form.colorsText).split(",")),
+        tags: uniq(s(form.tagsText).split(",")),
+        colors: uniq(s(form.colorsText).split(",")),
 
-        fabrics: cleanedFabrics, // ✅ NEW
+        images: arr(form.images).filter(Boolean),
+        thumbnail: arr(form.images)[0] || "",
+
+        fabrics: arr(form.fabrics),
         avgFabricConsumption: form.avgFabricConsumption,
-        accessories: safeArr(form.accessories),
-        attributes: cleanedAttributes,
-        ...(variantsDirty ? { variants: cleanedVariants } : {}),
+        accessories: arr(form.accessories),
 
-        isSamplingDone: Boolean(form.isSamplingDone),
+        attributes: arr(form.attributes),
+        ...(variantsDirty ? { variants: arr(form.variants) } : {}),
 
+        collections: arr(form.collections),
+        crossSellProducts: arr(form.crossSellProducts),
+        originalProductLink: s(form.originalProductLink).trim(),
 
-        crossSellProducts: safeArr(form.crossSellProducts).filter(Boolean),
-        collections: safeArr(form.collections),
-
-        highlights: safeArr(form.highlights),
+        highlights: arr(form.highlights),
         weight: n(form.weight),
-        dimensions: form.dimensions || { length: 0, width: 0, height: 0, unit: "cm" },
+        dimensions: form.dimensions,
+
         metaTitle: s(form.metaTitle),
         metaDescription: s(form.metaDescription),
-        keywords: safeArr(form.keywords),
+        keywords: arr(form.keywords),
+
         isFeatured: !!form.isFeatured,
         isDraft: !!form.isDraft,
+        isSamplingDone: !!form.isSamplingDone,
       };
 
       const res = await fetch(`${BACKEND}/api/products/${product._id}`, {
@@ -305,233 +281,230 @@ export default function ProductDetailsPage({ params }) {
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.message || "Update failed");
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.message || "Update failed");
+      }
+
+      setProduct(data?.product || data);
+      setVariantsDirty(false);
+      setEditing(false);
 
       alert("Product updated ✅");
-      setEditing(false);
-      setVariantsDirty(false);
-
-      const updated = data?.product || data;
-      setProduct(updated);
-
-      const imgs = safeImages(updated);
-      setForm((previous) => ({
-        ...previous,
-
-        images: imgs,
-        thumbnail: imgs[0] || "",
-
-        fabrics: safeArr(updated?.fabrics),
-
-        avgFabricConsumption:
-          updated?.avgFabricConsumption || {
-            value: 0,
-            unit: "meter",
-            wastePercentage: 5,
-          },
-
-        accessories: safeArr(updated?.accessories),
-
-        variants: safeArr(updated?.variants),
-
-        isSamplingDone: Boolean(updated?.isSamplingDone),
-        isPatternReady: Boolean(updated?.isPatternReady),
-      }));
     } catch (e) {
-      console.error("❌ save error:", e);
-      alert(e?.message || "Failed to update product");
+      alert(e.message);
     } finally {
       setSaving(false);
     }
   };
 
-  /* ---------------- delete ---------------- */
-  const deleteProduct = async () => {
-    if (!product?._id) return;
-    if (!confirm("Delete this product?")) return;
+  const remove = async () => {
+    if (!confirm(`Delete "${product?.title}"?`)) return;
 
-    try {
-      const res = await fetch(`${BACKEND}/api/products/${product._id}`, { method: "DELETE" });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.message || "Delete failed");
+    const res = await fetch(`${BACKEND}/api/products/${product._id}`, {
+      method: "DELETE",
+    });
 
-      alert("Product deleted");
-      router.push("/products");
-    } catch (e) {
-      alert(e?.message || "Failed to delete product");
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok) {
+      return alert(data?.message || "Delete failed");
     }
+
+    router.push("/products");
   };
 
-  if (loading) return <p className="p-10">Loading…</p>;
-  if (!product) return <p className="p-10">Product not found</p>;
+  if (loading) return <div className="p-8">Loading...</div>;
+  if (!product) return <div className="p-8">Product not found</div>;
 
   return (
-    <section className="min-h-screen bg-gray-50 p-6 md:p-10">
-      <div className="w-full space-y-8">
-        <button
-          onClick={() => router.push("/products")}
-          className="flex items-center gap-2 text-gray-600 hover:text-black"
-        >
-          <ArrowLeft size={20} /> Back to Products
-        </button>
+    <main className="min-h-screen bg-gray-50 p-4 md:p-6">
+      <div className="mx-auto max-w-[1400px] space-y-4">
 
-        {/* Header */}
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="text-lg md:text-xl font-semibold text-gray-900">
-              {editing ? "Edit Product" : "Product Details"}
-            </h1>
-            <p className="text-sm text-gray-600 truncate">{product?.title || "—"}</p>
-          </div>
+        {/* HEADER */}
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-white p-4">
+          <div>
+            <button
+              onClick={() => router.push("/products")}
+              className="mb-2 flex items-center gap-1 text-xs font-semibold text-gray-500"
+            >
+              <ArrowLeft size={14} />
+              Products
+            </button>
 
-          <div className="flex items-center gap-2 shrink-0">
-            {!editing ? (
-              <button
-                onClick={() => setEditing(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                <Pencil size={14} />
-                Edit
-              </button>
+            {editing ? (
+              <Field label="Product Title">
+                <input
+                  name="title"
+                  value={form.title}
+                  onChange={change}
+                  className={`${input} min-w-[320px] font-semibold`}
+                />
+              </Field>
             ) : (
               <>
+                <h1 className="text-xl font-bold">{product.title}</h1>
+
+                <p className="mt-1 text-xs text-gray-500">
+                  Code: <b>{product.productCode}</b>
+                  {" • "}
+                  Shopify: <b>{product?.shopify?.syncStatus || "not_synced"}</b>
+                </p>
+              </>
+            )}
+          </div>
+
+          <div className="flex gap-2">
+            {editing ? (
+              <>
                 <button
-                  type="button"
-                  onClick={reload}
-                  className="px-3 py-1.5 text-sm border rounded-lg text-gray-700 hover:bg-gray-50"
+                  onClick={() => window.location.reload()}
+                  className="rounded-lg border px-3 py-2 text-sm font-semibold"
                 >
                   Cancel
                 </button>
 
                 <button
-                  onClick={saveProduct}
+                  onClick={save}
                   disabled={saving}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-60"
+                  className="flex items-center gap-2 rounded-lg bg-green-600 px-3 py-2 text-sm font-semibold text-white"
                 >
-                  <Save size={14} />
-                  {saving ? "Saving…" : "Save"}
+                  <Save size={15} />
+                  {saving ? "Saving..." : "Save"}
                 </button>
               </>
+            ) : (
+              <button
+                onClick={() => setEditing(true)}
+                className="flex items-center gap-2 rounded-lg bg-gray-900 px-3 py-2 text-sm font-semibold text-white"
+              >
+                <Pencil size={15} />
+                Edit
+              </button>
             )}
 
             <button
-              onClick={deleteProduct}
-              className="p-2 rounded-lg border border-red-200 text-red-600 hover:bg-red-50"
-              title="Delete product"
+              onClick={remove}
+              className="rounded-lg border border-red-200 p-2 text-red-600"
             >
               <Trash2 size={16} />
             </button>
           </div>
         </div>
 
-        {/* Images */}
-        <div className="bg-white p-5 md:p-6 rounded-xl shadow space-y-4">
-          <h2 className="text-lg md:text-xl font-semibold">Product Images</h2>
-
-          <ProductImagesEditor
-            value={form.images}
-            folder="miray/products"
-            onChange={(urls) =>
-              setForm((p) => ({ ...p, images: urls, thumbnail: urls?.[0] || "" }))
-            }
-          />
-        </div>
-
-        {/* ✅ NEW: Original product link */}
-        <div className="bg-white p-5 md:p-6 rounded-xl shadow space-y-4">
-          <OriginalProductLinkField
-            value={editing ? form.originalProductLink : s(product?.originalProductLink)}
-            onChange={(next) => setForm((p) => ({ ...p, originalProductLink: next }))}
-          />
-          {!editing && !s(product?.originalProductLink) ? (
-            <p className="text-sm text-gray-500">No original link set.</p>
-          ) : null}
-        </div>
-
-        {/* Pricing */}
-        <div className="bg-white p-5 md:p-6 rounded-xl shadow space-y-4">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <h2 className="text-lg md:text-xl font-semibold">Pricing</h2>
-            {!editing ? (
-              <div className="text-xs text-gray-500">
-                productCode: <span className="font-mono">{product?.productCode || "-"}</span>
-              </div>
-            ) : null}
-          </div>
-
+        {/* CORE */}
+        <Card title="Basic Details">
           {editing ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <input
-                name="price"
-                value={form.price}
-                onChange={handleChange}
-                className="w-full rounded-xl bg-gray-100 px-3 py-2 outline-none"
-                placeholder="Price"
-              />
-              <input
-                name="compareAtPrice"
-                value={form.compareAtPrice}
-                onChange={handleChange}
-                className="w-full rounded-xl bg-gray-100 px-3 py-2 outline-none"
-                placeholder="Compare at price"
-              />
+            <div className="grid gap-3 md:grid-cols-4">
+              <Field label="Selling Price">
+                <input
+                  type="number"
+                  name="price"
+                  value={form.price}
+                  onChange={change}
+                  className={input}
+                />
+              </Field>
+
+              <Field label="Compare At Price">
+                <input
+                  type="number"
+                  name="compareAtPrice"
+                  value={form.compareAtPrice}
+                  onChange={change}
+                  className={input}
+                />
+              </Field>
+
+              <Field label="HSN Code">
+                <input
+                  name="hsnCode"
+                  value={form.hsnCode}
+                  onChange={(e) =>
+                    setForm((p) => ({
+                      ...p,
+                      hsnCode: e.target.value.replace(/\D/g, ""),
+                    }))
+                  }
+                  className={input}
+                />
+              </Field>
+
+              <Field label="Status">
+                <label className={`${input} flex items-center gap-2`}>
+                  <input
+                    type="checkbox"
+                    name="isActive"
+                    checked={form.isActive}
+                    onChange={change}
+                  />
+                  Active
+                </label>
+              </Field>
             </div>
           ) : (
-            <div className="space-y-1">
-              <p className="text-base">
-                <b>Price:</b> ₹{product.price}
-              </p>
-              {product.compareAtPrice != null ? (
-                <p className="text-sm text-gray-600">
-                  <b>Original:</b> ₹{product.compareAtPrice}
-                </p>
-              ) : null}
-
-              <p className="text-sm text-gray-700">
-                <b>Stock:</b> {product.stock ?? 0} • <b>In stock:</b> {String(!!product.isInStock)}
-              </p>
-
-              {showHsn ? (
-                <p className="text-sm text-gray-700">
-                  <b>HSN Code:</b> {product?.hsnCode || "—"}
-                </p>
-              ) : null}
+            <div className="grid gap-3 text-sm md:grid-cols-4">
+              <div><b>Price</b><br />₹{product.price}</div>
+              <div><b>Compare</b><br />₹{product.compareAtPrice || "-"}</div>
+              <div><b>HSN</b><br />{product.hsnCode || "-"}</div>
+              <div><b>Status</b><br />{product.isActive ? "Active" : "Inactive"}</div>
             </div>
           )}
+        </Card>
 
+        {/* IMAGES */}
+        <Card title="Product Images">
           {editing ? (
-            <label className="inline-flex items-center gap-2 text-sm">
-              <input type="checkbox" name="isActive" checked={!!form.isActive} onChange={handleChange} />
-              Active (visible)
-            </label>
-          ) : null}
-        </div>
-
-        {/* Categories */}
-        <div className="bg-white p-5 md:p-6 rounded-xl shadow space-y-4">
-          <h2 className="text-lg md:text-xl font-semibold">Categories</h2>
-          {!editing ? (
-            <div className="flex flex-wrap gap-2">
-              {safeArr(product.categories).length ? (
-                product.categories.map((c) => (
-                  <span key={c} className="px-3 py-1 bg-gray-200 rounded-full text-xs">
-                    {c}
-                  </span>
-                ))
-              ) : (
-                <p className="text-sm text-gray-600">No categories assigned</p>
-              )}
-            </div>
+            <ProductImagesEditor
+              value={form.images}
+              folder="miray/products"
+              onChange={(images) =>
+                setForm((p) => ({
+                  ...p,
+                  images,
+                  thumbnail: images?.[0] || "",
+                }))
+              }
+            />
           ) : (
+            <div className="flex gap-2 overflow-x-auto">
+              {arr(product.images).map((src) => (
+                <img
+                  key={src}
+                  src={src}
+                  alt=""
+                  className="h-28 w-24 rounded-lg border object-cover"
+                />
+              ))}
+            </div>
+          )}
+        </Card>
+
+        {/* CATEGORY */}
+        <Card title="Categories">
+          {editing ? (
             <CategoryMultiSelect
               value={form.categories}
-              onChange={(next) => setForm((p) => ({ ...p, categories: next }))}
+              onChange={(categories) =>
+                setForm((p) => ({ ...p, categories }))
+              }
             />
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {arr(product.categories).map((x) => (
+                <span
+                  key={x}
+                  className="rounded-full bg-gray-100 px-3 py-1 text-xs"
+                >
+                  {x}
+                </span>
+              ))}
+            </div>
           )}
-        </div>
+        </Card>
 
-        {/* Content */}
+        {/* CONTENT */}
         <ProductContentEditor
           editable={editing}
           value={{
@@ -543,219 +516,171 @@ export default function ProductDetailsPage({ params }) {
             tagsText: form.tagsText,
           }}
           onChange={(next) =>
-            setForm((p) => ({
-              ...p,
-              shortDescription: next.shortDescription ?? "",
-              howToStyle: next.howToStyle ?? "",
-              fabricDetails: next.fabricDetails ?? "",
-              keyFeaturesText: next.keyFeaturesText ?? "",
-              specifications: Array.isArray(next.specifications) ? next.specifications : [],
-              tagsText: next.tagsText ?? "",
-            }))
+            setForm((p) => ({ ...p, ...next }))
           }
         />
 
-        {/* Colors */}
-        <div className="bg-white p-5 md:p-6 rounded-xl shadow space-y-4">
-          <h2 className="text-lg md:text-xl font-semibold">Colors</h2>
-
-          {!editing ? (
-            <div className="flex flex-wrap gap-2">
-              {safeArr(product?.colors).length ? (
-                product.colors.map((c) => (
-                  <span key={c} className="px-3 py-1 bg-gray-200 rounded-full text-xs">
-                    {c}
-                  </span>
-                ))
-              ) : (
-                <p className="text-sm text-gray-600">No colors set</p>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-2">
+        {/* COLORS */}
+        <Card title="Colors">
+          {editing ? (
+            <Field label="Product Colors">
               <input
                 name="colorsText"
                 value={form.colorsText}
-                onChange={handleChange}
-                placeholder="Comma-separated colors e.g. red, black, navy"
-                className="w-full rounded-xl bg-gray-100 px-3 py-2 outline-none"
+                onChange={change}
+                className={input}
               />
-              <p className="text-xs text-gray-500">Stored at product level for filtering.</p>
+            </Field>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {arr(product.colors).map((x) => (
+                <span key={x} className="rounded-full bg-gray-100 px-3 py-1 text-xs">
+                  {x}
+                </span>
+              ))}
             </div>
           )}
-        </div>
+        </Card>
 
-        {/* ✅ Fabrics (NEW component) */}
-        <div className="bg-white p-5 md:p-6 rounded-xl shadow space-y-4">
-          <div>
-            <h2 className="text-lg md:text-xl font-semibold">Fabrics</h2>
-            <p className="text-sm text-gray-500">Fabric name is required per row.</p>
-          </div>
+        {/* ORIGINAL */}
+        <Card title="Original Product Link">
+          {editing ? (
+            <OriginalProductLinkField
+              value={form.originalProductLink}
+              onChange={(originalProductLink) =>
+                setForm((p) => ({ ...p, originalProductLink }))
+              }
+            />
+          ) : (
+            <p className="break-all text-sm text-gray-600">
+              {product.originalProductLink || "-"}
+            </p>
+          )}
+        </Card>
 
+        {/* FABRICS */}
+        <Card title="Fabrics">
           <FabricAdd
-            value={editing ? form.fabrics : safeArr(product?.fabrics)}
+            value={editing ? form.fabrics : arr(product.fabrics)}
             editable={editing}
-            onChange={(next) => setForm((p) => ({ ...p, fabrics: next }))}
+            onChange={(fabrics) =>
+              setForm((p) => ({ ...p, fabrics }))
+            }
           />
-        </div>
+        </Card>
 
-        {/* Production Details */}
-        <div className="bg-white p-5 md:p-6 rounded-xl shadow space-y-4">
+        {/* PRODUCTION */}
+        <Card title="Production">
           <ProductProductionDetails
             editable={editing}
             value={{
               avgFabricConsumption: editing
                 ? form.avgFabricConsumption
-                : product?.avgFabricConsumption,
-              accessories: editing ? form.accessories : product?.accessories,
+                : product.avgFabricConsumption,
+              accessories: editing
+                ? form.accessories
+                : product.accessories,
             }}
             onChange={(next) =>
-              setForm((p) => ({
-                ...p,
-                avgFabricConsumption: next.avgFabricConsumption,
-                accessories: next.accessories,
-              }))
+              setForm((p) => ({ ...p, ...next }))
             }
           />
-        </div>
+        </Card>
 
-        {/* Attributes */}
+        {/* ATTRIBUTES */}
         <AttributeSelector
           value={editing ? form.attributes : product.attributes}
-          onChange={(next) => setForm((p) => ({ ...p, attributes: next }))}
-          allAttributes={allAttributes}
+          allAttributes={attributes}
           editable={editing}
+          onChange={(attributes) =>
+            setForm((p) => ({ ...p, attributes }))
+          }
         />
 
-        {/* Collections */}
-        <div className="bg-white p-5 md:p-6 rounded-xl shadow space-y-4">
-          <h2 className="text-lg md:text-xl font-semibold">Collections (Optional)</h2>
-
-          {!editing ? (
-            <div className="flex flex-wrap gap-2">
-              {safeArr(product.collections).length ? (
-                product.collections.map((c) => (
-                  <span
-                    key={typeof c === "string" ? c : c?._id}
-                    className="px-3 py-1 bg-gray-200 rounded-full text-xs"
-                  >
-                    {typeof c === "string" ? c : c?.name || "Collection"}
-                  </span>
-                ))
-              ) : (
-                <p className="text-sm text-gray-600">No collections assigned</p>
-              )}
-            </div>
-          ) : (
+        {/* COLLECTIONS */}
+        <Card title="Collections">
+          {editing ? (
             <CollectionMultiSelect
               collections={collections}
               value={form.collections}
-              onChange={(next) => setForm((p) => ({ ...p, collections: next }))}
+              onChange={(collections) =>
+                setForm((p) => ({ ...p, collections }))
+              }
             />
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {arr(product.collections).map((x) => (
+                <span
+                  key={typeof x === "string" ? x : x?._id}
+                  className="rounded-full bg-gray-100 px-3 py-1 text-xs"
+                >
+                  {typeof x === "string" ? x : x?.name}
+                </span>
+              ))}
+            </div>
           )}
-        </div>
+        </Card>
 
-        {/* Advanced */}
+        {/* ADVANCED */}
         <ProductAdvancedFields
           editable={editing}
-          value={{
-            highlights: form.highlights,
-            collections: form.collections,
-            weight: form.weight,
-            dimensions: form.dimensions,
-            metaTitle: form.metaTitle,
-            metaDescription: form.metaDescription,
-            keywords: form.keywords,
-            isActive: form.isActive,
-            isFeatured: form.isFeatured,
-            isDraft: form.isDraft,
-          }}
-          onChange={(next) => setForm((p) => ({ ...p, ...next }))}
+          value={form}
+          onChange={(next) =>
+            setForm((p) => ({ ...p, ...next }))
+          }
         />
 
-        {/* Variants */}
+        {/* VARIANTS */}
         <ProductVariantsEditor
           value={editing ? form.variants : product.variants}
           editable={editing}
-          onChange={(next) => {
+          onChange={(variants) => {
             setVariantsDirty(true);
-            setForm((p) => ({ ...p, variants: next }));
+            setForm((p) => ({ ...p, variants }));
           }}
         />
 
+        {/* SAMPLING */}
         <ProductSamplingPattern
-          productId={product?._id}
-          variants={editing ? form.variants : safeArr(product?.variants)}
+          productId={product._id}
+          variants={editing ? form.variants : arr(product.variants)}
           isSamplingDone={
-            editing
-              ? form.isSamplingDone
-              : Boolean(product?.isSamplingDone)
+            editing ? form.isSamplingDone : !!product.isSamplingDone
           }
           editable={editing}
-          onVariantsChange={(nextVariants) => {
+          onVariantsChange={(variants) => {
             setVariantsDirty(true);
-
-            const nextPatternReady = nextVariants.some((variant) =>
-              Boolean(String(variant?.patternNumber || "").trim()),
-            );
-
-            setForm((previous) => ({
-              ...previous,
-              variants: nextVariants,
-              isPatternReady: nextPatternReady,
-            }));
-
-            setProduct((previous) =>
-              previous
-                ? {
-                  ...previous,
-                  variants: nextVariants,
-                  isPatternReady: nextPatternReady,
-                }
-                : previous,
-            );
+            setForm((p) => ({ ...p, variants }));
           }}
-          onSamplingChange={(nextValue) => {
-            setForm((previous) => ({
-              ...previous,
-              isSamplingDone: nextValue,
-            }));
-
-            setProduct((previous) =>
-              previous
-                ? {
-                  ...previous,
-                  isSamplingDone: nextValue,
-                }
-                : previous,
-            );
-          }}
+          onSamplingChange={(isSamplingDone) =>
+            setForm((p) => ({ ...p, isSamplingDone }))
+          }
         />
 
-        {/* Cross sell */}
-        <div className="bg-white p-5 md:p-6 rounded-xl shadow space-y-4">
-          <h2 className="text-lg md:text-xl font-semibold">Cross-sell Products</h2>
-
-          {!editing ? (
-            <div className="flex flex-wrap gap-2">
-              {safeArr(product.crossSellProducts).length ? (
-                product.crossSellProducts.map((p) => (
-                  <span key={p._id} className="px-3 py-1 bg-gray-200 rounded-full text-xs">
-                    {p.title}
-                  </span>
-                ))
-              ) : (
-                <p className="text-sm text-gray-600">No cross-sell products</p>
-              )}
-            </div>
-          ) : (
+        {/* CROSS SELL */}
+        <Card title="Cross-sell Products">
+          {editing ? (
             <CrossSellSelector
               value={form.crossSellProducts}
-              onChange={(next) => setForm((p) => ({ ...p, crossSellProducts: next }))}
+              onChange={(crossSellProducts) =>
+                setForm((p) => ({ ...p, crossSellProducts }))
+              }
             />
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {arr(product.crossSellProducts).map((x) => (
+                <span
+                  key={x?._id}
+                  className="rounded-full bg-gray-100 px-3 py-1 text-xs"
+                >
+                  {x?.title}
+                </span>
+              ))}
+            </div>
           )}
-        </div>
+        </Card>
+
       </div>
-    </section>
+    </main>
   );
 }

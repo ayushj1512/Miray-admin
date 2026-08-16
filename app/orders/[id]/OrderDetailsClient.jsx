@@ -30,6 +30,8 @@ import OrderSourceAttributionCard from "@/components/orders/OrderSourceAttributi
 import OrderCouponDetails from "@/components/orders/OrderCouponDetails";
 import OrderPaymentDetails from "@/components/orders/OrderPaymentDetails";
 import OrderShippingDetailsCard from "@/components/orders/OrderShippingDetailsCard";
+import ShopifyOrderItemsEditor from "@/components/orders/ShopifyOrderItemsEditor";
+
 const API = process.env.NEXT_PUBLIC_API_URL;
 const STORE_URL = "https://www.mirayfashions.com";
 
@@ -167,13 +169,13 @@ export default function OrderDetailsClient({ id }) {
     setTrackingId(order.trackingDetails?.trackingId || "");
     setCourierName(order.trackingDetails?.courierName || "");
     setTrackingUrl(
-  order?.shipment?.shiprocket?.trackingUrl ||
-    order?.shipment?.xpressbees?.trackingUrl ||
-    order?.shipment?.bluedart?.trackingUrl ||
-    order?.shipment?.eshipz?.trackingUrl ||
-    order?.trackingDetails?.trackingUrl ||
-    ""
-);
+      order?.shipment?.shiprocket?.trackingUrl ||
+      order?.shipment?.xpressbees?.trackingUrl ||
+      order?.shipment?.bluedart?.trackingUrl ||
+      order?.shipment?.eshipz?.trackingUrl ||
+      order?.trackingDetails?.trackingUrl ||
+      ""
+    );
     setRemarks(order.adminRemarks || "");
   }, [order]);
 
@@ -335,24 +337,67 @@ export default function OrderDetailsClient({ id }) {
                     {items.map((it, idx) => {
                       const snap = it?.productSnapshot || {};
                       const v = it?.variant || {};
+
                       const productUrl = it?.productId?._id
                         ? `${STORE_URL}/category/products/name/${it.productId._id}`
                         : "";
+
+                      const imageCandidates = [
+                        snap?.thumbnail,
+                        snap?.images?.[0],
+                        it?.productId?.thumbnail,
+                        it?.productId?.images?.[0],
+                      ].filter(
+                        (url) => typeof url === "string" && url.trim()
+                      );
+
+                      const imageUrl = imageCandidates[0] || "";
 
                       const size = it?.selectedSize || "-";
                       const color = it?.selectedColor || "-";
                       const sku = v?.sku || snap?.sku || "-";
 
                       return (
-                        <tr key={idx} className="transition hover:bg-gray-50">
+                        <tr key={it?._id || idx} className="transition hover:bg-gray-50">
                           <td className="px-4 py-4">
                             <div className="flex items-center gap-3">
-                              <img
-                                src={snap.thumbnail || "/placeholder.png"}
-                                alt={snap.title || "Product"}
-                                className="h-12 w-12 rounded-xl border border-gray-100 object-cover"
-                              />
-                              <div>
+                              {imageUrl ? (
+                                <img
+                                  src={imageUrl}
+                                  alt={snap.title || "Product"}
+                                  data-image-index="0"
+                                  onError={(e) => {
+                                    const img = e.currentTarget;
+
+                                    const currentIndex = Number(img.dataset.imageIndex || "0");
+                                    const nextIndex = currentIndex + 1;
+
+                                    if (nextIndex < imageCandidates.length) {
+                                      img.dataset.imageIndex = String(nextIndex);
+                                      img.src = imageCandidates[nextIndex];
+                                      return;
+                                    }
+
+                                    img.onerror = null;
+                                    img.style.display = "none";
+
+                                    const fallback = img.nextElementSibling;
+                                    if (fallback) {
+                                      fallback.classList.remove("hidden");
+                                    }
+                                  }}
+                                  className="h-12 w-12 shrink-0 rounded-xl border border-gray-100 object-cover"
+                                />
+                              ) : null}
+
+                              <div
+                                className={`${imageUrl ? "hidden" : ""
+                                  } flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-gray-100 bg-gray-50`}
+                              >
+                                <Package size={18} className="text-gray-300" />
+                              </div>
+
+                              <div className="min-w-0">
                                 <p className="font-semibold text-gray-900">
                                   {snap.title || "-"}
                                 </p>
@@ -380,6 +425,7 @@ export default function OrderDetailsClient({ id }) {
                               <p>
                                 <span className="font-medium">Size:</span> {size}
                               </p>
+
                               <p>
                                 <span className="font-medium">Color:</span> {color}
                               </p>
@@ -406,6 +452,11 @@ export default function OrderDetailsClient({ id }) {
             )}
           </Card>
 
+          <ShopifyOrderItemsEditor
+            order={order}
+            onRefresh={() => fetchOrderById(order._id)}
+          />
+
           <OrderFulfillmentTimeline order={order} />
 
           <OrderConfirmationDetails order={order} />
@@ -413,7 +464,7 @@ export default function OrderDetailsClient({ id }) {
 
           <OrderCancellationDetails order={order} />
 
-       <OrderPaymentDetails order={order} />  
+          <OrderPaymentDetails order={order} />
 
           <OrderCouponDetails order={order} />
 
@@ -504,20 +555,20 @@ export default function OrderDetailsClient({ id }) {
             trackingId={trackingId}
             courierName={courierName}
             trackingUrl={
-  order?.shipment?.shiprocket?.trackingUrl ||
-  order?.shipment?.xpressbees?.trackingUrl ||
-  order?.shipment?.bluedart?.trackingUrl ||
-  order?.shipment?.eshipz?.trackingUrl ||
-  order?.trackingDetails?.trackingUrl ||
-  ""
-}
+              order?.shipment?.shiprocket?.trackingUrl ||
+              order?.shipment?.xpressbees?.trackingUrl ||
+              order?.shipment?.bluedart?.trackingUrl ||
+              order?.shipment?.eshipz?.trackingUrl ||
+              order?.trackingDetails?.trackingUrl ||
+              ""
+            }
             onRefresh={() => fetchOrderById(order._id)}
           />
 
           <OrderShippingDetailsCard
-  order={order}
-  onRefresh={() => fetchOrderById(order._id)}
-/>
+            order={order}
+            onRefresh={() => fetchOrderById(order._id)}
+          />
 
           <OrderTrackingCard
             orderId={order._id}

@@ -17,6 +17,7 @@ import {
   getPresetRange,
   toYYYYMMDD,
 } from "@/components/production/productionUtils";
+import ProductionPackabilityTabs from "@/components/production/ProductionPackabilityTabs";
 
 export default function ProductionDashboardPage() {
   const router = useRouter();
@@ -185,59 +186,68 @@ export default function ProductionDashboardPage() {
     await runQueueRefresh({ page: safePage });
   };
 
-  const doMarkPacked = async (orderId) => {
-    if (!orderId || !markPackedFn) {
-      toast.error("Pack action not available");
-      return;
+  const doMarkPacked = async (orderId, skipRefresh = false) => {
+  if (!orderId || !markPackedFn) {
+    toast.error("Pack action not available");
+    return;
+  }
+
+  const oid = String(orderId);
+  const order = (queue || []).find((o) => String(o?._id) === oid);
+
+  if (!order) return;
+
+  if (isBlacklistedOrder(order)) {
+    return toast.error(
+      "Blacklisted customer: this order cannot be packed."
+    );
+  }
+
+  if (!order?.isConfirmed) {
+    return toast.error("Only confirmed orders can be packed");
+  }
+
+  if (String(order?.fulfillmentStatus) !== "processing") {
+    return toast.error("Only processing orders can be packed");
+  }
+
+  if (order?.isPackable !== true) {
+    return toast.error("Order is not packable");
+  }
+
+  if (packingIds.has(oid)) return;
+
+  setPackingIds((prev) => new Set(prev).add(oid));
+
+  try {
+    const isStatusFn =
+      markPackedFn === store.updateOrderStatus ||
+      markPackedFn === store.setOrderStatus;
+
+    if (isStatusFn) {
+      await markPackedFn(oid, "packed");
+    } else {
+      await markPackedFn(oid);
     }
 
-    const oid = String(orderId);
-    const order = (queue || []).find((o) => String(o?._id) === oid);
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(oid);
+      return next;
+    });
 
-    if (!order) return;
-    if (isBlacklistedOrder(order)) {
-      return toast.error(
-        "Blacklisted customer: this order cannot be packed. Cancel the order instead."
-      );
-    }
-    if (!order?.isConfirmed) return toast.error("Only confirmed orders can be packed");
-    if (String(order?.fulfillmentStatus) !== "processing") {
-      return toast.error("Only processing orders can be packed");
-    }
-    if (!order?.isPackable) {
-      return toast.error("Order is not packable");
-    }
-    if (packingIds.has(oid)) return;
+    toast.success(`Order packed: ${order?.orderNumber || oid}`);
 
-    setPackingIds((prev) => new Set(prev).add(oid));
-
-    try {
-      const isStatusFn =
-        markPackedFn === store.updateOrderStatus ||
-        markPackedFn === store.setOrderStatus;
-
-      if (isStatusFn) await markPackedFn(oid, "packed");
-      else await markPackedFn(oid);
-
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
-        next.delete(oid);
-        return next;
-      });
-
-      await runQueueRefresh();
-      await fetchProductionSummary();
-      toast.success(`Order packed: ${order?.orderNumber || oid}`);
-    } catch (e) {
-      toast.error(e?.message || "Failed to mark packed");
-    } finally {
-      setPackingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(oid);
-        return next;
-      });
-    }
-  };
+  } catch (e) {
+    toast.error(e?.message || "Failed to mark packed");
+  } finally {
+    setPackingIds((prev) => {
+      const next = new Set(prev);
+      next.delete(oid);
+      return next;
+    });
+  }
+};
 
   const handleCancelOrder = async (order) => {
     const orderId = order?._id;
@@ -294,24 +304,46 @@ export default function ProductionDashboardPage() {
   };
 
   const onBulkMarkPacked = async () => {
-    if (bulkPacking) return;
+  if (bulkPacking) return;
 
-    const ids = Array.from(selectedIds).filter((id) => {
-      const order = (queue || []).find((o) => String(o?._id) === String(id));
-      return order?.isPackable === true;
-    });
+  const ids = Array.from(selectedIds).filter((id) => {
+    const order = (queue || []).find(
+      (o) => String(o?._id) === String(id)
+    );
 
-    if (!ids.length) return;
+    return (
+      order?.isConfirmed === true &&
+      String(order?.fulfillmentStatus) === "processing" &&
+      order?.isPackable === true &&
+      !isBlacklistedOrder(order)
+    );
+  });
 
-    setBulkPacking(true);
-    try {
-      for (const id of ids) {
-        await doMarkPacked(id);
-      }
-    } finally {
-      setBulkPacking(false);
+  if (!ids.length) {
+    toast.error("No packable orders selected");
+    return;
+  }
+
+  setBulkPacking(true);
+
+  try {
+    for (const id of ids) {
+      await doMarkPacked(id, true);
     }
-  };
+
+    setSelectedIds(new Set());
+
+await Promise.allSettled([
+  runQueueRefresh(),
+  fetchProductionSummary(),
+]);
+
+toast.success(`${ids.length} orders marked packed`);
+
+  } finally {
+    setBulkPacking(false);
+  }
+};
 
   const onExportExcel = async () => {
     try {
@@ -461,6 +493,24 @@ export default function ProductionDashboardPage() {
         />
       </div>
 
+      {fulfillmentStatus === "processing" && (
+  <ProductionPackabilityTabs
+    value={currentPackability}
+    loading={loadingQueue}
+    onChange={async (value) => {
+      setPackability(value);
+      clearSelection();
+      setQueuePage(1);
+      setJumpPage("1");
+
+      await runQueueRefresh({
+        packability: value,
+        page: 1,
+      });
+    }}
+  />
+)}
+
       <ProductionFilters
         datePreset={datePreset}
         useCustomRange={useCustomRange}
@@ -527,10 +577,12 @@ export default function ProductionDashboardPage() {
                 onOpen={() => router.push(`/production/order/${order._id}`)}
                 onMarkPacked={() => doMarkPacked(order._id)}
                 onCancel={() => handleCancelOrder(order)}
-                canMarkPacked={
-                  String(order?.fulfillmentStatus) === "processing" &&
-                  !isBlacklistedOrder(order)
-                }
+               canMarkPacked={
+  order?.isConfirmed === true &&
+  String(order?.fulfillmentStatus) === "processing" &&
+  order?.isPackable === true &&
+  !isBlacklistedOrder(order)
+}
                 showSelect={
                   fulfillmentStatus === "processing" &&
                   !isBlacklistedOrder(order)

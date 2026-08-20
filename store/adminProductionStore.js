@@ -311,75 +311,116 @@ export const useAdminProductionStore = create((set, get) => ({
     }),
 
   fetchProductionQueue: async (params = {}) => {
-    try {
-      set({ loadingQueue: true, error: null });
+  try {
+    set({ loadingQueue: true, error: null });
 
-      const state = get();
-      const merged = { ...state.filters, ...params };
-      const status =
-        merged.fulfillmentStatus || state.fulfillmentStatus || "processing";
+    const state = get();
+    const merged = { ...state.filters, ...params };
 
-      merged.fulfillmentStatus = status;
-      if (merged.all == null) merged.all = false;
-      if (toNum(merged.page, 0) <= 0) merged.page = 1;
-      if (toNum(merged.limit, 0) <= 0) merged.limit = state.filters.limit || 100;
-      merged.packability = safeStr(merged.packability) || "all";
+    const status =
+      merged.fulfillmentStatus ||
+      state.fulfillmentStatus ||
+      "processing";
 
-      const query = buildQueryString(merged);
-      const res = await fetch(`${API}/production/queue?${query}`, {
-        credentials: "include",
-      });
+    merged.fulfillmentStatus = status;
 
-      const data = await parseJson(res);
-
-      const orders = Array.isArray(data?.orders) ? data.orders : [];
-      const total = toNum(data?.total, 0);
-      const currentPage = toNum(data?.page, merged.page || 1);
-      const currentLimit = toNum(data?.limit, merged.limit || 25);
-      const currentPages = Math.max(
-        1,
-        toNum(data?.pages, Math.ceil(total / Math.max(1, currentLimit)) || 1)
-      );
-
-      set((s) => ({
-        queue: orders,
-        total,
-        fulfillmentStatus: status,
-        filters: {
-          ...s.filters,
-          ...merged,
-          fulfillmentStatus: status,
-          page: currentPage,
-          limit: currentLimit,
-          packability: safeStr(
-            data?.filtersApplied?.packability || merged.packability || "all"
-          ),
-          all: Boolean(data?.all),
-        },
-        queuePagination: {
-          total,
-          page: currentPage,
-          limit: currentLimit,
-          pages: currentPages,
-          hasMore: currentPage < currentPages,
-        },
-      }));
-
-      return orders;
-    } catch (e) {
-      console.error("❌ fetchProductionQueue error:", e);
-      set({
-        error: e.message,
-        queue: [],
-        total: 0,
-        queuePagination: { ...DEFAULT_QUEUE_PAGINATION },
-      });
-      toast.error(e.message);
-      return [];
-    } finally {
-      set({ loadingQueue: false });
+    if (merged.all == null) merged.all = false;
+    if (toNum(merged.page, 0) <= 0) merged.page = 1;
+    if (toNum(merged.limit, 0) <= 0) {
+      merged.limit = state.filters.limit || 100;
     }
-  },
+
+    merged.packability =
+      safeStr(merged.packability) || "all";
+
+    const query = buildQueryString(merged);
+
+    const res = await fetch(
+      `${API}/production/queue?${query}`,
+      {
+        credentials: "include",
+      }
+    );
+
+    const data = await parseJson(res);
+
+    const orders = Array.isArray(data?.orders)
+      ? data.orders
+      : [];
+
+    const total = toNum(data?.total, 0);
+
+    const currentPage = toNum(
+      data?.page,
+      merged.page || 1
+    );
+
+    const currentLimit = toNum(
+      data?.limit,
+      merged.limit || 25
+    );
+
+    const currentPages = Math.max(
+      1,
+      toNum(
+        data?.pages,
+        Math.ceil(
+          total / Math.max(1, currentLimit)
+        ) || 1
+      )
+    );
+
+    const backendPackability =
+      safeStr(data?.filtersApplied?.packability) ||
+      merged.packability ||
+      "all";
+
+    set((s) => ({
+      queue: orders,
+      total,
+      fulfillmentStatus: status,
+
+      filters: {
+        ...s.filters,
+        ...merged,
+        fulfillmentStatus: status,
+        page: currentPage,
+        limit: currentLimit,
+        packability: backendPackability,
+        all: Boolean(data?.all),
+      },
+
+      queuePagination: {
+        total,
+        page: currentPage,
+        limit: currentLimit,
+        pages: currentPages,
+        hasMore: currentPage < currentPages,
+      },
+    }));
+
+    return orders;
+  } catch (e) {
+    console.error(
+      "❌ fetchProductionQueue error:",
+      e
+    );
+
+    set({
+      error: e.message,
+      queue: [],
+      total: 0,
+      queuePagination: {
+        ...DEFAULT_QUEUE_PAGINATION,
+      },
+    });
+
+    toast.error(e.message);
+    return [];
+  } finally {
+    set({ loadingQueue: false });
+  }
+},
 
   fetchProductionSummary: async () => {
     try {
@@ -541,45 +582,75 @@ merged.all = true;
   },
 
   markOrderPacked: async (orderId) => {
-    try {
-      if (!orderId) throw new Error("Order id missing");
+  try {
+    if (!orderId) throw new Error("Order id missing");
 
-      set({ updatingPacked: true, error: null });
+    set({ updatingPacked: true, error: null });
 
-      const res = await fetch(`${API}/${orderId}/status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ fulfillmentStatus: "packed" }),
-      });
+    const res = await fetch(`${API}/${orderId}/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        fulfillmentStatus: "packed",
+      }),
+    });
 
-      const data = await parseJson(res);
-      const updated = data.order;
+    const data = await parseJson(res);
+    const updated = data.order;
 
-      set((state) => ({
-        queue: (state.queue || []).map((o) =>
-          String(o._id) === String(orderId) ? updated : o
-        ),
-      }));
+    set((state) => {
+      const isProcessing =
+        String(state.fulfillmentStatus || "").toLowerCase() === "processing";
 
-      toast.success("Order marked packed ✅");
+      const nextTotal = isProcessing
+        ? Math.max(0, Number(state.total || 0) - 1)
+        : Number(state.total || 0);
 
-      await Promise.allSettled([
-        get().fetchProductionSummary(),
-        get().fetchProductionQueue(get().filters),
-        get().fetchProductionJobs(get().productionJobFilters),
-      ]);
+      return {
+        queue: isProcessing
+          ? (state.queue || []).filter(
+              (o) => String(o?._id) !== String(orderId)
+            )
+          : (state.queue || []).map((o) =>
+              String(o?._id) === String(orderId) ? updated : o
+            ),
 
-      return updated;
-    } catch (e) {
-      console.error("❌ markOrderPacked error:", e);
-      set({ error: e.message });
-      toast.error(e.message);
-      throw e;
-    } finally {
-      set({ updatingPacked: false });
-    }
-  },
+        total: nextTotal,
+
+        queuePagination: {
+          ...state.queuePagination,
+          total: isProcessing
+            ? Math.max(
+                0,
+                Number(state.queuePagination?.total || 0) - 1
+              )
+            : state.queuePagination?.total,
+        },
+      };
+    });
+
+    toast.success("Order marked packed ✅");
+
+    // background only — no queue reload
+    get().fetchProductionSummary();
+
+    return updated;
+  } catch (e) {
+    console.error("❌ markOrderPacked error:", e);
+
+    set({
+      error: e.message,
+    });
+
+    toast.error(e.message);
+    throw e;
+  } finally {
+    set({
+      updatingPacked: false,
+    });
+  }
+},
 
   markOrderShipped: async (orderId) => {
     try {

@@ -1270,19 +1270,28 @@ export const useOrderStore = create((set, get) => ({
   },
 
   fetchPackedOrderLabels: async (filters = {}) => {
-    const qs = buildQueryString(filters);
+  const qs = buildQueryString(filters);
 
-    const data = await get()._get(
-      `/api/orders/labels/packed${qs}`
-    );
+  const data = await get()._get(
+    `/api/orders/labels/packed${qs}`
+  );
 
-    set({
-      packedOrderLabels: data?.orders || [],
-      packedOrderLabelsSummary: data?.summary || null,
-    });
+  set({
+    packedOrderLabels: data?.orders || [],
+    packedOrderLabelsSummary: {
+      ...(data?.summary || {}),
+      page: Number(data?.pagination?.page || 1),
+      limit: Number(data?.pagination?.limit || 100),
+      total: Number(data?.pagination?.total || 0),
+      totalPages: Math.max(
+        1,
+        Number(data?.pagination?.pages || 1)
+      ),
+    },
+  });
 
-    return data;
-  },
+  return data;
+},
 
   downloadMergedLabels: async ({
     orderIds = [],

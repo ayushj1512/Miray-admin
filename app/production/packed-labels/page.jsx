@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   AlertTriangle,
   Check,
@@ -59,6 +59,9 @@ export default function PackedLabelsPage() {
   const [activeTab, setActiveTab] =
     useState(TABS.AVAILABLE);
 
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(200);
+
   const [message, setMessage] =
     useState("");
 
@@ -98,48 +101,35 @@ export default function PackedLabelsPage() {
   )
     ? packedOrderLabels
     : [];
+  const availableOrders =
+    activeTab === TABS.AVAILABLE ? orders : [];
 
-  const availableOrders = useMemo(
-    () =>
-      orders.filter((order) =>
-        Boolean(
-          order?.shipment?.hasLabel ||
-            order?.shipment?.labelUrl
-        )
-      ),
-    [orders]
-  );
-
-  const missingOrders = useMemo(
-    () =>
-      orders.filter(
-        (order) =>
-          !(
-            order?.shipment?.hasLabel ||
-            order?.shipment?.labelUrl
-          )
-      ),
-    [orders]
-  );
+  const missingOrders =
+    activeTab === TABS.MISSING ? orders : [];
 
   const loadOrders = async () => {
     try {
       await fetchPackedOrderLabels({
-        labelStatus: "all",
-        page: 1,
-        limit: 200,
+        labelStatus:
+          activeTab === TABS.AVAILABLE
+            ? "available"
+            : "missing",
+        page,
+        limit,
       });
     } catch (err) {
-      setMessage(
-        err?.message ||
-          "Failed to load packed orders"
-      );
+      setMessage(err?.message || "Failed to load packed orders");
     }
   };
 
   useEffect(() => {
     loadOrders();
-  }, [fetchPackedOrderLabels]);
+  }, [
+    fetchPackedOrderLabels,
+    activeTab,
+    page,
+    limit,
+  ]);
 
   const setOrderResult = (
     orderId,
@@ -166,14 +156,13 @@ export default function PackedLabelsPage() {
       });
 
       setMessage(
-        `${orderIds.length} label${
-          orderIds.length === 1 ? "" : "s"
+        `${orderIds.length} label${orderIds.length === 1 ? "" : "s"
         } downloaded in one PDF.`
       );
     } catch (err) {
       setMessage(
         err?.message ||
-          "Failed to download labels"
+        "Failed to download labels"
       );
     }
   };
@@ -192,7 +181,7 @@ export default function PackedLabelsPage() {
     } catch (err) {
       setMessage(
         err?.message ||
-          "Failed to download all labels"
+        "Failed to download all labels"
       );
     }
   };
@@ -288,7 +277,7 @@ export default function PackedLabelsPage() {
 
       setMessage(
         err?.message ||
-          "Unable to update package details"
+        "Unable to update package details"
       );
 
       return false;
@@ -346,7 +335,7 @@ export default function PackedLabelsPage() {
     } catch (err) {
       setMessage(
         err?.message ||
-          "Bulk Shiprocket repair failed"
+        "Bulk Shiprocket repair failed"
       );
     }
   };
@@ -389,9 +378,8 @@ export default function PackedLabelsPage() {
             className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white px-4 text-sm font-medium hover:bg-zinc-50 disabled:opacity-40"
           >
             <RefreshCw
-              className={`h-4 w-4 ${
-                loading ? "animate-spin" : ""
-              }`}
+              className={`h-4 w-4 ${loading ? "animate-spin" : ""
+                }`}
             />
 
             Refresh
@@ -429,6 +417,17 @@ export default function PackedLabelsPage() {
           />
         </section>
 
+        <Pagination
+  page={page}
+  limit={limit}
+  totalPages={packedOrderLabelsSummary?.totalPages || 1}
+  onPageChange={setPage}
+  onLimitChange={(value) => {
+    setLimit(value);
+    setPage(1);
+  }}
+/>
+
         <section className="rounded-2xl border border-zinc-200 bg-white p-2 shadow-sm">
           <div className="grid grid-cols-2 gap-2">
             <TabButton
@@ -436,15 +435,14 @@ export default function PackedLabelsPage() {
                 activeTab ===
                 TABS.AVAILABLE
               }
-              onClick={() =>
-                setActiveTab(
-                  TABS.AVAILABLE
-                )
-              }
+              onClick={() => {
+                setActiveTab(TABS.AVAILABLE);
+                setPage(1);
+              }}
               label="Labels Available"
-              count={
-                availableOrders.length
-              }
+            count={
+  packedOrderLabelsSummary?.totalWithLabels ?? 0
+}
             />
 
             <TabButton
@@ -452,32 +450,31 @@ export default function PackedLabelsPage() {
                 activeTab ===
                 TABS.MISSING
               }
-              onClick={() =>
-                setActiveTab(
-                  TABS.MISSING
-                )
-              }
+              onClick={() => {
+                setActiveTab(TABS.MISSING);
+                setPage(1);
+              }}
               label="Not Available"
-              count={missingOrders.length}
-              warning
+count={
+  packedOrderLabelsSummary?.totalWithoutLabels ?? 0
+}              warning
             />
           </div>
         </section>
 
         {(message || displayError) && (
           <div
-            className={`rounded-xl border px-4 py-3 text-sm ${
-              displayError
+            className={`rounded-xl border px-4 py-3 text-sm ${displayError
                 ? "border-red-200 bg-red-50 text-red-700"
                 : "border-emerald-200 bg-emerald-50 text-emerald-700"
-            }`}
+              }`}
           >
             {displayError || message}
           </div>
         )}
 
         {activeTab ===
-        TABS.AVAILABLE ? (
+          TABS.AVAILABLE ? (
           <LabelsAvailableTab
             orders={availableOrders}
             loading={loading}
@@ -497,8 +494,8 @@ export default function PackedLabelsPage() {
             repairingOrderId={
               repairingOrderId
                 ? String(
-                    repairingOrderId
-                  )
+                  repairingOrderId
+                )
                 : null
             }
             repairLoading={
@@ -524,7 +521,79 @@ export default function PackedLabelsPage() {
           />
         )}
       </div>
+
+      <Pagination
+        page={page}
+        limit={limit}
+        totalPages={
+          packedOrderLabelsSummary?.totalPages || 1
+        }
+        onPageChange={setPage}
+        onLimitChange={(value) => {
+          setLimit(value);
+          setPage(1);
+        }}
+      />
     </main>
+  );
+}
+function Pagination({
+  page,
+  limit,
+  totalPages,
+  onPageChange,
+  onLimitChange,
+}) {
+  const pages = Math.max(totalPages, 1);
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-white px-4 py-3 shadow-sm">
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-medium uppercase tracking-wide text-zinc-400">
+          Rows
+        </span>
+
+        <select
+          value={limit}
+          onChange={(e) =>
+            onLimitChange(Number(e.target.value))
+          }
+          className="h-9 rounded-xl border border-zinc-200 bg-zinc-50 px-3 text-sm font-medium text-zinc-700 outline-none transition hover:bg-zinc-100 focus:border-zinc-400"
+        >
+          {[100, 200, 500].map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          disabled={page <= 1}
+          onClick={() => onPageChange(page - 1)}
+          className="h-9 rounded-xl border border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Previous
+        </button>
+
+        <div className="flex h-9 min-w-28 items-center justify-center rounded-xl bg-zinc-950 px-4 text-sm font-semibold text-white">
+          {page}
+          <span className="mx-2 text-zinc-500">/</span>
+          {pages}
+        </div>
+
+        <button
+          type="button"
+          disabled={page >= pages}
+          onClick={() => onPageChange(page + 1)}
+          className="h-9 rounded-xl bg-zinc-950 px-4 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-zinc-400"
+        >
+          Next
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -543,11 +612,10 @@ function TabButton({
     <button
       type="button"
       onClick={onClick}
-      className={`flex min-h-12 items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium transition ${
-        active
+      className={`flex min-h-12 items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium transition ${active
           ? activeStyle
           : "text-zinc-600 hover:bg-zinc-100"
-      }`}
+        }`}
     >
       {warning ? (
         <AlertTriangle className="h-4 w-4" />
@@ -558,13 +626,12 @@ function TabButton({
       {label}
 
       <span
-        className={`rounded-full px-2 py-0.5 text-xs ${
-          active
+        className={`rounded-full px-2 py-0.5 text-xs ${active
             ? "bg-white/15 text-white"
             : warning
               ? "bg-amber-100 text-amber-800"
               : "bg-zinc-100 text-zinc-600"
-        }`}
+          }`}
       >
         {Number(count || 0)}
       </span>

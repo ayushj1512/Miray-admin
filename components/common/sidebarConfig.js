@@ -58,22 +58,24 @@ export const sidebarMenus = {
   ],
 
   production: [
-    { label: "Production Dashboard", href: "/production" },
-    { label: "All Production Jobs", href: "/production/all-production-job" },
-    { label: "Production + Jobs", href: "/production/all-production-job-with-production-job" },
+  { label: "Production Dashboard", href: "/production" },
+  { label: "Packable Orders", href: "/production/packable-orders" },
 
-    { label: "Confirmed Production Jobs", href: "/production/production-job" },
-    { label: "Packed Orders", href: "/production/packed" },
-    { label: "Packed Order Labels", href: "/production/packed-labels" },
+  { label: "All Production Jobs", href: "/production/all-production-job" },
+  { label: "Production + Jobs", href: "/production/all-production-job-with-production-job" },
 
-    { label: "Sampling", href: "/production/sampling" },
-    { label: "Stock Update", href: "/production/stock-update" },
-    { label: "Pattern Number", href: "/production/pattern-number" },
-    { label: "Fabric", href: "/production/fabric" },
-    { label: "Product Detail", href: "/production/product-detail" },
-    { label: "Missing Patterns", href: "/production/missing-patterns" },
-    { label: "Barcode Generator", href: "/production/barcode" },
-  ],
+  { label: "Confirmed Production Jobs", href: "/production/production-job" },
+  { label: "Packed Orders", href: "/production/packed" },
+  { label: "Packed Order Labels", href: "/production/packed-labels" },
+
+  { label: "Sampling", href: "/production/sampling" },
+  { label: "Stock Update", href: "/production/stock-update" },
+  { label: "Pattern Number", href: "/production/pattern-number" },
+  { label: "Fabric", href: "/production/fabric" },
+  { label: "Product Detail", href: "/production/product-detail" },
+  { label: "Missing Patterns", href: "/production/missing-patterns" },
+  { label: "Barcode Generator", href: "/production/barcode" },
+],
 
   fast2sms: [
     { label: "Fast2SMS Dashboard", href: "/fast2sms" },

@@ -160,6 +160,22 @@ const DEFAULT_QUEUE_PAGINATION = {
 
 export const useAdminProductionStore = create((set, get) => ({
   queue: [],
+  packableOrders: [],
+packableSummary: {
+  totalPackable: 0,
+  synced: 0,
+  mismatched: 0,
+  booked: 0,
+  labelReady: 0,
+},
+packablePagination: {
+  total: 0,
+  page: 1,
+  limit: 50,
+  pages: 1,
+  hasMore: false,
+},
+loadingPackableOrders: false,
   summary: {
     processing: 0,
     packed: 0,
@@ -856,6 +872,106 @@ merged.all = true;
       set({ loadingProductionJobs: false });
     }
   },
+  fetchPackableOrders: async ({
+  q = "",
+  page = 1,
+  limit = 50,
+  syncStatus = "all",
+  fulfillmentStatus = "processing",
+} = {}) => {
+  try {
+    set({
+      loadingPackableOrders: true,
+      error: null,
+    });
+
+    const qs = new URLSearchParams();
+
+    if (q) qs.set("q", safeStr(q));
+
+    qs.set("page", String(page));
+    qs.set("limit", String(limit));
+    qs.set("syncStatus", syncStatus);
+    qs.set("fulfillmentStatus", fulfillmentStatus);
+
+    const res = await fetch(
+      `${API}/production/packable-orders?${qs.toString()}`,
+      {
+        credentials: "include",
+      }
+    );
+
+    const data = await parseJson(res);
+
+    set({
+      packableOrders: Array.isArray(data?.rows)
+        ? data.rows
+        : [],
+
+      packableSummary: {
+        totalPackable: toNum(
+          data?.summary?.totalPackable
+        ),
+        synced: toNum(
+          data?.summary?.synced
+        ),
+        mismatched: toNum(
+          data?.summary?.mismatched
+        ),
+        booked: toNum(
+          data?.summary?.booked
+        ),
+        labelReady: toNum(
+          data?.summary?.labelReady
+        ),
+      },
+
+      packablePagination: {
+        total: toNum(
+          data?.pagination?.total
+        ),
+        page: toNum(
+          data?.pagination?.page,
+          1
+        ),
+        limit: toNum(
+          data?.pagination?.limit,
+          50
+        ),
+        pages: toNum(
+          data?.pagination?.pages,
+          1
+        ),
+        hasMore: Boolean(
+          data?.pagination?.hasMore
+        ),
+      },
+    });
+
+    return data;
+  } catch (e) {
+    console.error(
+      "❌ fetchPackableOrders:",
+      e
+    );
+
+    set({
+      error: e.message,
+      packableOrders: [],
+    });
+
+    toast.error(e.message);
+    return null;
+  } finally {
+    set({
+      loadingPackableOrders: false,
+    });
+  }
+},
+
+refreshPackableOrders: async (params = {}) => {
+  return get().fetchPackableOrders(params);
+},  
 
   refreshProductionJobs: async () => {
     return get().fetchProductionJobs(get().productionJobFilters);

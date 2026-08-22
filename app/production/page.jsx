@@ -443,10 +443,12 @@ toast.success(`${ids.length} orders marked packed`);
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-5 md:px-6 space-y-4">
       <ProductionHeader
-        onRefresh={async () => {
-          await fetchProductionSummary();
-          await runQueueRefresh();
-        }}
+       onRefresh={async () => {
+  await Promise.allSettled([
+    fetchProductionSummary(),
+    runQueueRefresh(),
+  ]);
+}}
         onExport={onExportExcel}
         exporting={exporting}
         canExport={!!queue.length}

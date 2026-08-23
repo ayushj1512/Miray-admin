@@ -300,6 +300,9 @@ export default function OrdersListPage() {
   const ordersMeta = useOrderStore((s) => s.ordersMeta);
 
   const fetchAllOrders = useOrderStore((s) => s.fetchAllOrders);
+  const fetchAllOrdersAllPages = useOrderStore(
+  (s) => s.fetchAllOrdersAllPages
+);
   const syncOrderInList = useOrderStore((s) => s._syncOrderInList);
   const [exportLoading, setExportLoading] = useState(false);
   // Search
@@ -572,165 +575,156 @@ if (source) f.source = source;
     return rows;
   };
 
-  const exportToCSV = useCallback(async () => {
-    if (exportLoading || loading) return;
+const exportToCSV = useCallback(async () => {
+  if (exportLoading || loading) return;
 
-    let originalFilters = null;
-    setExportLoading(true);
+  let originalFilters = null;
+  setExportLoading(true);
 
-    try {
-      originalFilters = { ...backendFilters };
-      const exportLimit = 500;
+  try {
+    originalFilters = { ...backendFilters };
 
-      const baseFilters = { ...backendFilters };
-      delete baseFilters.page;
-      delete baseFilters.limit;
+    const baseFilters = { ...backendFilters };
+    delete baseFilters.page;
+    delete baseFilters.limit;
 
-      let page = 1;
-      let totalPagesToFetch = 1;
-      let allOrders = [];
+    // ✅ Fetch ALL matching orders across all pages
+    const allOrders = await fetchAllOrdersAllPages({
+      ...baseFilters,
+      limit: 100,
+    });
 
-      do {
-        await fetchAllOrders({
-          ...baseFilters,
-          page,
-          limit: exportLimit,
-        });
+    const uniqueOrdersMap = new Map();
 
-        const state = useOrderStore.getState();
-        const pageOrders = Array.isArray(state.orders) ? state.orders : [];
-        const meta = state.ordersMeta || {};
+    for (const order of allOrders) {
+      const key = order?._id || order?.id || order?.orderNumber;
 
-        allOrders.push(...pageOrders);
-
-        const totalCountFromMeta = toNumber(meta?.totalCount);
-        const totalPagesFromMeta =
-          toNumber(meta?.totalPages) ||
-          Math.max(1, Math.ceil(totalCountFromMeta / exportLimit));
-
-        totalPagesToFetch = totalPagesFromMeta;
-        page += 1;
-      } while (page <= totalPagesToFetch);
-
-      const uniqueOrdersMap = new Map();
-
-      for (const order of allOrders) {
-        const key = order?._id || order?.id || order?.orderNumber;
-        if (key && !uniqueOrdersMap.has(key)) {
-          uniqueOrdersMap.set(key, order);
-        }
+      if (key && !uniqueOrdersMap.has(key)) {
+        uniqueOrdersMap.set(key, order);
       }
-
-      const uniqueOrders = Array.from(uniqueOrdersMap.values());
-
-      const exportOrders = applyClientFiltersToOrders({
-        orders: uniqueOrders,
-        confirmFilter,
-        priority,
-        search,
-      });
-
-      if (!exportOrders.length) {
-        alert("No orders found to export for the applied filters.");
-        return;
-      }
-
-      const rows = buildCsvRows(exportOrders);
-
-      const headers = [
-        "Order DB Id",
-        "Order #",
-        "Order Date (ISO)",
-        "Customer Name",
-        "Customer Email",
-        "Customer Phone",
-        "Is Confirmed",
-        "Fulfillment Status",
-        "Subtotal",
-        "Discount",
-        "Shipping Fee",
-        "Tax",
-        "Total Amount",
-        "Final Payable",
-        "Item #",
-        "Item Title",
-        "Product Code",
-        "Item SKU",
-        "Item Size",
-        "Item Quantity",
-        "Item Price",
-      ];
-
-      const csvLines = [
-        headers.map(escapeCSV).join(","),
-        ...rows.map((r) =>
-          [
-            r.orderId,
-            r.orderNumber,
-            r.orderDate,
-            r.customerName,
-            r.customerEmail,
-            r.customerPhone,
-            r.isConfirmed,
-            r.fulfillmentStatus,
-            r.subtotal,
-            r.discount,
-            r.shippingFee,
-            r.tax,
-            r.totalAmount,
-            r.finalPayable,
-            r.itemIndex,
-            r.itemTitle,
-            r.itemProductCode,
-            r.itemSku,
-            r.itemSize,
-            r.itemQuantity,
-            r.itemPrice,
-          ]
-            .map(escapeCSV)
-            .join(",")
-        ),
-      ];
-
-      const blob = new Blob([csvLines.join("\r\n")], {
-        type: "text/csv;charset=utf-8;",
-      });
-
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
-
-      link.href = url;
-      link.setAttribute("download", `orders-all-pages-${ts}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error("CSV export failed:", error);
-      alert("Failed to export all orders.");
-    } finally {
-      if (originalFilters) {
-        try {
-          await fetchAllOrders(originalFilters);
-        } catch (restoreError) {
-          console.error(
-            "Failed to restore current page after export:",
-            restoreError
-          );
-        }
-      }
-      setExportLoading(false);
     }
-  }, [
-    exportLoading,
-    loading,
-    backendFilters,
-    fetchAllOrders,
-    confirmFilter,
-    priority,
-    search,
-  ]);
+
+    const uniqueOrders = Array.from(uniqueOrdersMap.values());
+
+    const exportOrders = applyClientFiltersToOrders({
+      orders: uniqueOrders,
+      confirmFilter,
+      priority,
+      search,
+    });
+
+    if (!exportOrders.length) {
+      alert("No orders found to export for the applied filters.");
+      return;
+    }
+
+    const rows = buildCsvRows(exportOrders);
+
+    const headers = [
+      "Order DB Id",
+      "Order #",
+      "Order Date (ISO)",
+      "Customer Name",
+      "Customer Email",
+      "Customer Phone",
+      "Is Confirmed",
+      "Fulfillment Status",
+      "Subtotal",
+      "Discount",
+      "Shipping Fee",
+      "Tax",
+      "Total Amount",
+      "Final Payable",
+      "Item #",
+      "Item Title",
+      "Product Code",
+      "Item SKU",
+      "Item Size",
+      "Item Quantity",
+      "Item Price",
+    ];
+
+    const csvLines = [
+      headers.map(escapeCSV).join(","),
+      ...rows.map((r) =>
+        [
+          r.orderId,
+          r.orderNumber,
+          r.orderDate,
+          r.customerName,
+          r.customerEmail,
+          r.customerPhone,
+          r.isConfirmed,
+          r.fulfillmentStatus,
+          r.subtotal,
+          r.discount,
+          r.shippingFee,
+          r.tax,
+          r.totalAmount,
+          r.finalPayable,
+          r.itemIndex,
+          r.itemTitle,
+          r.itemProductCode,
+          r.itemSku,
+          r.itemSize,
+          r.itemQuantity,
+          r.itemPrice,
+        ]
+          .map(escapeCSV)
+          .join(",")
+      ),
+    ];
+
+    const blob = new Blob([csvLines.join("\r\n")], {
+      type: "text/csv;charset=utf-8;",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    const ts = new Date()
+      .toISOString()
+      .slice(0, 19)
+      .replace(/[:T]/g, "-");
+
+    link.href = url;
+    link.setAttribute(
+      "download",
+      `orders-all-pages-${ts}.csv`
+    );
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error("CSV export failed:", error);
+    alert("Failed to export all orders.");
+  } finally {
+    if (originalFilters) {
+      try {
+        await fetchAllOrders(originalFilters);
+      } catch (restoreError) {
+        console.error(
+          "Failed to restore current page after export:",
+          restoreError
+        );
+      }
+    }
+
+    setExportLoading(false);
+  }
+}, [
+  exportLoading,
+  loading,
+  backendFilters,
+  fetchAllOrders,
+  fetchAllOrdersAllPages,
+  confirmFilter,
+  priority,
+  search,
+]);
 
   const totalCount = toNumber(ordersMeta?.totalCount);
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));

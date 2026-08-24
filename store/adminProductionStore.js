@@ -29,38 +29,84 @@ const toNum = (v, d = 0) => {
 const buildQueryString = (params = {}) => {
   const qs = new URLSearchParams();
 
+  /* =========================
+     Queue / common filters
+  ========================= */
+
   const fulfillmentStatus = toCSV(params.fulfillmentStatus);
   const priority = toCSV(params.priority);
   const orderType = toCSV(params.orderType);
   const provider = toCSV(params.provider);
   const packability = safeStr(params.packability);
 
-  if (fulfillmentStatus) qs.set("fulfillmentStatus", fulfillmentStatus);
-  if (priority) qs.set("priority", priority);
-  if (orderType) qs.set("orderType", orderType);
-  if (provider) qs.set("provider", provider);
-  if (packability) qs.set("packability", packability);
+  if (fulfillmentStatus) {
+    qs.set("fulfillmentStatus", fulfillmentStatus);
+  }
+
+  if (priority) {
+    qs.set("priority", priority);
+  }
+
+  if (orderType) {
+    qs.set("orderType", orderType);
+  }
+
+  if (provider) {
+    qs.set("provider", provider);
+  }
+
+  if (packability) {
+    qs.set("packability", packability);
+  }
+
+  /* =========================
+     Search / production filters
+  ========================= */
 
   const q = safeStr(params.q);
+  const productCode = safeStr(params.productCode);
+  const title = safeStr(params.title);
+  const sku = safeStr(params.sku);
+  const size = safeStr(params.size);
+  const color = safeStr(params.color);
+  const orderNumber = safeStr(params.orderNumber);
+
   const from = safeStr(params.from);
   const to = safeStr(params.to);
   const sort = safeStr(params.sort);
   const orderPrefix = safeStr(params.orderPrefix);
 
   if (q) qs.set("q", q);
+  if (productCode) qs.set("productCode", productCode);
+  if (title) qs.set("title", title);
+  if (sku) qs.set("sku", sku);
+  if (size) qs.set("size", size);
+  if (color) qs.set("color", color);
+  if (orderNumber) qs.set("orderNumber", orderNumber);
+
   if (from) qs.set("from", from);
   if (to) qs.set("to", to);
   if (sort) qs.set("sort", sort);
   if (orderPrefix) qs.set("orderPrefix", orderPrefix);
 
+  /* =========================
+     Pagination
+  ========================= */
+
   if (params.all != null) {
-    qs.set("all", toBool(params.all) ? "true" : "false");
+    qs.set(
+      "all",
+      toBool(params.all) ? "true" : "false"
+    );
   }
 
   const page = toNum(params.page, 0);
   const limit = toNum(params.limit, 0);
 
-  if (page > 0) qs.set("page", String(page));
+  if (page > 0) {
+    qs.set("page", String(page));
+  }
+
   if (limit > 0 || String(params.limit) === "0") {
     qs.set("limit", String(params.limit));
   }
@@ -121,25 +167,27 @@ const DEFAULT_FILTERS = {
 
 const DEFAULT_JOB_FILTERS = {
   q: "",
+  productCode: "",
+  title: "",
+  sku: "",
+  size: "",
+  color: "",
+  orderNumber: "",
   from: "",
   to: "",
   sort: "qty_desc",
   page: 1,
-  limit: 500,
-  all: true,
-  orderPrefix: "",
+  limit: 25,
+  all: false,
 };
 
 const DEFAULT_JOB_SUMMARY = {
-  totalSkus: 0,
-  totalQtyToProduce: 0,
-  totalOrdersCovered: 0,
-  totalReservations: 0,
+  totalProductCodes: 0,
   totalOrderedQty: 0,
   totalReservedQty: 0,
   totalShippedQty: 0,
-  totalReservedGroups: 0,
-  totalUnreservedGroups: 0,
+  totalQtyToProduce: 0,
+  totalOrdersCovered: 0,
 };
 
 const DEFAULT_JOB_PAGINATION = {
@@ -790,88 +838,165 @@ merged.all = true;
   },
 
   fetchProcessingOrderProducts: async (params = {}) => {
-    try {
-      set({ loadingProductionJobs: true, error: null });
+  try {
+    set({ loadingProductionJobs: true, error: null });
 
-      const state = get();
-      const merged = { ...state.productionJobFilters, ...params };
+    const state = get();
 
-      if (merged.page == null || toNum(merged.page) <= 0) merged.page = 1;
-      if (merged.limit == null || toNum(merged.limit) <= 0) merged.limit = 50;
+    const merged = {
+      ...state.productionJobFilters,
+      ...params,
+    };
 
-      const query = buildQueryString({
-        q: merged.q,
-        from: merged.from,
-        to: merged.to,
-        sort: merged.sort,
-        page: merged.page,
-        limit: merged.limit,
-        all: merged.all,
-        orderPrefix: merged.orderPrefix,
-      });
+    merged.page = Math.max(
+      1,
+      toNum(merged.page, 1)
+    );
 
-      const res = await fetch(`${API}/production/processing-products?${query}`, {
+    merged.limit = Math.min(
+      Math.max(1, toNum(merged.limit, 25)),
+      500
+    );
+
+    merged.all = false;
+
+    const query = buildQueryString({
+      q: merged.q,
+      productCode: merged.productCode,
+      title: merged.title,
+      sku: merged.sku,
+      size: merged.size,
+      color: merged.color,
+      orderNumber: merged.orderNumber,
+
+      from: merged.from,
+      to: merged.to,
+
+      sort: merged.sort,
+      page: merged.page,
+      limit: merged.limit,
+    });
+
+    const res = await fetch(
+      `${API}/production/processing-products?${query}`,
+      {
         credentials: "include",
-      });
+      }
+    );
 
-      const data = await parseJson(res);
+    const data = await parseJson(res);
 
-      set({
-        productionJobs: Array.isArray(data?.rows) ? data.rows : [],
-        productionJobSummary: {
-          totalSkus: toNum(data?.summary?.totalSkus),
-          totalQtyToProduce: toNum(data?.summary?.totalQtyToProduce),
-          totalOrdersCovered: toNum(data?.summary?.totalOrdersCovered),
-          totalReservations: toNum(data?.summary?.totalReservations, 0),
-          totalOrderedQty: toNum(data?.summary?.totalOrderedQty),
-          totalReservedQty: toNum(data?.summary?.totalReservedQty),
-          totalShippedQty: toNum(data?.summary?.totalShippedQty),
-          totalReservedGroups: toNum(data?.summary?.totalReservedGroups),
-          totalUnreservedGroups: toNum(data?.summary?.totalUnreservedGroups),
-        },
-        productionJobPagination: {
-          total: toNum(data?.pagination?.total),
-          page: toNum(data?.pagination?.page, 1),
-          limit: toNum(data?.pagination?.limit, 50),
-          pages: toNum(data?.pagination?.pages, 1),
-          hasMore: Boolean(data?.pagination?.hasMore),
-        },
-        productionJobFilters: {
-          ...state.productionJobFilters,
-          ...merged,
-          q: safeStr(merged.q),
-          from: safeStr(merged.from),
-          to: safeStr(merged.to),
-          sort: safeStr(merged.sort) || "qty_desc",
-          page: toNum(data?.pagination?.page, toNum(merged.page, 1)),
-          limit: toNum(data?.pagination?.limit, toNum(merged.limit, 50)),
-          all: Boolean(merged.all),
-          orderPrefix: safeStr(merged.orderPrefix),
-        },
-      });
+    set({
+      productionJobs: Array.isArray(data?.rows)
+        ? data.rows
+        : [],
 
-      return data;
-    } catch (e) {
-      console.error("❌ fetchProcessingOrderProducts error:", e);
+      productionJobSummary: {
+        totalProductCodes: toNum(
+          data?.summary?.totalProductCodes
+        ),
+        totalOrderedQty: toNum(
+          data?.summary?.totalOrderedQty
+        ),
+        totalReservedQty: toNum(
+          data?.summary?.totalReservedQty
+        ),
+        totalShippedQty: toNum(
+          data?.summary?.totalShippedQty
+        ),
+        totalQtyToProduce: toNum(
+          data?.summary?.totalQtyToProduce
+        ),
+        totalOrdersCovered: toNum(
+          data?.summary?.totalOrdersCovered
+        ),
+      },
 
-      set({
-        error: e.message,
-        productionJobs: [],
-        productionJobSummary: { ...DEFAULT_JOB_SUMMARY },
-        productionJobPagination: { ...DEFAULT_JOB_PAGINATION },
-      });
+      productionJobPagination: {
+        total: toNum(
+          data?.pagination?.total
+        ),
+        page: toNum(
+          data?.pagination?.page,
+          1
+        ),
+        limit: toNum(
+          data?.pagination?.limit,
+          25
+        ),
+        pages: toNum(
+          data?.pagination?.pages,
+          1
+        ),
+        hasMore: Boolean(
+          data?.pagination?.hasMore
+        ),
+      },
 
-      toast.error(e.message);
+      productionJobFilters: {
+        ...merged,
 
-      return {
-        rows: [],
-        summary: { ...DEFAULT_JOB_SUMMARY },
-        pagination: { ...DEFAULT_JOB_PAGINATION },
-      };
-    } finally {
-      set({ loadingProductionJobs: false });
-    }
-  },
+        q: safeStr(merged.q),
+        productCode: safeStr(merged.productCode),
+        title: safeStr(merged.title),
+        sku: safeStr(merged.sku),
+        size: safeStr(merged.size),
+        color: safeStr(merged.color),
+        orderNumber: safeStr(merged.orderNumber),
+
+        from: safeStr(merged.from),
+        to: safeStr(merged.to),
+
+        sort: safeStr(merged.sort) || "qty_desc",
+        page: toNum(
+          data?.pagination?.page,
+          merged.page
+        ),
+        limit: toNum(
+          data?.pagination?.limit,
+          merged.limit
+        ),
+
+        all: false,
+      },
+    });
+
+    return data;
+  } catch (e) {
+    console.error(
+      "❌ fetchProcessingOrderProducts:",
+      e
+    );
+
+    set({
+      error: e.message,
+      productionJobs: [],
+      productionJobSummary: {
+        ...DEFAULT_JOB_SUMMARY,
+      },
+      productionJobPagination: {
+        ...DEFAULT_JOB_PAGINATION,
+      },
+    });
+
+    toast.error(e.message);
+
+    return {
+      rows: [],
+      summary: {
+        ...DEFAULT_JOB_SUMMARY,
+      },
+      pagination: {
+        ...DEFAULT_JOB_PAGINATION,
+      },
+    };
+  } finally {
+    set({
+      loadingProductionJobs: false,
+    });
+  }
+},
+
   fetchPackableOrders: async ({
   q = "",
   page = 1,

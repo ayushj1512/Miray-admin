@@ -472,139 +472,171 @@ if (source) f.source = source;
     });
   }, [filteredOrders]);
 
-  const buildCsvRows = (ordersArr) => {
-    const rows = [];
+const buildCsvRows = (ordersArr = []) => {
+  const rows = [];
 
-    for (const order of ordersArr || []) {
-      const orderId = safe(order?._id || order?.id);
-      const orderNumber = safe(order?.orderNumber);
-      const orderDate = formatDateISO(order?.createdAt || order?.orderDate);
+  for (const order of ordersArr) {
+    const base = {
+      orderId: safe(order?._id || order?.id),
+      orderNumber: safe(order?.orderNumber),
+      orderDate: formatDateISO(order?.createdAt || order?.orderDate),
 
-      const customerName = safe(
-        order?.customerId?.name || order?.shippingAddressSnapshot?.fullName
-      );
-      const customerEmail = safe(
-        order?.customerId?.email || order?.shippingAddressSnapshot?.email
-      );
-      const customerPhone = safe(
-        order?.customerId?.phone || order?.shippingAddressSnapshot?.phone
-      );
+      customerName: safe(
+        order?.customerId?.name ||
+          order?.shippingAddressSnapshot?.fullName
+      ),
 
-      const subtotal = money(order?.subtotal);
-      const discount = money(order?.discount);
-      const shippingFee = money(order?.shippingFee);
-      const tax = money(order?.tax);
-      const totalAmount = money(order?.totalAmount);
-      const finalPayable = money(order?.finalPayable);
+      customerEmail: safe(
+        order?.customerId?.email ||
+          order?.shippingAddressSnapshot?.email
+      ),
 
-      const fulfillmentStatus = safe(order?.fulfillmentStatus);
-      const isConfirmed = order?.isConfirmed === true ? "YES" : "NO";
+      customerPhone: safe(
+        order?.customerId?.phone ||
+          order?.shippingAddressSnapshot?.phone
+      ),
 
-      const items = Array.isArray(order?.items) ? order.items : [];
+      isConfirmed: order?.isConfirmed === true ? "YES" : "NO",
+      fulfillmentStatus: safe(order?.fulfillmentStatus),
 
-      if (!items.length) {
-        rows.push({
-          orderId,
-          orderNumber,
-          orderDate,
-          customerName,
-          customerEmail,
-          customerPhone,
-          isConfirmed,
-          fulfillmentStatus,
-          subtotal,
-          discount,
-          shippingFee,
-          tax,
-          totalAmount,
-          finalPayable,
-          itemIndex: "",
-          itemTitle: "",
-          itemProductCode: "",
-          itemSku: "",
-          itemSize: "",
-          itemQuantity: "",
-          itemPrice: "",
-        });
-        continue;
-      }
+      subtotal: money(order?.subtotal),
+      discount: money(order?.discount),
+      shippingFee: money(order?.shippingFee),
+      tax: money(order?.tax),
+      totalAmount: money(order?.totalAmount),
+      finalPayable: money(order?.finalPayable),
+    };
 
-      items.forEach((item, idx) => {
-        const snap = item?.productSnapshot || {};
-        const itemProductCode = safe(snap?.productCode || "");
-        const attrs = Array.isArray(item?.variant?.attributes)
-          ? item.variant.attributes
-          : [];
+    const items = Array.isArray(order?.items) ? order.items : [];
 
-        const attrSize =
-          attrs.find((a) => String(a?.key || "").toLowerCase() === "size")
-            ?.value ||
-          attrs.find((a) => String(a?.key || "").toLowerCase() === "sizes")
-            ?.value ||
-          "";
+    if (!items.length) {
+      rows.push({
+        ...base,
 
-        const itemSku = safe(item?.variant?.sku || snap?.sku || "");
-        const itemSize = safe(item?.selectedSize || attrSize || "");
+        itemIndex: "",
+        itemTitle: "",
+        itemProductCode: "",
+        itemSku: "",
+        itemSize: "",
+        itemQuantity: "",
+        itemPrice: "",
 
-        rows.push({
-          orderId,
-          orderNumber,
-          orderDate,
-          customerName,
-          customerEmail,
-          customerPhone,
-          isConfirmed,
-          fulfillmentStatus,
-          subtotal,
-          discount,
-          shippingFee,
-          tax,
-          totalAmount,
-          finalPayable,
-          itemIndex: idx + 1,
-          itemTitle: safe(snap?.title),
-          itemProductCode,
-          itemSku,
-          itemSize,
-          itemQuantity: money(item?.quantity),
-          itemPrice: money(item?.price),
-        });
+        reservationStatus: "",
+        reservationQty: "",
+        reservedQty: "",
+        requiredQty: "",
+        reservationLabel: "",
       });
+
+      continue;
     }
 
-    return rows;
-  };
+    items.forEach((item, idx) => {
+      const snap = item?.productSnapshot || {};
+      const reservation = item?.inventoryReservation || {};
+
+      const attrs = Array.isArray(item?.variant?.attributes)
+        ? item.variant.attributes
+        : [];
+
+      const attrSize =
+        attrs.find(
+          (a) =>
+            String(a?.key || "").toLowerCase() === "size"
+        )?.value ||
+        attrs.find(
+          (a) =>
+            String(a?.key || "").toLowerCase() === "sizes"
+        )?.value ||
+        "";
+
+      rows.push({
+        ...base,
+
+        itemIndex: idx + 1,
+
+        itemTitle: safe(
+          item?.title ||
+            snap?.title
+        ),
+
+        itemProductCode: safe(
+          item?.productCode ||
+            snap?.productCode
+        ),
+
+        itemSku: safe(
+          item?.sku ||
+            item?.variant?.sku ||
+            snap?.sku
+        ),
+
+        itemSize: safe(
+          item?.selectedSize ||
+            attrSize
+        ),
+
+        itemQuantity: money(item?.quantity),
+        itemPrice: money(item?.price),
+
+        // ✅ Inventory Reservation
+        reservationStatus: safe(
+          reservation?.status || "not_reserved"
+        ),
+
+        reservationQty: money(
+          reservation?.qty ?? 0
+        ),
+
+        reservedQty: money(
+          reservation?.reservedQty ?? 0
+        ),
+
+        requiredQty: money(
+          reservation?.requiredQty ??
+            item?.quantity ??
+            0
+        ),
+
+        reservationLabel: safe(
+          reservation?.label || ""
+        ),
+      });
+    });
+  }
+
+  return rows;
+};
 
 const exportToCSV = useCallback(async () => {
   if (exportLoading || loading) return;
 
-  let originalFilters = null;
   setExportLoading(true);
 
   try {
-    originalFilters = { ...backendFilters };
+    const originalFilters = { ...backendFilters };
 
     const baseFilters = { ...backendFilters };
     delete baseFilters.page;
     delete baseFilters.limit;
 
-    // ✅ Fetch ALL matching orders across all pages
+    // ✅ fetch every matching order
     const allOrders = await fetchAllOrdersAllPages({
       ...baseFilters,
       limit: 100,
     });
 
-    const uniqueOrdersMap = new Map();
-
-    for (const order of allOrders) {
-      const key = order?._id || order?.id || order?.orderNumber;
-
-      if (key && !uniqueOrdersMap.has(key)) {
-        uniqueOrdersMap.set(key, order);
-      }
-    }
-
-    const uniqueOrders = Array.from(uniqueOrdersMap.values());
+    // ✅ remove duplicates
+    const uniqueOrders = Array.from(
+      new Map(
+        (allOrders || []).map((order) => [
+          order?._id ||
+            order?.id ||
+            order?.orderNumber,
+          order,
+        ])
+      ).values()
+    );
 
     const exportOrders = applyClientFiltersToOrders({
       orders: uniqueOrders,
@@ -614,7 +646,7 @@ const exportToCSV = useCallback(async () => {
     });
 
     if (!exportOrders.length) {
-      alert("No orders found to export for the applied filters.");
+      alert("No orders found to export.");
       return;
     }
 
@@ -624,17 +656,21 @@ const exportToCSV = useCallback(async () => {
       "Order DB Id",
       "Order #",
       "Order Date (ISO)",
+
       "Customer Name",
       "Customer Email",
       "Customer Phone",
+
       "Is Confirmed",
       "Fulfillment Status",
+
       "Subtotal",
       "Discount",
       "Shipping Fee",
       "Tax",
       "Total Amount",
       "Final Payable",
+
       "Item #",
       "Item Title",
       "Product Code",
@@ -642,26 +678,38 @@ const exportToCSV = useCallback(async () => {
       "Item Size",
       "Item Quantity",
       "Item Price",
+
+      // ✅ Inventory Reservation
+      "Reservation Status",
+      "Reservation Qty",
+      "Reserved Qty",
+      "Required Qty",
+      "Reservation",
     ];
 
     const csvLines = [
       headers.map(escapeCSV).join(","),
+
       ...rows.map((r) =>
         [
           r.orderId,
           r.orderNumber,
           r.orderDate,
+
           r.customerName,
           r.customerEmail,
           r.customerPhone,
+
           r.isConfirmed,
           r.fulfillmentStatus,
+
           r.subtotal,
           r.discount,
           r.shippingFee,
           r.tax,
           r.totalAmount,
           r.finalPayable,
+
           r.itemIndex,
           r.itemTitle,
           r.itemProductCode,
@@ -669,15 +717,24 @@ const exportToCSV = useCallback(async () => {
           r.itemSize,
           r.itemQuantity,
           r.itemPrice,
+
+          r.reservationStatus,
+          r.reservationQty,
+          r.reservedQty,
+          r.requiredQty,
+          r.reservationLabel,
         ]
           .map(escapeCSV)
           .join(",")
       ),
     ];
 
-    const blob = new Blob([csvLines.join("\r\n")], {
-      type: "text/csv;charset=utf-8;",
-    });
+    const blob = new Blob(
+      [csvLines.join("\r\n")],
+      {
+        type: "text/csv;charset=utf-8;",
+      }
+    );
 
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -688,31 +745,20 @@ const exportToCSV = useCallback(async () => {
       .replace(/[:T]/g, "-");
 
     link.href = url;
-    link.setAttribute(
-      "download",
-      `orders-all-pages-${ts}.csv`
-    );
+    link.download = `orders-all-pages-${ts}.csv`;
 
     document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
+    link.remove();
 
     URL.revokeObjectURL(url);
+
+    // ✅ restore current page
+    await fetchAllOrders(originalFilters);
   } catch (error) {
     console.error("CSV export failed:", error);
     alert("Failed to export all orders.");
   } finally {
-    if (originalFilters) {
-      try {
-        await fetchAllOrders(originalFilters);
-      } catch (restoreError) {
-        console.error(
-          "Failed to restore current page after export:",
-          restoreError
-        );
-      }
-    }
-
     setExportLoading(false);
   }
 }, [

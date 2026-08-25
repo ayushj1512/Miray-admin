@@ -19,7 +19,6 @@ const BASE_URL = "https://mirayfashions.com";
 const SHOPIFY_LOGO = "https://img.icons8.com/color/512/shopify.png";
 
 const safe = (v) => (v == null ? "" : String(v));
-
 const money = (n) =>
   Number.isFinite(Number(n)) ? Number(n).toLocaleString("en-IN") : "0";
 
@@ -74,6 +73,41 @@ const paymentMethodMeta = (method) => {
   };
 };
 
+const reservationMeta = (item) => {
+  const r = item?.inventoryReservation || {};
+  const status = String(r?.status || "not_reserved").toLowerCase();
+
+  const styles = {
+    reserved: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    pending: "bg-amber-50 text-amber-700 border-amber-200",
+    consumed: "bg-blue-50 text-blue-700 border-blue-200",
+    released: "bg-gray-50 text-gray-600 border-gray-200",
+    expired: "bg-red-50 text-red-700 border-red-200",
+    not_reserved: "bg-red-50 text-red-700 border-red-200",
+  };
+
+  const requiredQty = Number(r?.requiredQty ?? item?.quantity ?? 0);
+  const reservedQty = Number(r?.reservedQty ?? r?.qty ?? 0);
+
+  return {
+    status,
+    className: styles[status] || styles.not_reserved,
+    label:
+      r?.label ||
+      (status === "reserved"
+        ? `Reserved ${reservedQty}/${requiredQty}`
+        : status === "pending"
+          ? `Pending ${reservedQty}/${requiredQty}`
+          : status === "consumed"
+            ? `Consumed ${reservedQty}/${requiredQty}`
+            : status === "released"
+              ? "Released"
+              : status === "expired"
+                ? "Expired"
+                : `Not Reserved ${reservedQty}/${requiredQty}`),
+  };
+};
+
 function OrderRow({ order, onUpdated }) {
   const [open, setOpen] = useState(false);
 
@@ -84,13 +118,13 @@ function OrderRow({ order, onUpdated }) {
 
   const orderId = order?._id || order?.id;
 
-  const isShopifyOrder = useMemo(() => {
-    return (
+  const isShopifyOrder = useMemo(
+    () =>
       String(order?.attribution?.source || "").toLowerCase() === "shopify" ||
       String(order?.source || "").toLowerCase() === "shopify" ||
-      String(order?.orderNumber || "").toUpperCase().startsWith("SHOP-")
-    );
-  }, [order?.attribution?.source, order?.source, order?.orderNumber]);
+      String(order?.orderNumber || "").toUpperCase().startsWith("SHOP-"),
+    [order?.attribution?.source, order?.source, order?.orderNumber]
+  );
 
   const effectiveStatus = useMemo(
     () => String(order?.fulfillmentStatus || "processing").toLowerCase(),
@@ -115,11 +149,10 @@ function OrderRow({ order, onUpdated }) {
   );
 
   const firstItem = items[0] || null;
-  const firstTitle = firstItem?.productSnapshot?.title || "";
+  const firstTitle =
+    firstItem?.title || firstItem?.productSnapshot?.title || "";
 
-  const toggleOpen = useCallback(() => {
-    setOpen((prev) => !prev);
-  }, []);
+  const toggleOpen = useCallback(() => setOpen((v) => !v), []);
 
   const goToOrder = useCallback(() => {
     if (!orderId || typeof window === "undefined") return;
@@ -127,9 +160,7 @@ function OrderRow({ order, onUpdated }) {
   }, [orderId]);
 
   const handleUpdated = useCallback(
-    (payload) => {
-      onUpdated?.(payload?.order ?? payload);
-    },
+    (payload) => onUpdated?.(payload?.order ?? payload),
     [onUpdated]
   );
 
@@ -141,8 +172,7 @@ function OrderRow({ order, onUpdated }) {
             <button
               type="button"
               onClick={toggleOpen}
-              title="Expand"
-              className="p-1.5 rounded-lg hover:bg-black/[0.05] transition"
+              className="p-1.5 rounded-lg hover:bg-black/[0.05]"
             >
               {open ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
             </button>
@@ -150,24 +180,21 @@ function OrderRow({ order, onUpdated }) {
             <button
               type="button"
               onClick={goToOrder}
-              title="Open order"
-              className="text-left inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 hover:bg-black/[0.05] focus:outline-none focus:ring-2 focus:ring-black/10"
+              className="text-left inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 hover:bg-black/[0.05]"
             >
-              {isShopifyOrder ? (
+              {isShopifyOrder && (
                 <img
                   src={SHOPIFY_LOGO}
                   alt="Shopify"
-                  title="Shopify Order"
-                  loading="lazy"
-                  className="h-4 w-4 shrink-0 object-contain"
+                  className="h-4 w-4 object-contain"
                 />
-              ) : null}
+              )}
 
-              <span className="underline underline-offset-2 decoration-black/30 hover:decoration-black">
+              <span className="underline underline-offset-2">
                 {order?.orderNumber || "-"}
               </span>
 
-              <ExternalLink size={14} className="opacity-70" />
+              <ExternalLink size={14} />
             </button>
           </div>
 
@@ -178,15 +205,15 @@ function OrderRow({ order, onUpdated }) {
           </p>
 
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            {order?.isConfirmed ? (
-              <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-green-50 text-green-700 border border-green-100">
-                Confirmed ✅
-              </span>
-            ) : (
-              <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-50 text-gray-700 border border-gray-200">
-                Not Confirmed
-              </span>
-            )}
+            <span
+              className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold border ${
+                order?.isConfirmed
+                  ? "bg-green-50 text-green-700 border-green-100"
+                  : "bg-gray-50 text-gray-700 border-gray-200"
+              }`}
+            >
+              {order?.isConfirmed ? "Confirmed ✅" : "Not Confirmed"}
+            </span>
 
             <OrderPriorityDropdown
               orderId={orderId}
@@ -203,12 +230,14 @@ function OrderRow({ order, onUpdated }) {
               order?.shippingAddressSnapshot?.fullName ||
               "Unknown"}
           </div>
+
           <div className="text-xs text-gray-500">
             {order?.customerId?.phone ||
               order?.customerPhone ||
               order?.shippingAddressSnapshot?.phone ||
               ""}
           </div>
+
           <div className="text-xs text-gray-500">
             {order?.customerId?.email ||
               order?.customerEmail ||
@@ -248,14 +277,14 @@ function OrderRow({ order, onUpdated }) {
         </td>
 
         <td className="py-4 px-5 text-gray-700">
-          <div className="leading-tight">
+          <div>
             <div className="text-sm font-medium text-gray-900">{dt.time}</div>
             <div className="text-[11px] text-gray-500">{dt.date}</div>
           </div>
         </td>
 
         <td className="py-4 px-5">
-          <div className="flex items-center justify-end gap-2">
+          <div className="flex justify-end">
             <OrderRowActions
               order={order}
               courierName={
@@ -278,130 +307,147 @@ function OrderRow({ order, onUpdated }) {
         </td>
       </tr>
 
-      {open ? (
+      {open && (
         <tr className="bg-black/[0.015]">
           <td colSpan={8} className="px-5 pb-4">
             <div className="mt-3 bg-white rounded-2xl px-4 py-4 space-y-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-gray-900">
-                    Items ({items.length})
-                  </h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-gray-900">
+                  Items ({items.length})
+                </h3>
 
-                  <button
-                    type="button"
-                    onClick={goToOrder}
-                    title="Open order"
-                    className="text-xs font-semibold text-blue-600 hover:underline inline-flex items-center gap-1"
-                  >
-                    Open <ExternalLink size={14} />
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={goToOrder}
+                  className="text-xs font-semibold text-blue-600 hover:underline inline-flex items-center gap-1"
+                >
+                  Open <ExternalLink size={14} />
+                </button>
+              </div>
 
-                {items.length === 0 ? (
-                  <p className="text-xs text-gray-500">No items</p>
-                ) : (
-                  <div className="divide-y divide-gray-100">
-                    {items.map((it, idx) => {
-                      const snap = it?.productSnapshot || {};
-                      const variant = it?.variant || {};
-                      const size = it?.selectedSize || "";
-                      const color = it?.selectedColor || "";
-                      const productCode = safe(snap?.productCode).trim();
-                      const productUrl = buildProductUrl(it);
+              {!items.length ? (
+                <p className="text-xs text-gray-500">No items</p>
+              ) : (
+                <div className="divide-y divide-gray-100">
+                  {items.map((it, idx) => {
+                    const snap = it?.productSnapshot || {};
+                    const variant = it?.variant || {};
+                    const size = it?.selectedSize || "";
+                    const color = it?.selectedColor || "";
 
-                      const variantText =
-                        size || color
-                          ? [
-                              size ? `Size: ${size}` : "",
-                              color ? `Color: ${color}` : "",
-                            ]
+                    const title = it?.title || snap?.title || "-";
+
+                    const productCode = safe(
+                      it?.productCode || snap?.productCode
+                    ).trim();
+
+                    const productUrl = buildProductUrl(it);
+                    const reservation = reservationMeta(it);
+
+                    const variantText =
+                      size || color
+                        ? [
+                            size ? `Size: ${size}` : "",
+                            color ? `Color: ${color}` : "",
+                          ]
+                            .filter(Boolean)
+                            .join(" • ")
+                        : Array.isArray(variant?.attributes)
+                          ? variant.attributes
+                              .map((a) => `${a?.key}:${a?.value}`)
                               .filter(Boolean)
-                              .join(" • ")
-                          : Array.isArray(variant?.attributes)
-                            ? variant.attributes
-                                .map((a) => `${a?.key}:${a?.value}`)
-                                .filter(Boolean)
-                                .join(", ")
-                            : "";
+                              .join(", ")
+                          : "";
 
-                      return (
-                        <div
-                          key={`${orderId}-item-${idx}`}
-                          className="py-3 flex items-center justify-between gap-3"
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <img
-                              src={snap.thumbnail || "/placeholder.png"}
-                              alt={snap.title || "Product"}
-                              loading="lazy"
-                              className="w-10 h-10 rounded-xl object-cover border border-gray-100"
-                            />
+                    return (
+                      <div
+                        key={`${orderId}-item-${idx}`}
+                        className="py-3 flex items-center justify-between gap-4"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <img
+                            src={
+                              it?.image ||
+                              snap?.thumbnail ||
+                              "/placeholder.png"
+                            }
+                            alt={title}
+                            loading="lazy"
+                            className="w-10 h-10 rounded-xl object-cover border border-gray-100"
+                          />
 
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                                <p className="text-sm font-semibold text-gray-900 truncate">
-                                  {snap.title || "-"}
-                                </p>
-
-                                {productUrl ? (
-                                  <a
-                                    href={productUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    title="Open product"
-                                    className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline"
-                                  >
-                                    Product <ExternalLink size={14} />
-                                  </a>
-                                ) : null}
-                              </div>
-
-                              <p className="text-xs text-gray-500 truncate">
-                                {variantText ||
-                                  (variant?.sku || snap?.sku
-                                    ? `SKU: ${variant?.sku || snap?.sku}`
-                                    : "")}
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="text-sm font-semibold text-gray-900">
+                                {title}
                               </p>
 
-                              {productCode ? (
-                                <div className="mt-1">
-                                  <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#800020]/8 text-[#800020] border border-[#800020]/15">
-                                    Code: {productCode}
-                                  </span>
-                                </div>
-                              ) : null}
+                              {productUrl && (
+                                <a
+                                  href={productUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs font-semibold text-blue-600 hover:underline inline-flex items-center gap-1"
+                                >
+                                  Product <ExternalLink size={14} />
+                                </a>
+                              )}
+                            </div>
+
+                            {variantText && (
+                              <p className="text-xs text-gray-500">
+                                {variantText}
+                              </p>
+                            )}
+
+                            <div className="mt-1 flex flex-wrap gap-2">
+                              {productCode && (
+                                <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#800020]/8 text-[#800020] border border-[#800020]/15">
+                                  Code: {productCode}
+                                </span>
+                              )}
+
+                              <span
+                                className={`inline-flex px-2 py-0.5 rounded-full border text-[10px] font-semibold ${reservation.className}`}
+                              >
+                                {reservation.label}
+                              </span>
                             </div>
                           </div>
-
-                          <div className="text-right shrink-0">
-                            <p className="text-sm font-semibold text-gray-900">
-                              ₹{money(it?.price)} × {money(it?.quantity)}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              ₹{money(it?.subtotal)}
-                            </p>
-                          </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-semibold text-gray-900">
+                            ₹{money(it?.price)} × {money(it?.quantity)}
+                          </p>
+
+                          <p className="text-xs text-gray-500">
+                            ₹{money(it?.subtotal)}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
               <div className="border-t border-gray-100 pt-3 flex flex-wrap gap-2 text-xs text-gray-700">
                 <span className="px-3 py-1 rounded-full bg-gray-100">
                   Subtotal: <b>₹{money(order?.subtotal)}</b>
                 </span>
+
                 <span className="px-3 py-1 rounded-full bg-gray-100">
                   Discount: <b>₹{money(order?.discount)}</b>
                 </span>
+
                 <span className="px-3 py-1 rounded-full bg-gray-100">
                   Shipping: <b>₹{money(order?.shippingFee)}</b>
                 </span>
+
                 <span className="px-3 py-1 rounded-full bg-gray-100">
                   Tax: <b>₹{money(order?.tax)}</b>
                 </span>
+
                 <span className="ml-auto px-4 py-1 rounded-full bg-black text-white font-semibold">
                   Final: ₹{money(order?.finalPayable)}
                 </span>
@@ -409,11 +455,14 @@ function OrderRow({ order, onUpdated }) {
             </div>
           </td>
         </tr>
-      ) : null}
+      )}
     </>
   );
 }
 
-export default memo(OrderRow, (prev, next) => {
-  return prev.order === next.order && prev.onUpdated === next.onUpdated;
-});
+export default memo(
+  OrderRow,
+  (prev, next) =>
+    prev.order === next.order &&
+    prev.onUpdated === next.onUpdated
+);

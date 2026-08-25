@@ -72,6 +72,11 @@ bulkFulfillResult: null,
 shopifyOrderCancelling: false,
 shopifyOrderCancelError: null,
 
+// ✅ Clone order
+shopifyOrderCloning: false,
+shopifyOrderCloneError: null,
+shopifyOrderCloneResult: null,  
+
   products: [],
   orders: [],
   customers: [],
@@ -1031,6 +1036,60 @@ cancelShopifyOrder: async (
     };
   }
 },
+
+
+cloneShopifyOrder: async (
+  orderId,
+  {
+    paymentStatus = "pending",
+    notifyCustomer = false,
+  } = {}
+) => {
+  try {
+    set({
+      shopifyOrderCloning: true,
+      shopifyOrderCloneError: null,
+      shopifyOrderCloneResult: null,
+    });
+
+    const data = await postRequest(
+      `orders/${orderId}/clone`,
+      {
+        paymentStatus,
+        notifyCustomer,
+      }
+    );
+
+    set({
+      shopifyOrderCloning: false,
+      shopifyOrderCloneResult: data,
+    });
+
+    return data;
+  } catch (error) {
+    const message = getErrorMessage(
+      error,
+      "Failed to clone Shopify order"
+    );
+
+    set({
+      shopifyOrderCloning: false,
+      shopifyOrderCloneError: message,
+    });
+
+    return {
+      success: false,
+      message,
+    };
+  }
+},
+
+clearShopifyCloneState: () =>
+  set({
+    shopifyOrderCloning: false,
+    shopifyOrderCloneError: null,
+    shopifyOrderCloneResult: null,
+  }),
 
 
 }));

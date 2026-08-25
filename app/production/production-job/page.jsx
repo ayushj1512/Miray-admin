@@ -246,8 +246,35 @@ export default function ProductionJobPage() {
      NO EXTRA API CALL
   ========================================================= */
 
-  const handleDownloadExcel = () => {
-    const excelRows = rows.map((row) => ({
+ const handleDownloadExcel = async () => {
+  if (loadingProductionJobs) return;
+
+  try {
+    const currentPage = num(pagination?.page) || 1;
+    const currentLimit =
+      num(productionJobFilters?.limit) || 25;
+
+    // Fetch all matching filtered data
+    await fetchProductionJobs({
+      ...productionJobFilters,
+      page: 1,
+      limit: 10000,
+      all: true,
+    });
+
+    // Fresh Zustand state
+    const state = useAdminProductionStore.getState();
+
+    const allRows = Array.isArray(state.productionJobs)
+      ? state.productionJobs
+      : [];
+
+    if (!allRows.length) {
+      alert("No production jobs found");
+      return;
+    }
+
+    const excelRows = allRows.map((row) => ({
       "Product Title": row?.productTitle || "",
       "Product Code": row?.productCode || "",
       SKU: row?.sku || "",
@@ -294,9 +321,21 @@ export default function ProductionJobPage() {
 
     XLSX.writeFile(
       wb,
-      "production-jobs.xlsx"
+      "all-production-jobs.xlsx"
     );
-  };
+
+    // Restore current paginated screen
+    await fetchProductionJobs({
+      ...productionJobFilters,
+      page: currentPage,
+      limit: currentLimit,
+      all: false,
+    });
+  } catch (error) {
+    console.error("Excel export failed:", error);
+    alert("Failed to download Excel");
+  }
+};
 
   return (
     <div className="min-h-screen bg-[#f5f5f5] text-black">

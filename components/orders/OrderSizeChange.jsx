@@ -224,11 +224,22 @@ export default function OrderSizeChange({
       setUpdatingLineId(lineId);
       clearMessage();
 
-      await updateOrderItemSize(order._id, lineId, newSize, {
-        source,
-        quantity: isShopify ? Number(item?.quantity || 1) : null,
-        notifyCustomer: false,
-      });
+const requestLineId = isShopify
+  ? encodeURIComponent(lineId)
+  : lineId;
+
+await updateOrderItemSize(
+  order._id,
+  requestLineId,
+  newSize,
+  {
+    source,
+    quantity: isShopify
+      ? Number(item?.quantity || 1)
+      : null,
+    notifyCustomer: false,
+  }
+);
 
       showMessage(
         `${getItemTitle(item)} size changed from ${

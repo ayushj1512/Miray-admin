@@ -353,7 +353,7 @@ export default function PackedLabelsPage() {
 
   return (
     <main className="min-h-screen bg-zinc-50 p-4 text-zinc-950 md:p-6">
-      <div className="mx-auto max-w-7xl space-y-4">
+      <div className="mx-auto space-y-4">
         <header className="flex flex-col gap-4 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="flex items-center gap-2">

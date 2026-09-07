@@ -1,0 +1,1 @@
+export { default } from "@/app/tailor-production-jobs/page";

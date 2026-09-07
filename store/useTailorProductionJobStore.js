@@ -43,15 +43,35 @@ const initialPagination = {
 
 const initialFilters = {
   search: "",
+
   status: "",
+  workType: "",
+
   tailorId: "",
+  tailorSearch: "",
+
   productId: "",
   productCode: "",
-  workType: "",
+  productCodes: "",
+
   overdue: "",
+
   dateFrom: "",
   dateTo: "",
+
+  expectedFrom: "",
+  expectedTo: "",
+
+  minQuantity: "",
+  maxQuantity: "",
+
+  minAmount: "",
+  maxAmount: "",
+
+  receivedStatus: "",
+
   sort: "newest",
+
   page: 1,
   limit: 20,
 };

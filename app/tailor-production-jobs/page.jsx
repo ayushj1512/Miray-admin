@@ -81,6 +81,8 @@ const getStatusClasses = (status) => {
 
     cancelled:
       "border-red-200 bg-red-50 text-red-700",
+      partially_received:
+  "border-violet-200 bg-violet-50 text-violet-700",
   };
 
   return (
@@ -195,34 +197,23 @@ export default function TailorProductionJobsPage() {
     fetchProductionSummary,
   ]);
 
-  /* Debounced search */
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      const search =
-        searchInput.trim();
+  const handleSearch = () => {
+    const search = searchInput
+      .split(",")
+      .map((v) => v.trim())
+      .filter(Boolean)
+      .join(",");
 
-      if (search === filters.search) {
-        return;
-      }
+    setFilters({
+      search,
+      page: 1,
+    });
 
-      setFilters({
-        search,
-        page: 1,
-      });
-
-      fetchProductionJobs({
-        search,
-        page: 1,
-      }).catch(console.error);
-    }, 400);
-
-    return () => clearTimeout(timeout);
-  }, [
-    searchInput,
-    filters.search,
-    setFilters,
-    fetchProductionJobs,
-  ]);
+    fetchProductionJobs({
+      search,
+      page: 1,
+    }).catch(console.error);
+  };
 
   const summary = useMemo(() => {
     const statuses =
@@ -247,9 +238,10 @@ export default function TailorProductionJobsPage() {
       completedJobs:
         statuses.completed?.jobs || 0,
 
-      activeJobs:
-        (statuses.assigned?.jobs || 0) +
-        (statuses.in_progress?.jobs || 0),
+   activeJobs:
+  (statuses.assigned?.jobs || 0) +
+  (statuses.in_progress?.jobs || 0) +
+  (statuses.partially_received?.jobs || 0),
     };
   }, [productionSummary]);
 
@@ -335,7 +327,7 @@ export default function TailorProductionJobsPage() {
                   size={17}
                   className={
                     listLoading ||
-                    summaryLoading
+                      summaryLoading
                       ? "animate-spin"
                       : ""
                   }
@@ -445,130 +437,331 @@ export default function TailorProductionJobsPage() {
 
         {/* Filters */}
 
-        <section className="mt-5 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm sm:p-4">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(240px,1fr)_170px_170px_170px]">
-            <div className="relative">
-              <Search
-                size={17}
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-              />
+{/* Filters */}
 
-              <input
-                value={searchInput}
-                onChange={(event) =>
-                  setSearchInput(
-                    event.target.value,
-                  )
-                }
-                placeholder="Search job, tailor or product"
-                className={`${inputClass} w-full pl-10`}
-              />
-            </div>
+<section className="mt-5 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm sm:p-4">
+  {/* Main Filters */}
+  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
 
-            <select
-              value={filters.status}
-              onChange={(event) =>
-                handleFilterChange(
-                  "status",
-                  event.target.value,
-                )
-              }
-              className={inputClass}
-            >
-              <option value="">
-                All statuses
-              </option>
+    {/* Search */}
+    <div className="flex gap-2 sm:col-span-2">
+      <div className="relative flex-1">
+        <Search
+          size={17}
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+        />
 
-              <option value="assigned">
-                Assigned
-              </option>
+        <input
+          value={searchInput}
+          onChange={(e) =>
+            setSearchInput(e.target.value)
+          }
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              handleSearch();
+            }
+          }}
+          placeholder="Job, product codes, tailor..."
+          className={`${inputClass} w-full pl-10`}
+        />
+      </div>
 
-              <option value="in_progress">
-                In Progress
-              </option>
+      <button
+        type="button"
+        onClick={handleSearch}
+        disabled={listLoading}
+        className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#800020] px-4 text-sm font-semibold text-white disabled:opacity-50"
+      >
+        {listLoading ? (
+          <Loader2
+            size={16}
+            className="animate-spin"
+          />
+        ) : (
+          <Search size={16} />
+        )}
+        Search
+      </button>
+    </div>
 
-              <option value="completed">
-                Completed
-              </option>
+    {/* Status */}
+    <select
+      value={filters.status}
+      onChange={(e) =>
+        handleFilterChange(
+          "status",
+          e.target.value,
+        )
+      }
+      className={inputClass}
+    >
+      <option value="">All statuses</option>
+      <option value="assigned">Assigned</option>
+      <option value="in_progress">
+        In Progress
+      </option>
+      <option value="partially_received">
+        Partially Received
+      </option>
+      <option value="completed">
+        Completed
+      </option>
+      <option value="cancelled">
+        Cancelled
+      </option>
+    </select>
 
-              <option value="cancelled">
-                Cancelled
-              </option>
-            </select>
+    {/* Work Type */}
+    <select
+      value={filters.workType}
+      onChange={(e) =>
+        handleFilterChange(
+          "workType",
+          e.target.value,
+        )
+      }
+      className={inputClass}
+    >
+      <option value="">All work types</option>
+      <option value="full_garment">
+        Full Garment
+      </option>
+      <option value="sampling">
+        Sampling
+      </option>
+      <option value="pattern">
+        Pattern
+      </option>
+      <option value="cutting">
+        Cutting
+      </option>
+      <option value="stitching">
+        Stitching
+      </option>
+      <option value="finishing">
+        Finishing
+      </option>
+    </select>
 
-            <select
-              value={filters.workType}
-              onChange={(event) =>
-                handleFilterChange(
-                  "workType",
-                  event.target.value,
-                )
-              }
-              className={inputClass}
-            >
-              <option value="">
-                All work types
-              </option>
+    {/* Received */}
+    <select
+      value={filters.receivedStatus || ""}
+      onChange={(e) =>
+        handleFilterChange(
+          "receivedStatus",
+          e.target.value,
+        )
+      }
+      className={inputClass}
+    >
+      <option value="">All receiving</option>
+      <option value="pending">
+        Nothing Received
+      </option>
+      <option value="partial">
+        Partially Received
+      </option>
+      <option value="complete">
+        Fully Received
+      </option>
+    </select>
 
-              <option value="sampling">
-                Sampling
-              </option>
+    {/* Overdue */}
+    <select
+      value={filters.overdue || ""}
+      onChange={(e) =>
+        handleFilterChange(
+          "overdue",
+          e.target.value,
+        )
+      }
+      className={inputClass}
+    >
+      <option value="">All deadlines</option>
+      <option value="true">
+        Overdue Only
+      </option>
+    </select>
 
-              <option value="pattern">
-                Pattern
-              </option>
+    {/* Created From */}
+    <input
+      type="date"
+      value={filters.dateFrom || ""}
+      onChange={(e) =>
+        handleFilterChange(
+          "dateFrom",
+          e.target.value,
+        )
+      }
+      className={inputClass}
+      title="Created From"
+    />
 
-              <option value="cutting">
-                Cutting
-              </option>
+    {/* Created To */}
+    <input
+      type="date"
+      value={filters.dateTo || ""}
+      onChange={(e) =>
+        handleFilterChange(
+          "dateTo",
+          e.target.value,
+        )
+      }
+      className={inputClass}
+      title="Created To"
+    />
 
-              <option value="stitching">
-                Stitching
-              </option>
+    {/* Expected From */}
+    <input
+      type="date"
+      value={filters.expectedFrom || ""}
+      onChange={(e) =>
+        handleFilterChange(
+          "expectedFrom",
+          e.target.value,
+        )
+      }
+      className={inputClass}
+      title="Expected From"
+    />
 
-              <option value="finishing">
-                Finishing
-              </option>
-            </select>
+    {/* Expected To */}
+    <input
+      type="date"
+      value={filters.expectedTo || ""}
+      onChange={(e) =>
+        handleFilterChange(
+          "expectedTo",
+          e.target.value,
+        )
+      }
+      className={inputClass}
+      title="Expected To"
+    />
 
-            <select
-              value={filters.sort}
-              onChange={(event) =>
-                handleFilterChange(
-                  "sort",
-                  event.target.value,
-                )
-              }
-              className={inputClass}
-            >
-              <option value="newest">
-                Newest first
-              </option>
+    {/* Minimum Quantity */}
+    <input
+      type="number"
+      min="0"
+      value={filters.minQuantity || ""}
+      onChange={(e) =>
+        handleFilterChange(
+          "minQuantity",
+          e.target.value,
+        )
+      }
+      placeholder="Min quantity"
+      className={inputClass}
+    />
 
-              <option value="oldest">
-                Oldest first
-              </option>
+    {/* Maximum Quantity */}
+    <input
+      type="number"
+      min="0"
+      value={filters.maxQuantity || ""}
+      onChange={(e) =>
+        handleFilterChange(
+          "maxQuantity",
+          e.target.value,
+        )
+      }
+      placeholder="Max quantity"
+      className={inputClass}
+    />
 
-              <option value="deadline_asc">
-                Deadline first
-              </option>
+    {/* Minimum Amount */}
+    <input
+      type="number"
+      min="0"
+      value={filters.minAmount || ""}
+      onChange={(e) =>
+        handleFilterChange(
+          "minAmount",
+          e.target.value,
+        )
+      }
+      placeholder="Min amount ₹"
+      className={inputClass}
+    />
 
-              <option value="quantity_desc">
-                Highest quantity
-              </option>
+    {/* Maximum Amount */}
+    <input
+      type="number"
+      min="0"
+      value={filters.maxAmount || ""}
+      onChange={(e) =>
+        handleFilterChange(
+          "maxAmount",
+          e.target.value,
+        )
+      }
+      placeholder="Max amount ₹"
+      className={inputClass}
+    />
 
-              <option value="amount_desc">
-                Highest value
-              </option>
-            </select>
-          </div>
-        </section>
+    {/* Sort */}
+    <select
+      value={filters.sort}
+      onChange={(e) =>
+        handleFilterChange(
+          "sort",
+          e.target.value,
+        )
+      }
+      className={inputClass}
+    >
+      <option value="newest">
+        Newest first
+      </option>
+
+      <option value="oldest">
+        Oldest first
+      </option>
+
+      <option value="deadline_asc">
+        Deadline first
+      </option>
+
+      <option value="deadline_desc">
+        Deadline latest
+      </option>
+
+      <option value="quantity_desc">
+        Quantity high → low
+      </option>
+
+      <option value="quantity_asc">
+        Quantity low → high
+      </option>
+
+      <option value="amount_desc">
+        Value high → low
+      </option>
+
+      <option value="amount_asc">
+        Value low → high
+      </option>
+
+      <option value="received_desc">
+        Received high → low
+      </option>
+
+      <option value="received_asc">
+        Received low → high
+      </option>
+
+      <option value="updated_desc">
+        Recently updated
+      </option>
+    </select>
+  </div>
+</section>
 
         {/* Jobs Table */}
 
         <section className="mt-5 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
           {listLoading &&
-          productionJobs.length === 0 ? (
+            productionJobs.length === 0 ? (
             <div className="flex min-h-[360px] items-center justify-center">
               <div className="flex items-center gap-2 text-sm font-medium text-gray-500">
                 <Loader2
@@ -690,7 +883,7 @@ export default function TailorProductionJobsPage() {
                                   {products.length}{" "}
                                   product
                                   {products.length !==
-                                  1
+                                    1
                                     ? "s"
                                     : ""}
                                 </p>
@@ -718,12 +911,12 @@ export default function TailorProductionJobsPage() {
 
                                   {products.length >
                                     3 && (
-                                    <span className="text-xs text-gray-400">
-                                      +
-                                      {products.length -
-                                        3}
-                                    </span>
-                                  )}
+                                      <span className="text-xs text-gray-400">
+                                        +
+                                        {products.length -
+                                          3}
+                                      </span>
+                                    )}
                                 </div>
                               </div>
                             </td>

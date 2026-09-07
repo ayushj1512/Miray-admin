@@ -65,6 +65,11 @@ export const sidebarMenus = {
   { label: "Production + Jobs", href: "/production/all-production-job-with-production-job" },
 
   { label: "Confirmed Production Jobs", href: "/production/production-job" },
+  // Tailor production
+{
+  label: "Tailor Production Jobs",
+  href: "/production/tailor-production-job",
+},
   { label: "Packed Orders", href: "/production/packed" },
   { label: "Packed Order Labels", href: "/production/packed-labels" },
 

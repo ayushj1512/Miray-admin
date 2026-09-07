@@ -66,8 +66,16 @@ const escapeCSV = (value) => {
 
 const formatDateISO = (d) => {
   if (!d) return "";
+
   const dt = new Date(d);
-  return Number.isNaN(dt.getTime()) ? "" : dt.toISOString();
+  if (Number.isNaN(dt.getTime())) return "";
+
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: IST_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(dt);
 };
 
 const money = (n) => {
@@ -655,8 +663,7 @@ const exportToCSV = useCallback(async () => {
     const headers = [
       "Order DB Id",
       "Order #",
-      "Order Date (ISO)",
-
+"Order Date",
       "Customer Name",
       "Customer Email",
       "Customer Phone",

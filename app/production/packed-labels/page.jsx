@@ -90,6 +90,7 @@ export default function PackedLabelsPage() {
     packageUpdateLoading,
     packageUpdateError,
     repairShipment,
+    repairShipmentDeep,
     repairMissingShipments,
     updatePackage,
     clearRepairError,
@@ -227,6 +228,91 @@ export default function PackedLabelsPage() {
 
       return null;
     }
+  };
+
+  const deepRepairOrder = async (
+    orderId,
+    { reload = true } = {}
+  ) => {
+    setMessage("");
+    clearRepairError();
+
+    try {
+      setMessage(
+        "Deep searching Shiprocket order..."
+      );
+
+      const data =
+        await repairShipmentDeep(
+          orderId,
+          {
+            generateShippingLabel: true,
+          }
+        );
+
+      const result =
+        normalizeSingleResult(
+          data,
+          orderId
+        );
+
+      setOrderResult(
+        orderId,
+        result
+      );
+
+      setMessage(
+        result.message ||
+        "Deep search completed."
+      );
+
+      if (reload) {
+        await loadOrders();
+      }
+
+      return result;
+    } catch (err) {
+      const result =
+        normalizeErrorResult(
+          err,
+          orderId
+        );
+
+      setOrderResult(
+        orderId,
+        result
+      );
+
+      setMessage(result.message);
+
+      return null;
+    }
+  };
+
+  const deepRepairAll = async (orderIds = []) => {
+    if (!orderIds.length) return;
+
+    let success = 0;
+    let failed = 0;
+
+    for (const orderId of orderIds) {
+      const result = await deepRepairOrder(
+        orderId,
+        { reload: false }
+      );
+
+      if (result?.success) {
+        success++;
+      } else {
+        failed++;
+      }
+    }
+
+    setMessage(
+      `Deep repair complete: ${success} repaired, ${failed} failed.`
+    );
+
+    await loadOrders();
   };
 
   const updatePackageAndRepair = async (
@@ -418,15 +504,15 @@ export default function PackedLabelsPage() {
         </section>
 
         <Pagination
-  page={page}
-  limit={limit}
-  totalPages={packedOrderLabelsSummary?.totalPages || 1}
-  onPageChange={setPage}
-  onLimitChange={(value) => {
-    setLimit(value);
-    setPage(1);
-  }}
-/>
+          page={page}
+          limit={limit}
+          totalPages={packedOrderLabelsSummary?.totalPages || 1}
+          onPageChange={setPage}
+          onLimitChange={(value) => {
+            setLimit(value);
+            setPage(1);
+          }}
+        />
 
         <section className="rounded-2xl border border-zinc-200 bg-white p-2 shadow-sm">
           <div className="grid grid-cols-2 gap-2">
@@ -440,9 +526,9 @@ export default function PackedLabelsPage() {
                 setPage(1);
               }}
               label="Labels Available"
-            count={
-  packedOrderLabelsSummary?.totalWithLabels ?? 0
-}
+              count={
+                packedOrderLabelsSummary?.totalWithLabels ?? 0
+              }
             />
 
             <TabButton
@@ -455,9 +541,9 @@ export default function PackedLabelsPage() {
                 setPage(1);
               }}
               label="Not Available"
-count={
-  packedOrderLabelsSummary?.totalWithoutLabels ?? 0
-}              warning
+              count={
+                packedOrderLabelsSummary?.totalWithoutLabels ?? 0
+              } warning
             />
           </div>
         </section>
@@ -465,8 +551,8 @@ count={
         {(message || displayError) && (
           <div
             className={`rounded-xl border px-4 py-3 text-sm ${displayError
-                ? "border-red-200 bg-red-50 text-red-700"
-                : "border-emerald-200 bg-emerald-50 text-emerald-700"
+              ? "border-red-200 bg-red-50 text-red-700"
+              : "border-emerald-200 bg-emerald-50 text-emerald-700"
               }`}
           >
             {displayError || message}
@@ -493,26 +579,23 @@ count={
             loading={loading}
             repairingOrderId={
               repairingOrderId
-                ? String(
-                  repairingOrderId
-                )
+                ? String(repairingOrderId)
                 : null
             }
-            repairLoading={
-              repairLoading
-            }
+            repairLoading={repairLoading}
             packageUpdatingOrderId={
               packageUpdatingOrderId
             }
             packageUpdateLoading={
               packageUpdateLoading
             }
-            repairResults={
-              repairResults
+            repairResults={repairResults}
+            onRepairOrder={repairOrder}
+            onDeepRepairOrder={
+              deepRepairOrder
             }
-            onRepairOrder={
-              repairOrder
-            }
+            onDeepRepairAll={deepRepairAll}
+
             onRepairAll={repairAll}
             onUpdatePackage={
               updatePackageAndRepair
@@ -613,8 +696,8 @@ function TabButton({
       type="button"
       onClick={onClick}
       className={`flex min-h-12 items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium transition ${active
-          ? activeStyle
-          : "text-zinc-600 hover:bg-zinc-100"
+        ? activeStyle
+        : "text-zinc-600 hover:bg-zinc-100"
         }`}
     >
       {warning ? (
@@ -627,10 +710,10 @@ function TabButton({
 
       <span
         className={`rounded-full px-2 py-0.5 text-xs ${active
-            ? "bg-white/15 text-white"
-            : warning
-              ? "bg-amber-100 text-amber-800"
-              : "bg-zinc-100 text-zinc-600"
+          ? "bg-white/15 text-white"
+          : warning
+            ? "bg-amber-100 text-amber-800"
+            : "bg-zinc-100 text-zinc-600"
           }`}
       >
         {Number(count || 0)}

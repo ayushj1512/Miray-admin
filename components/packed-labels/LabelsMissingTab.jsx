@@ -125,12 +125,15 @@ export default function LabelsMissingTab({
   packageUpdateLoading = false,
   repairResults = [],
   onRepairOrder,
+  onDeepRepairOrder,
   onRepairAll,
   onUpdatePackage,
   onMessage,
+  onDeepRepairAll,
 }) {
   const [search, setSearch] = useState("");
   const [packageForms, setPackageForms] = useState({});
+  const [showHelp, setShowHelp] = useState(false);
 
   const filteredOrders = useMemo(
     () =>
@@ -149,6 +152,12 @@ export default function LabelsMissingTab({
         ])
       ),
     [repairResults]
+  );
+
+  const deepRequiredOrders = filteredOrders.filter(
+    (order) =>
+      resultMap.get(String(order?._id))?.code ===
+      "DEEP_SEARCH_REQUIRED"
   );
 
   const getPackageForm = (orderId) => ({
@@ -243,6 +252,24 @@ export default function LabelsMissingTab({
               Copy Orders
             </button>
 
+            {deepRequiredOrders.length > 0 && (
+              <button
+                type="button"
+                onClick={() =>
+                  onDeepRepairAll?.(
+                    deepRequiredOrders.map((order) =>
+                      String(order?._id)
+                    )
+                  )
+                }
+                disabled={repairLoading}
+                className="inline-flex h-10 items-center gap-2 rounded-xl bg-zinc-950 px-4 text-sm font-medium text-white disabled:opacity-40"
+              >
+                <PackageSearch className="h-4 w-4" />
+                Deep Repair ({deepRequiredOrders.length})
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() =>
@@ -268,6 +295,75 @@ export default function LabelsMissingTab({
           </div>
         </div>
       </section>
+
+  <section className="overflow-hidden rounded-2xl border border-amber-300 bg-gradient-to-r from-amber-50 via-white to-orange-50 shadow-sm">
+  <button
+    type="button"
+    onClick={() => setShowHelp((value) => !value)}
+    className="flex w-full items-center justify-between gap-4 px-4 py-4 text-left transition hover:bg-amber-50/70"
+  >
+    <div className="flex items-center gap-3">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-900 text-white shadow-sm">
+        <AlertTriangle className="h-5 w-5" />
+      </div>
+
+      <div>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-sm font-bold text-zinc-950">
+            How to use Shiprocket Repair
+          </p>
+
+          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800">
+            Important
+          </span>
+        </div>
+
+        <p className="mt-1 text-xs text-zinc-600">
+          Follow this flow before using Deep Repair.
+        </p>
+      </div>
+    </div>
+
+    <span className="rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 shadow-sm">
+      {showHelp ? "Hide Guide" : "View Guide"}
+    </span>
+  </button>
+
+  {showHelp && (
+    <div className="border-t border-amber-200 bg-white/80 p-4">
+      <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900">
+        Always run normal Repair first. Use Deep Search only when
+        DEEP_SEARCH_REQUIRED appears.
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-4">
+        <GuideStep
+          number="1"
+          title="Repair First"
+          text="Run normal Repair for a fast direct Shiprocket lookup."
+        />
+
+        <GuideStep
+          number="2"
+          title="Check Result"
+          text="If DEEP_SEARCH_REQUIRED appears, that order needs deep lookup."
+        />
+
+        <GuideStep
+          number="3"
+          title="Deep Repair"
+          text="Use Deep Search individually or Deep Repair for all required orders."
+        />
+
+        <GuideStep
+          number="4"
+          title="Fix Other Errors"
+          text="Pincode, courier or package errors must be corrected before retrying."
+        />
+      </div>
+    </div>
+  )}
+</section>
 
       <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
         <div className="relative">
@@ -345,6 +441,9 @@ export default function LabelsMissingTab({
                         showPackageForm={
                           showPackageForm
                         }
+                        onDeepRepair={() =>
+                          onDeepRepairOrder?.(orderId)
+                        }
                         repairing={repairing}
                         packageUpdating={
                           packageUpdating
@@ -401,6 +500,10 @@ export default function LabelsMissingTab({
                     }
                     onRepair={() =>
                       onRepairOrder?.(orderId)
+
+                    }
+                    onDeepRepair={() =>
+                      onDeepRepairOrder?.(orderId)
                     }
                     onPackageChange={(field, value) =>
                       updatePackageField(
@@ -432,6 +535,7 @@ function MissingOrderRow({
   packageUpdating,
   disabled,
   onRepair,
+  onDeepRepair,
   onPackageChange,
   onPackageSubmit,
 }) {
@@ -528,11 +632,23 @@ function MissingOrderRow({
       </td>
 
       <td className="px-4 py-4 text-right">
-        <RepairButton
-          repairing={repairing}
-          disabled={disabled || packageUpdating}
-          onClick={onRepair}
-        />
+        <div className="flex justify-end gap-2">
+          <RepairButton
+            repairing={repairing}
+            disabled={disabled || packageUpdating}
+            onClick={onRepair}
+          />
+          {result?.code === "DEEP_SEARCH_REQUIRED" && (
+            <button
+              type="button"
+              onClick={onDeepRepair}
+              disabled={repairing || disabled}
+              className="h-9 whitespace-nowrap rounded-lg border border-amber-300 bg-amber-50 px-3 text-xs font-semibold text-amber-800 disabled:opacity-40"
+            >
+              Deep Search
+            </button>
+          )}
+        </div>
       </td>
     </tr>
   );
@@ -547,6 +663,7 @@ function MissingOrderCard({
   packageUpdating,
   disabled,
   onRepair,
+  onDeepRepair,
   onPackageChange,
   onPackageSubmit,
 }) {
@@ -567,11 +684,22 @@ function MissingOrderCard({
           </p>
         </div>
 
-        <RepairButton
-          repairing={repairing}
-          disabled={disabled || packageUpdating}
-          onClick={onRepair}
-        />
+        <div className="flex flex-col gap-2">
+          <RepairButton
+            repairing={repairing}
+            disabled={disabled || packageUpdating}
+            onClick={onRepair}
+          />
+
+          <button
+            type="button"
+            onClick={onDeepRepair}
+            disabled={repairing || disabled}
+            className="h-9 rounded-lg bg-amber-700 px-3 text-xs font-medium text-white disabled:opacity-40"
+          >
+            Deep Search
+          </button>
+        </div>
       </div>
 
       <div className="mt-4">
@@ -764,11 +892,10 @@ function RepairResult({ result }) {
 
   return (
     <div
-      className={`max-w-64 rounded-lg px-2.5 py-2 text-xs ${
-        result?.success
-          ? "bg-emerald-50 text-emerald-700"
-          : "bg-red-50 text-red-700"
-      }`}
+      className={`max-w-64 rounded-lg px-2.5 py-2 text-xs ${result?.success
+        ? "bg-emerald-50 text-emerald-700"
+        : "bg-red-50 text-red-700"
+        }`}
     >
       <p className="font-semibold">
         {result?.success
@@ -803,6 +930,30 @@ function EmptyState() {
       <p className="mt-1 text-sm text-zinc-500">
         All packed orders currently have shipping
         labels.
+      </p>
+    </div>
+  );
+}
+
+function GuideStep({
+  number,
+  title,
+  text: description,
+}) {
+  return (
+    <div className="rounded-xl bg-zinc-50 p-3">
+      <div className="flex items-center gap-2">
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-950 text-xs font-semibold text-white">
+          {number}
+        </span>
+
+        <p className="font-semibold text-zinc-900">
+          {title}
+        </p>
+      </div>
+
+      <p className="mt-2 text-xs leading-5 text-zinc-500">
+        {description}
       </p>
     </div>
   );

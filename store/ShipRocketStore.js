@@ -757,7 +757,7 @@ export const useShiprocketStore = create(
     repairMissingShipments:
       async ({
         orderIds = [],
-        limit = 100,
+        limit = 200,
         courierCompanyId =
           null,
         generateShippingLabel =
@@ -783,11 +783,11 @@ export const useShiprocketStore = create(
                     Math.min(
                       Math.max(
                         Number(
-                          limit || 100
+                          limit || 200
                         ),
                         1
                       ),
-                      100
+                      200
                     ),
 
                   courierCompanyId,
@@ -888,6 +888,56 @@ export const useShiprocketStore = create(
           throw error;
         }
       },
+
+
+      /* ========================================================
+   REPAIR SINGLE ORDER - DEEP SEARCH
+======================================================== */
+
+repairShipmentDeep: async (
+  orderId,
+  {
+    courierCompanyId = null,
+    generateShippingLabel = true,
+  } = {}
+) => {
+  if (!orderId) {
+    throw new Error(
+      "orderId is required"
+    );
+  }
+
+  get()._startRepair(
+    orderId
+  );
+
+  try {
+    const data = await request(
+      `/api/orders/${orderId}/repair/deep`,
+      {
+        method: "POST",
+        body: {
+          courierCompanyId,
+          generateShippingLabel,
+        },
+      }
+    );
+
+    set({
+      repairResult: data,
+    });
+
+    get()._successRepair();
+
+    return data;
+  } catch (error) {
+    get()._errorRepair(
+      error
+    );
+
+    throw error;
+  }
+},
 
     /* ========================================================
        CLEAR

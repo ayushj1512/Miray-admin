@@ -77,6 +77,13 @@ export const sidebarMenus = {
   { label: "Barcode Generator", href: "/production/barcode" },
 ],
 
+rto: [
+  { label: "RTO Dashboard", href: "/rto" },
+  { label: "Receive RTO", href: "/rto/receive" },
+  { label: "Received RTO", href: "/rto/received" },
+  { label: "Reports", href: "/rto/reports" },
+],
+
   fast2sms: [
     { label: "Fast2SMS Dashboard", href: "/fast2sms" },
     {
@@ -544,6 +551,7 @@ export const routeSidebarMap = [
   { prefix: "/sales", key: "sales" },
   { prefix: "/account", key: "account_user" },
   { prefix: "/fast2sms", key: "fast2sms" },
+  { prefix: "/rto", key: "rto" },
   { prefix: "/shopify", key: "shopify" },
   { prefix: "/cutting-batch", key: "cutting_batch" },
 ];

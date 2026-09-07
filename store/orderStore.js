@@ -881,6 +881,15 @@ export const normalizeOrder = (order = {}) => {
       return orders;
     },
 
+    fetchRtoReceivedOrders: async (filters = {}) => {
+  return get().fetchAllOrders({
+    ...(filters || {}),
+    rtoReceived: true,
+    page: filters?.page || 1,
+    limit: filters?.limit || 200,
+  });
+},
+
     // ✅ CONFIRMED ORDERS
     fetchConfirmedOrders: async (filters = {}) => {
       return get().fetchAllOrders({
@@ -1062,6 +1071,20 @@ export const normalizeOrder = (order = {}) => {
 
       return order;
     },
+
+    markRtoReceived: async (payload = {}) => {
+  const data = await get()._patch(`/api/orders/rto/receive`, payload);
+
+  const order = get()._normalizeOrder(data);
+
+  if (order?._id) {
+    set({ order });
+    get()._syncOrderInList(order);
+    get()._syncCustomerSupportDetail(order);
+  }
+
+  return data;
+},
 
 
     updateOrderPaymentStatus: async (orderId, paymentStatus) => {

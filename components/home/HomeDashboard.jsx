@@ -144,6 +144,12 @@ const DOMAIN_LIST = [
     route: "/rma",
   },
   {
+  id: "rto",
+  name: "RTO Received",
+  icon: RotateCcw,
+  route: "/rto",
+},
+  {
     id: "media",
     name: "Media",
     icon: Images,
@@ -273,6 +279,7 @@ const CARD_HINTS = {
   bluedart: "Manage Blue Dart shipments, labels & tracking",
   reviews: "Moderate product reviews & ratings",
   fabrics: "Manage fabric records & mappings",
+  rto: "Receive RTO parcels, verify items & restore inventory",
   tailor_production_jobs:
     "Create tailor jobs, assign products, track quantities and receive completed work",
 };

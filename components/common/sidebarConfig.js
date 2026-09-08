@@ -479,6 +479,29 @@ rto: [
     { label: "Analytics", href: "/influencer-collaboration-program/analytics" },
   ],
 
+    influencer_orders: [
+    {
+      label: "Influencer Orders",
+      href: "/influencer-orders",
+    },
+    {
+      label: "Create Order",
+      href: "/influencer-orders/create",
+    },
+    {
+      label: "Pending Dispatch",
+      href: "/influencer-orders/pending",
+    },
+    {
+      label: "Dispatched Orders",
+      href: "/influencer-orders/dispatched",
+    },
+    {
+      label: "Logs & Reports",
+      href: "/influencer-orders/reports",
+    },
+  ],
+
   wordpress: [{ label: "WP Orders", href: "/wordpress/orders" }],
 
   cutting_batch: [
@@ -531,6 +554,10 @@ export const routeSidebarMap = [
   { prefix: "/analytics", key: "analytics" },
   { prefix: "/reels", key: "reels" },
   { prefix: "/marketing", key: "marketing" },
+   {
+    prefix: "/influencer-orders",
+    key: "influencer_orders",
+  },
   { prefix: "/influencer-collaboration-program", key: "collaboration" },
   { prefix: "/tailor-production-jobs", key: "tailor_production_jobs" },
   { prefix: "/collaboration", key: "collaboration" },

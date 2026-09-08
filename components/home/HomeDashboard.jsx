@@ -34,6 +34,7 @@ import {
   UserRoundCog,
   Factory,
   ClipboardPlus,
+  Megaphone,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -58,6 +59,12 @@ const DOMAIN_LIST = [
     icon: Scissors,
     route: "/cutting-batch",
   },
+  {
+  id: "influencer_orders",
+  name: "Influencer Orders",
+  icon: Megaphone,
+  route: "/influencer-orders",
+},
   {
     id: "designing",
     name: "Designing",
@@ -261,8 +268,12 @@ const DOMAIN_LIST = [
 
 const CARD_HINTS = {
   shopify: "View Shopify products, orders & customers",
-  cutting_batch: "Generate and download cutting lists",
-  design_lab: "Creative apparel design workspace",
+
+  cutting_batch:
+    "Generate and download cutting lists",
+
+  design_lab:
+    "Creative apparel design workspace",
 
   production:
     "Assign production, track receipts and pending quantities",
@@ -270,19 +281,44 @@ const CARD_HINTS = {
   tailors:
     "Manage tailor profiles, skills, rates and assigned products",
 
-  refunds: "Manage Razorpay refunds & manual refund proofs",
-  fast2sms: "View WhatsApp confirmation logs & message status",
-  rma: "View Return / Exchange requests",
-  collaboration: "Track ongoing influencer collaborations",
-  footwear: "Manage footwear catalog & variants",
-  shiprocket: "Manage Shiprocket sync, labels & tracking",
-  bluedart: "Manage Blue Dart shipments, labels & tracking",
-  reviews: "Moderate product reviews & ratings",
-  fabrics: "Manage fabric records & mappings",
-  rto: "Receive RTO parcels, verify items & restore inventory",
+  refunds:
+    "Manage Razorpay refunds & manual refund proofs",
+
+  fast2sms:
+    "View WhatsApp confirmation logs & message status",
+
+  rma:
+    "View Return / Exchange requests",
+
+  rto:
+    "Receive RTO parcels, verify items & restore inventory",
+
+  collaboration:
+    "Track ongoing influencer collaborations",
+
+  influencer_orders:
+    "Create influencer orders and track warehouse dispatch",
+
+  footwear:
+    "Manage footwear catalog & variants",
+
+  shiprocket:
+    "Manage Shiprocket sync, labels & tracking",
+
+  bluedart:
+    "Manage Blue Dart shipments, labels & tracking",
+
+  reviews:
+    "Moderate product reviews & ratings",
+
+  fabrics:
+    "Manage fabric records & mappings",
+
   tailor_production_jobs:
     "Create tailor jobs, assign products, track quantities and receive completed work",
 };
+
+
 const FEATURED_CARDS = new Set([
   "design_lab",
   "shopify",

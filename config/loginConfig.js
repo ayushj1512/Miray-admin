@@ -7,22 +7,19 @@
 export const DOMAIN_PERMISSIONS = {
   shopify: "manageShopify",
   cutting_batch: "manageCuttingBatch",
-
   designing: "manageDesigning",
   design_lab: "manageDesignLab",
-
   production: "manageProduction",
   tailors: "manageTailors",
-  tailor_production_jobs: "manageTailorProductionJobs",
+
+  tailor_production_jobs:
+    "manageTailorProductionJobs",
 
   accounts: "manageAccounts",
-
   products: "manageProducts",
   footwear: "manageFootwear",
-
   orders: "manageOrders",
   refunds: "manageRefunds",
-
   fast2sms: "manageFast2SMS",
 
   // Shipping
@@ -31,17 +28,13 @@ export const DOMAIN_PERMISSIONS = {
 
   reviews: "manageReviews",
   rma: "manageRMA",
-
-  // ✅ RTO warehouse receiving
   rto: "manageRTO",
 
   media: "manageMedia",
   reels: "manageReels",
   blogs: "manageBlogs",
-
   inventory: "manageInventory",
   fabrics: "manageFabrics",
-
   operations: "manageOperations",
 
   // Warehouse dashboard shares production access
@@ -49,33 +42,28 @@ export const DOMAIN_PERMISSIONS = {
 
   it: "manageIT",
   marketing: "manageMarketing",
-
   customers: "manageCustomers",
   support: "manageSupport",
-
   sales: "manageSales",
-
   analytics: "viewAnalytics",
   reports: "viewReports",
-
   tickets: "manageTickets",
   coupons: "manageCoupons",
-
   wordpress: "manageWordpressOrders",
 
   collaboration: "manageInfluencerProgram",
-};
 
+  // Influencer product dispatch orders
+  influencer_orders: "manageInfluencerOrders",
+};
 
 /* =========================================================
    ALL PERMISSIONS
-   Auto-generated from domains
 ========================================================= */
 
 export const ALL_PERMISSIONS = [
   ...new Set(Object.values(DOMAIN_PERMISSIONS)),
 ];
-
 
 /* =========================================================
    ROLE DEFAULT PERMISSIONS
@@ -110,17 +98,18 @@ export const ROLE_DEFAULT_PERMS = {
     "manageRTO",
   ],
 
-  // Read only
+  // Read-only
   viewer: [
     "viewReports",
     "viewAnalytics",
   ],
 
-  // Content / influencer team
+  // Content / influencer marketing team
   influencer: [
     "manageMedia",
     "manageReels",
     "manageInfluencerProgram",
+    "manageInfluencerOrders",
   ],
 
   // Warehouse team
@@ -131,6 +120,7 @@ export const ROLE_DEFAULT_PERMS = {
     "manageInventory",
     "manageCuttingBatch",
     "manageRTO",
+    "manageInfluencerOrders",
   ],
 
   // Production manager
@@ -143,25 +133,48 @@ export const ROLE_DEFAULT_PERMS = {
     "manageCuttingBatch",
     "manageOrders",
     "manageRTO",
+    "manageInfluencerOrders",
   ],
 };
-
 
 /* =========================================================
    ROLE OPTIONS
 ========================================================= */
 
 export const ROLE_OPTIONS = [
-  { value: "superadmin", label: "Super Admin" },
-  { value: "admin", label: "Admin" },
-  { value: "production_manager", label: "Production Manager" },
-  { value: "customer_care", label: "Customer Care" },
-  { value: "warehouse", label: "Warehouse" },
-  { value: "staff", label: "Staff" },
-  { value: "influencer", label: "Influencer" },
-  { value: "viewer", label: "Viewer" },
+  {
+    value: "superadmin",
+    label: "Super Admin",
+  },
+  {
+    value: "admin",
+    label: "Admin",
+  },
+  {
+    value: "production_manager",
+    label: "Production Manager",
+  },
+  {
+    value: "customer_care",
+    label: "Customer Care",
+  },
+  {
+    value: "warehouse",
+    label: "Warehouse",
+  },
+  {
+    value: "staff",
+    label: "Staff",
+  },
+  {
+    value: "influencer",
+    label: "Influencer / Marketing",
+  },
+  {
+    value: "viewer",
+    label: "Viewer",
+  },
 ];
-
 
 /* =========================================================
    PERMISSION LABELS
@@ -170,56 +183,48 @@ export const ROLE_OPTIONS = [
 export const PERMISSION_LABELS = {
   manageShopify: "Manage Shopify",
   manageCuttingBatch: "Manage Cutting Batches",
-
   manageDesigning: "Manage Designing",
   manageDesignLab: "Manage Design Lab",
-
   manageProduction: "Manage Production",
   manageTailors: "Manage Tailors",
-  manageTailorProductionJobs: "Manage Tailor Production Jobs",
+
+  manageTailorProductionJobs:
+    "Manage Tailor Production Jobs",
 
   manageAccounts: "Manage Accounts",
-
   manageProducts: "Manage Products",
   manageFootwear: "Manage Footwear",
-
   manageOrders: "Manage Orders",
   manageRefunds: "Manage Refunds",
-
   manageFast2SMS: "Manage Fast2SMS",
-
   manageReviews: "Manage Reviews",
   manageRMA: "Manage RMA Requests",
-
-  // ✅ RTO
   manageRTO: "Manage RTO Received",
-
   manageMedia: "Manage Media",
   manageReels: "Manage Reels",
   manageBlogs: "Manage Blogs",
-
   manageInventory: "Manage Inventory",
   manageFabrics: "Manage Fabrics",
-
   manageOperations: "Manage Operations",
   manageIT: "Manage IT & Systems",
   manageMarketing: "Manage Marketing",
-
   manageCustomers: "Manage Customers",
   manageSupport: "Manage Customer Support",
-
   manageSales: "Manage Sales",
-
   viewAnalytics: "View Analytics",
   viewReports: "View Reports",
-
   manageTickets: "Manage Tickets",
   manageCoupons: "Manage Coupons",
 
-  manageWordpressOrders: "Manage WordPress Orders",
-  manageInfluencerProgram: "Manage Influencer Program",
-};
+  manageWordpressOrders:
+    "Manage WordPress Orders",
 
+  manageInfluencerProgram:
+    "Manage Influencer Program",
+
+  manageInfluencerOrders:
+    "Manage Influencer Orders",
+};
 
 /* =========================================================
    PERMISSION HELPERS
@@ -227,49 +232,81 @@ export const PERMISSION_LABELS = {
 
 export const hasPermission = (
   permissions = [],
-  permission,
+  permission
 ) => {
-  if (!permission || !Array.isArray(permissions)) return false;
-  if (permissions.includes("*")) return true;
+  if (
+    !permission ||
+    !Array.isArray(permissions)
+  ) {
+    return false;
+  }
+
+  if (permissions.includes("*")) {
+    return true;
+  }
 
   return permissions.includes(permission);
 };
 
-
 export const hasAnyPermission = (
   permissions = [],
-  required = [],
+  required = []
 ) => {
-  if (!Array.isArray(permissions)) return false;
-  if (permissions.includes("*")) return true;
-  if (!Array.isArray(required) || !required.length) return false;
+  if (!Array.isArray(permissions)) {
+    return false;
+  }
+
+  if (permissions.includes("*")) {
+    return true;
+  }
+
+  if (
+    !Array.isArray(required) ||
+    !required.length
+  ) {
+    return false;
+  }
 
   return required.some((permission) =>
     permissions.includes(permission)
   );
 };
 
-
 export const hasAllPermissions = (
   permissions = [],
-  required = [],
+  required = []
 ) => {
-  if (!Array.isArray(permissions)) return false;
-  if (permissions.includes("*")) return true;
-  if (!Array.isArray(required) || !required.length) return true;
+  if (!Array.isArray(permissions)) {
+    return false;
+  }
+
+  if (permissions.includes("*")) {
+    return true;
+  }
+
+  if (
+    !Array.isArray(required) ||
+    !required.length
+  ) {
+    return true;
+  }
 
   return required.every((permission) =>
     permissions.includes(permission)
   );
 };
 
-
 /* =========================================================
    RESOLVE USER PERMISSIONS
 ========================================================= */
 
-export const getResolvedPermissions = (user = {}) => {
-  if (Array.isArray(user?.permissions) && user.permissions.length) {
+export const getResolvedPermissions = (
+  user = {}
+) => {
+  if (
+    Array.isArray(user?.permissions) &&
+    user.permissions.length
+  ) {
     return user.permissions;
   }
 
@@ -279,26 +316,31 @@ export const getResolvedPermissions = (user = {}) => {
   );
 };
 
-
 /* =========================================================
    DOMAIN ACCESS
 ========================================================= */
 
 export const canAccessDomain = (
   permissions = [],
-  domainId,
+  domainId
 ) => {
-  const permission = DOMAIN_PERMISSIONS[domainId];
+  const permission =
+    DOMAIN_PERMISSIONS[domainId];
 
-  if (!permission) return false;
+  if (!permission) {
+    return false;
+  }
 
-  return hasPermission(permissions, permission);
+  return hasPermission(
+    permissions,
+    permission
+  );
 };
 
-
 export const getAccessibleDomainIds = (
-  permissions = [],
+  permissions = []
 ) =>
-  Object.keys(DOMAIN_PERMISSIONS).filter((domainId) =>
-    canAccessDomain(permissions, domainId)
+  Object.keys(DOMAIN_PERMISSIONS).filter(
+    (domainId) =>
+      canAccessDomain(permissions, domainId)
   );

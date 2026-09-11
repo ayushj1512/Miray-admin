@@ -241,59 +241,59 @@ rto: [
     { label: "Media Library", href: "/media" },
   ],
 
-  orders: [
-    { label: "Orders Dashboard", href: "/orders" },
-    { label: "All Orders", href: "/orders/all" },
+orders: [
+  { label: "Orders Dashboard", href: "/orders" },
+  { label: "All Orders", href: "/orders/all" },
 
-    // ✅ confirmation
+  // ✅ search & courier
+  { label: "Order Search", href: "/orders/search" },
+  { label: "Courier Details", href: "/orders/courier" },
 
+  {
+    label: "Product → Order Search",
+    href: "/orders/search-order-by-name-or-code",
+  },
 
-    { label: "Order Search", href: "/orders/search" },
+  {
+    label: "Order Search by Location",
+    href: "/orders/getOrderbyLocation",
+  },
 
-    {
-      label: "Product → Order Search",
-      href: "/orders/search-order-by-name-or-code",
-    },
+  { label: "Confirmed Orders", href: "/orders/confirmed-orders" },
+  { label: "Unconfirmed Orders", href: "/orders/unconfirmed-orders" },
+  { label: "Size Change", href: "/orders/size-change" },
 
-    {
-      label: "Order Search by Location",
-      href: "/orders/getOrderbyLocation",
-    },
-    { label: "Confirmed Orders", href: "/orders/confirmed-orders" },
-    { label: "Unconfirmed Orders", href: "/orders/unconfirmed-orders" },
-    { label: "Size Change", href: "/orders/size-change" },
+  { label: "Bulk Order Cancellation", href: "/orders/bulk-order-cancellation" },
 
-    { label: "Bulk Order Cancellation", href: "/orders/bulk-order-cancellation" },
+  { label: "Duplicate Orders", href: "/orders/duplicate-orders" },
+  { label: "Refund Escalation", href: "/orders/refund-escalation" },
+  { label: "Order Analytics", href: "/orders/report" },
 
-    { label: "Duplicate Orders", href: "/orders/duplicate-orders" },
-    { label: "Refund Escalation", href: "/orders/refund-escalation" },
-    { label: "Order Analytics", href: "/orders/report" },
+  // ✅ fulfillment
+  { label: "Processing", href: "/orders/processing" },
+  { label: "Packed", href: "/orders/packed" },
+  { label: "Shipped", href: "/orders/shipped" },
+  { label: "Out for Delivery", href: "/orders/out-for-delivery" },
+  { label: "Delivered", href: "/orders/delivered" },
 
-    // ✅ fulfillment
-    { label: "Processing", href: "/orders/processing" },
-    { label: "Packed", href: "/orders/packed" },
-    { label: "Shipped", href: "/orders/shipped" },
-    { label: "Out for Delivery", href: "/orders/out-for-delivery" },
-    { label: "Delivered", href: "/orders/delivered" },
+  // ✅ reverse flow
+  { label: "Return Requested", href: "/orders/return_requested" },
+  { label: "Returned", href: "/orders/returned" },
+  { label: "Exchange Requested", href: "/orders/exchange_requested" },
+  { label: "Exchanged", href: "/orders/exchanged" },
+  { label: "Pickup Initiated", href: "/orders/pickup_initiated" },
 
-    // ✅ reverse flow
-    { label: "Return Requested", href: "/orders/return_requested" },
-    { label: "Returned", href: "/orders/returned" },
-    { label: "Exchange Requested", href: "/orders/exchange_requested" },
-    { label: "Exchanged", href: "/orders/exchanged" },
-    { label: "Pickup Initiated", href: "/orders/pickup_initiated" },
+  // ✅ failure states
+  { label: "Failed", href: "/orders/failed" },
+  { label: "Cancelled", href: "/orders/cancelled" },
+  { label: "Refunded", href: "/orders/refunded" },
+  { label: "RTO / NDR", href: "/orders/rto" },
 
-    // ✅ failure states
-    { label: "Failed", href: "/orders/failed" },
-    { label: "Cancelled", href: "/orders/cancelled" },
-    { label: "Refunded", href: "/orders/refunded" },
-    { label: "RTO / NDR", href: "/orders/rto" },
-
-    // ✅ misc
-    { label: "Order Remark", href: "/orders/remark" },
-    { label: "Invoice", href: "/orders/invoices" },
-    { label: "RMA Requests", href: "/orders/rma" },
-  ],
+  // ✅ misc
+  { label: "Order Remark", href: "/orders/remark" },
+  { label: "Invoice", href: "/orders/invoices" },
+  { label: "RMA Requests", href: "/orders/rma" },
+],
 
   rma: [
     { label: "RMA Requests", href: "/rma" },

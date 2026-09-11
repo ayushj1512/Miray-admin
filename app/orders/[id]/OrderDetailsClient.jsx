@@ -31,6 +31,7 @@ import OrderCouponDetails from "@/components/orders/OrderCouponDetails";
 import OrderPaymentDetails from "@/components/orders/OrderPaymentDetails";
 import OrderShippingDetailsCard from "@/components/orders/OrderShippingDetailsCard";
 import ShopifyOrderItemsEditor from "@/components/orders/ShopifyOrderItemsEditor";
+import OrderCourierDetailsCard from "@/components/orders/OrderCourierDetailsCard";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 const STORE_URL = "https://www.mirayfashions.com";
@@ -569,6 +570,11 @@ export default function OrderDetailsClient({ id }) {
             order={order}
             onRefresh={() => fetchOrderById(order._id)}
           />
+
+          <OrderCourierDetailsCard
+  order={order}
+  onRefresh={() => fetchOrderById(order._id)}
+/>
 
           <OrderTrackingCard
             orderId={order._id}

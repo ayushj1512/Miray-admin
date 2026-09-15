@@ -201,6 +201,14 @@ const useTailorProductionJobStore = create(
     currentJob: null,
     productionSummary: {},
     productionCoverage: [],
+
+    productionLogs: [],
+logsLoading: false,
+logsPagination: {
+  ...initialPagination,
+},
+
+
     coverageLoading: false,
 
     pagination: {
@@ -549,6 +557,71 @@ const useTailorProductionJobStore = create(
       }
     },
 
+
+
+    /* =====================================================
+   FETCH PRODUCTION LOGS
+===================================================== */
+
+fetchProductionLogs: async (params = {}) => {
+  set({
+    logsLoading: true,
+    error: null,
+  });
+
+  try {
+    const response = await api.get(
+      `${BASE_ROUTE}/logs`,
+      {
+        params: cleanParams(params),
+      },
+    );
+
+    const logs = Array.isArray(
+      response?.data?.logs,
+    )
+      ? response.data.logs
+      : [];
+
+    const logsPagination = {
+      page: Number(response?.data?.page) || 1,
+      limit: Number(response?.data?.limit) || 30,
+      total: Number(response?.data?.total) || 0,
+      totalPages:
+        Number(response?.data?.totalPages) || 1,
+      hasNextPage:
+        Number(response?.data?.page || 1) <
+        Number(response?.data?.totalPages || 1),
+      hasPreviousPage:
+        Number(response?.data?.page || 1) > 1,
+    };
+
+    set({
+      productionLogs: logs,
+      logsPagination,
+      logsLoading: false,
+    });
+
+    return {
+      logs,
+      pagination: logsPagination,
+    };
+  } catch (error) {
+    const message = getErrorMessage(
+      error,
+      "Unable to load production logs.",
+    );
+
+    set({
+      productionLogs: [],
+      logsLoading: false,
+      error: message,
+    });
+
+    throw new Error(message);
+  }
+},
+
     /* =====================================================
        UPDATE STATUS
     ===================================================== */
@@ -814,6 +887,13 @@ const useTailorProductionJobStore = create(
 
         productionCoverage: [],
         coverageLoading: false,
+
+        productionLogs: [],
+logsLoading: false,
+
+logsPagination: {
+  ...initialPagination,
+},
 
         error: null,
       }),

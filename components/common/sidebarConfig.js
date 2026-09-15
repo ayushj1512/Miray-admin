@@ -55,40 +55,48 @@ export const sidebarMenus = {
       label: "Create Job",
       href: "/tailor-production-jobs/create",
     },
+    {
+      label: "Production Job Logs",
+      href: "/tailor-production-jobs/production-job-logs",
+    },
   ],
 
   production: [
-  { label: "Production Dashboard", href: "/production" },
-  { label: "Packable Orders", href: "/production/packable-orders" },
+    { label: "Production Dashboard", href: "/production" },
+    { label: "Packable Orders", href: "/production/packable-orders" },
 
-  { label: "All Production Jobs", href: "/production/all-production-job" },
-  { label: "Production + Jobs", href: "/production/all-production-job-with-production-job" },
+    { label: "All Production Jobs", href: "/production/all-production-job" },
+    { label: "Production + Jobs", href: "/production/all-production-job-with-production-job" },
 
-  { label: "Confirmed Production Jobs", href: "/production/production-job" },
-  // Tailor production
-{
-  label: "Tailor Production Jobs",
-  href: "/production/tailor-production-job",
-},
-  { label: "Packed Orders", href: "/production/packed" },
-  { label: "Packed Order Labels", href: "/production/packed-labels" },
+    { label: "Confirmed Production Jobs", href: "/production/production-job" },
+    // Tailor production
+    {
+      label: "Tailor Production Jobs",
+      href: "/production/tailor-production-job",
+    },
+    {
+      label: "Production Job Logs",
+      href: "/production/production-job-logs",
+    },
+    { label: "Packed Orders", href: "/production/packed" },
+    { label: "Packed Order Labels", href: "/production/packed-labels" },
 
-  { label: "Sampling", href: "/production/sampling" },
-  { label: "Stock Update", href: "/production/stock-update" },
-  { label: "Pattern Number", href: "/production/pattern-number" },
-  { label: "Fabric", href: "/production/fabric" },
-  { label: "Product Detail", href: "/production/product-detail" },
-  { label: "Missing Patterns", href: "/production/missing-patterns" },
-  { label: "Barcode Generator", href: "/production/barcode" },
-],
+    { label: "Sampling", href: "/production/sampling" },
+    { label: "Stock Update", href: "/production/stock-update" },
+    { label: "Pattern Number", href: "/production/pattern-number" },
+    { label: "Fabric", href: "/production/fabric" },
+    { label: "Product Detail", href: "/production/product-detail" },
+    { label: "Missing Patterns", href: "/production/missing-patterns" },
+    { label: "Barcode Generator", href: "/production/barcode" },
+  ],
 
-rto: [
-  { label: "RTO Dashboard", href: "/rto" },
-  { label: "Receive RTO", href: "/rto/receive" },
-  { label: "Bulk RTO Receive", href: "/rto/bulk" },
-  { label: "Received RTO", href: "/rto/received" },
-  { label: "Reports", href: "/rto/reports" },
-],
+  rto: [
+    { label: "RTO Dashboard", href: "/rto" },
+    { label: "Receive RTO", href: "/rto/receive" },
+    { label: "Bulk RTO Receive", href: "/rto/bulk" },
+    { label: "Received RTO", href: "/rto/received" },
+    { label: "Reports", href: "/rto/reports" },
+  ],
 
   fast2sms: [
     { label: "Fast2SMS Dashboard", href: "/fast2sms" },
@@ -242,59 +250,59 @@ rto: [
     { label: "Media Library", href: "/media" },
   ],
 
-orders: [
-  { label: "Orders Dashboard", href: "/orders" },
-  { label: "All Orders", href: "/orders/all" },
+  orders: [
+    { label: "Orders Dashboard", href: "/orders" },
+    { label: "All Orders", href: "/orders/all" },
 
-  // ✅ search & courier
-  { label: "Order Search", href: "/orders/search" },
-  { label: "Courier Details", href: "/orders/courier" },
+    // ✅ search & courier
+    { label: "Order Search", href: "/orders/search" },
+    { label: "Courier Details", href: "/orders/courier" },
 
-  {
-    label: "Product → Order Search",
-    href: "/orders/search-order-by-name-or-code",
-  },
+    {
+      label: "Product → Order Search",
+      href: "/orders/search-order-by-name-or-code",
+    },
 
-  {
-    label: "Order Search by Location",
-    href: "/orders/getOrderbyLocation",
-  },
+    {
+      label: "Order Search by Location",
+      href: "/orders/getOrderbyLocation",
+    },
 
-  { label: "Confirmed Orders", href: "/orders/confirmed-orders" },
-  { label: "Unconfirmed Orders", href: "/orders/unconfirmed-orders" },
-  { label: "Size Change", href: "/orders/size-change" },
+    { label: "Confirmed Orders", href: "/orders/confirmed-orders" },
+    { label: "Unconfirmed Orders", href: "/orders/unconfirmed-orders" },
+    { label: "Size Change", href: "/orders/size-change" },
 
-  { label: "Bulk Order Cancellation", href: "/orders/bulk-order-cancellation" },
+    { label: "Bulk Order Cancellation", href: "/orders/bulk-order-cancellation" },
 
-  { label: "Duplicate Orders", href: "/orders/duplicate-orders" },
-  { label: "Refund Escalation", href: "/orders/refund-escalation" },
-  { label: "Order Analytics", href: "/orders/report" },
+    { label: "Duplicate Orders", href: "/orders/duplicate-orders" },
+    { label: "Refund Escalation", href: "/orders/refund-escalation" },
+    { label: "Order Analytics", href: "/orders/report" },
 
-  // ✅ fulfillment
-  { label: "Processing", href: "/orders/processing" },
-  { label: "Packed", href: "/orders/packed" },
-  { label: "Shipped", href: "/orders/shipped" },
-  { label: "Out for Delivery", href: "/orders/out-for-delivery" },
-  { label: "Delivered", href: "/orders/delivered" },
+    // ✅ fulfillment
+    { label: "Processing", href: "/orders/processing" },
+    { label: "Packed", href: "/orders/packed" },
+    { label: "Shipped", href: "/orders/shipped" },
+    { label: "Out for Delivery", href: "/orders/out-for-delivery" },
+    { label: "Delivered", href: "/orders/delivered" },
 
-  // ✅ reverse flow
-  { label: "Return Requested", href: "/orders/return_requested" },
-  { label: "Returned", href: "/orders/returned" },
-  { label: "Exchange Requested", href: "/orders/exchange_requested" },
-  { label: "Exchanged", href: "/orders/exchanged" },
-  { label: "Pickup Initiated", href: "/orders/pickup_initiated" },
+    // ✅ reverse flow
+    { label: "Return Requested", href: "/orders/return_requested" },
+    { label: "Returned", href: "/orders/returned" },
+    { label: "Exchange Requested", href: "/orders/exchange_requested" },
+    { label: "Exchanged", href: "/orders/exchanged" },
+    { label: "Pickup Initiated", href: "/orders/pickup_initiated" },
 
-  // ✅ failure states
-  { label: "Failed", href: "/orders/failed" },
-  { label: "Cancelled", href: "/orders/cancelled" },
-  { label: "Refunded", href: "/orders/refunded" },
-  { label: "RTO / NDR", href: "/orders/rto" },
+    // ✅ failure states
+    { label: "Failed", href: "/orders/failed" },
+    { label: "Cancelled", href: "/orders/cancelled" },
+    { label: "Refunded", href: "/orders/refunded" },
+    { label: "RTO / NDR", href: "/orders/rto" },
 
-  // ✅ misc
-  { label: "Order Remark", href: "/orders/remark" },
-  { label: "Invoice", href: "/orders/invoices" },
-  { label: "RMA Requests", href: "/orders/rma" },
-],
+    // ✅ misc
+    { label: "Order Remark", href: "/orders/remark" },
+    { label: "Invoice", href: "/orders/invoices" },
+    { label: "RMA Requests", href: "/orders/rma" },
+  ],
 
   rma: [
     { label: "RMA Requests", href: "/rma" },
@@ -480,7 +488,7 @@ orders: [
     { label: "Analytics", href: "/influencer-collaboration-program/analytics" },
   ],
 
-    influencer_orders: [
+  influencer_orders: [
     {
       label: "Influencer Orders",
       href: "/influencer-orders",
@@ -555,7 +563,7 @@ export const routeSidebarMap = [
   { prefix: "/analytics", key: "analytics" },
   { prefix: "/reels", key: "reels" },
   { prefix: "/marketing", key: "marketing" },
-   {
+  {
     prefix: "/influencer-orders",
     key: "influencer_orders",
   },

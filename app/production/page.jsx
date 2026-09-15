@@ -18,13 +18,21 @@ import {
   toYYYYMMDD,
 } from "@/components/production/productionUtils";
 import ProductionPackabilityTabs from "@/components/production/ProductionPackabilityTabs";
+import ProductionDuplicateAlert from "@/components/production/ProductionDuplicateAlert";
 
 export default function ProductionDashboardPage() {
   const router = useRouter();
   const store = useAdminProductionStore();
 
-  const cancelOrder = useOrderStore((state) => state.cancelOrder);
+const cancelOrder = useOrderStore((state) => state.cancelOrder);
 
+const fetchDuplicateOrderAlerts = useOrderStore(
+  (state) => state.fetchDuplicateOrderAlerts
+);
+
+const duplicateAlerts = useOrderStore(
+  (state) => state.duplicateAlerts
+);
   const {
     queue,
     summary,
@@ -117,19 +125,24 @@ export default function ProductionDashboardPage() {
     };
   };
 
-  useEffect(() => {
-    fetchProductionSummary();
-    fetchProductionQueue(
-      buildQueuePayload({
-        page: 1,
-        limit: currentLimit,
-        fulfillmentStatus: fulfillmentStatus || "processing",
-        from: filters?.from || "",
-        to: filters?.to || "",
-      })
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+useEffect(() => {
+  fetchProductionSummary();
+
+  fetchProductionQueue(
+    buildQueuePayload({
+      page: 1,
+      limit: currentLimit,
+      fulfillmentStatus:
+        fulfillmentStatus || "processing",
+      from: filters?.from || "",
+      to: filters?.to || "",
+    })
+  );
+
+  fetchDuplicateOrderAlerts().catch(() => {});
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
 
   useEffect(() => {
     setSearchInput(filters?.q || "");
@@ -178,6 +191,7 @@ export default function ProductionDashboardPage() {
   const runQueueRefresh = async (overrides = {}) => {
     await refreshQueue(buildQueuePayload(overrides));
   };
+
 
   const goToPage = async (page) => {
     const safePage = Math.max(1, Number(page || 1));
@@ -453,6 +467,17 @@ toast.success(`${ids.length} orders marked packed`);
         exporting={exporting}
         canExport={!!queue.length}
       />
+
+      <ProductionDuplicateAlert
+  duplicates={duplicateAlerts}
+  onOrderClick={(order) => {
+    if (!order?.id) return;
+
+    router.push(
+      `/production/order/${order.id}`
+    );
+  }}
+/>
 
       {error ? (
         <div className="flex items-center justify-between rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700">

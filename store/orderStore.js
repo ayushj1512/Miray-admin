@@ -1891,25 +1891,73 @@ export const useOrderStore = create((set, get) => ({
     };
   },
 
+  /* =========================================================
+     DUPLICATE ORDER ALERTS
+  ========================================================= */
 
-  /* ---------------- DUPLICATE ORDER ALERTS ---------------- */
-
-  // fetch only (no marking)
   fetchDuplicateOrderAlerts: async () => {
-    const data = await get()._get(`/api/orders/duplicate-alerts`);
-    return data;
+    set({
+      duplicateLoading: true,
+      error: null,
+    });
+
+    try {
+      const data = await get()._get(
+        `/api/orders/duplicate-alerts`,
+        { silent: true }
+      );
+
+      const duplicates = Array.isArray(data?.duplicates)
+        ? data.duplicates
+        : [];
+
+      set({
+        duplicateAlerts: duplicates,
+        duplicateLoading: false,
+        error: null,
+      });
+
+      return {
+        ...data,
+        duplicates,
+      };
+    } catch (error) {
+      set({
+        duplicateAlerts: [],
+        duplicateLoading: false,
+        error:
+          error?.message ||
+          "Failed to fetch duplicate orders",
+      });
+
+      throw error;
+    }
   },
 
-  // detect + mark in adminRemarks
-  markDuplicateOrderAlerts: async () => {
-    const data = await get()._post(`/api/orders/duplicate-alerts/mark`, {});
-    return data;
-  },
+  clearDuplicateOrderAlerts: () =>
+    set({
+      duplicateAlerts: [],
+      duplicateLoading: false,
+    }),
 
-  clearOrder: () => set({ order: null }),
-  clearProductOrderCount: () => set({ productOrderCount: null }),
+  /* =========================================================
+     CLEAR / RESET
+  ========================================================= */
+
+  clearOrder: () =>
+    set({
+      order: null,
+    }),
+
+  clearProductOrderCount: () =>
+    set({
+      productOrderCount: null,
+    }),
+
   clearProductOrderSearchResults: () =>
-    set({ productOrderSearchResults: [] }),
+    set({
+      productOrderSearchResults: [],
+    }),
 
   clearOrders: () =>
     set({
@@ -1926,17 +1974,29 @@ export const useOrderStore = create((set, get) => ({
     set({
       orders: [],
       order: null,
+
       loading: false,
       error: null,
+
       productOrderCount: null,
+      productOrderSearchResults: [],
       ordersMeta: null,
+
       customerSupportOrderDetails: {},
+
+      duplicateAlerts: [],
+      duplicateLoading: false,
+
       confirmationDetails: null,
       confirmationDetailsLoading: false,
-      // ✅ dashboard
+
       orderDashboard: null,
       orderDashboardLoading: false,
+
       bulkCancellationLoading: false,
-      productOrderSearchResults: [],
+
+      packedOrderLabels: [],
+      packedOrderLabelsSummary: null,
+      downloadingMergedLabels: false,
     }),
 }));

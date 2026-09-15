@@ -85,6 +85,7 @@ export const sidebarMenus = {
 rto: [
   { label: "RTO Dashboard", href: "/rto" },
   { label: "Receive RTO", href: "/rto/receive" },
+  { label: "Bulk RTO Receive", href: "/rto/bulk" },
   { label: "Received RTO", href: "/rto/received" },
   { label: "Reports", href: "/rto/reports" },
 ],

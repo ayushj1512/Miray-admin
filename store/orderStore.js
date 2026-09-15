@@ -1106,6 +1106,104 @@ export const useOrderStore = create((set, get) => ({
     return data;
   },
 
+    /* ================= BULK RTO ================= */
+
+    /* ================= BULK CLEAN RTO ================= */
+
+  downloadBulkRtoSample: async () => {
+    try {
+      const res = await fetch(
+        `${API}/api/orders/rto/bulk/sample`
+      );
+
+      if (!res.ok)
+        throw new Error("Sample download failed");
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "bulk-rto-sample.xlsx";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      URL.revokeObjectURL(url);
+      return true;
+    } catch (error) {
+      set({ error: error.message });
+      throw error;
+    }
+  },
+
+  bulkMarkRtoReceived: async (file) => {
+    if (!file)
+      throw new Error("Please select Excel file");
+
+    get()._start();
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch(
+        `${API}/api/orders/rto/bulk/receive`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(
+          data?.message || "Bulk RTO upload failed"
+        );
+      }
+
+      get()._success();
+      return data;
+    } catch (error) {
+      get()._fail(error);
+      throw error;
+    }
+  },
+  
+  bulkMarkRtoReceived: async (file) => {
+    if (!file) throw new Error("Please select Excel file");
+
+    get()._start();
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch(
+        `${API}/api/orders/rto/bulk/receive`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(
+          data?.message || "Bulk RTO upload failed"
+        );
+      }
+
+      get()._success();
+      return data;
+    } catch (error) {
+      get()._fail(error);
+      throw error;
+    }
+  },
+
 
   updateOrderPaymentStatus: async (orderId, paymentStatus) => {
     if (!orderId) return null;

@@ -184,8 +184,8 @@ function PaginationBar({
             onClick={onRefresh}
             disabled={loading}
             className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${loading
-                ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                : "bg-white border border-gray-200 hover:bg-gray-50 active:scale-[0.98]"
+              ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+              : "bg-white border border-gray-200 hover:bg-gray-50 active:scale-[0.98]"
               }`}
           >
             {loading ? (
@@ -202,8 +202,8 @@ function PaginationBar({
             disabled={!canGoPrev || loading}
             onClick={() => onPageChange(Math.max(currentPage - 1, 1))}
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition ${!canGoPrev || loading
-                ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                : "bg-white border border-gray-200 hover:bg-gray-50 active:scale-[0.98]"
+              ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+              : "bg-white border border-gray-200 hover:bg-gray-50 active:scale-[0.98]"
               }`}
           >
             <ChevronLeft size={16} />
@@ -214,8 +214,8 @@ function PaginationBar({
             disabled={!canGoNext || loading}
             onClick={() => onPageChange(Math.min(currentPage + 1, totalPages))}
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition ${!canGoNext || loading
-                ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                : "bg-black text-white hover:opacity-90 active:scale-[0.98]"
+              ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+              : "bg-black text-white hover:opacity-90 active:scale-[0.98]"
               }`}
           >
             Next
@@ -239,10 +239,10 @@ function PaginationBar({
               onClick={() => onPageChange(item)}
               disabled={loading}
               className={`min-w-[42px] px-3 py-2 rounded-xl text-sm font-semibold transition ${currentPage === item
-                  ? "bg-black text-white shadow-sm"
-                  : loading
-                    ? "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"
-                    : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
+                ? "bg-black text-white shadow-sm"
+                : loading
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"
+                  : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
                 }`}
             >
               {item}
@@ -309,8 +309,8 @@ export default function OrdersListPage() {
 
   const fetchAllOrders = useOrderStore((s) => s.fetchAllOrders);
   const fetchAllOrdersAllPages = useOrderStore(
-  (s) => s.fetchAllOrdersAllPages
-);
+    (s) => s.fetchAllOrdersAllPages
+  );
   const syncOrderInList = useOrderStore((s) => s._syncOrderInList);
   const [exportLoading, setExportLoading] = useState(false);
   // Search
@@ -339,7 +339,7 @@ export default function OrdersListPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 100;
 
-    // ✅ Update only changed order in list, avoid full page refresh feel
+  // ✅ Update only changed order in list, avoid full page refresh feel
   const handleOrderUpdated = useCallback(
     (updatedOrder) => {
       if (!updatedOrder?._id) return;
@@ -373,7 +373,7 @@ export default function OrdersListPage() {
     if (quickDate === "today") {
       const t = todayYMD_IST();
       setStartDate(t);
-    setEndDate(t);
+      setEndDate(t);
       return;
     }
 
@@ -414,7 +414,7 @@ export default function OrdersListPage() {
     if (status) f.fulfillmentStatus = status;
     if (confirmFilter) f.confirmFilter = confirmFilter;
     if (priority) f.priority = priority;
-if (source) f.source = source;
+    if (source) f.source = source;
     f.page = currentPage;
     f.limit = pageSize;
 
@@ -433,15 +433,15 @@ if (source) f.source = source;
     source,
   ]);
 
- const loadOrders = useCallback(async () => {
-  try {
-    await fetchAllOrders(backendFilters);
-  } catch (e) {
-    console.log("Orders Fetch Error:", e);
-  } finally {
-    setHasLoadedOnce(true);
-  }
-}, [fetchAllOrders, backendFilters]);
+  const loadOrders = useCallback(async () => {
+    try {
+      await fetchAllOrders(backendFilters);
+    } catch (e) {
+      console.log("Orders Fetch Error:", e);
+    } finally {
+      setHasLoadedOnce(true);
+    }
+  }, [fetchAllOrders, backendFilters]);
 
   useEffect(() => {
     loadOrders();
@@ -462,7 +462,7 @@ if (source) f.source = source;
     }, 0);
   }, [filteredOrders]);
 
-    // ✅ stable sorted list so table work stays neat
+  // ✅ stable sorted list so table work stays neat
   const sortedOrders = useMemo(() => {
     const getNum = (o) => {
       const m = String(o?.orderNumber || "").match(/(\d+)$/);
@@ -480,304 +480,311 @@ if (source) f.source = source;
     });
   }, [filteredOrders]);
 
-const buildCsvRows = (ordersArr = []) => {
-  const rows = [];
+  const buildCsvRows = (ordersArr = []) => {
+    const rows = [];
 
-  for (const order of ordersArr) {
-    const base = {
-      orderId: safe(order?._id || order?.id),
-      orderNumber: safe(order?.orderNumber),
-      orderDate: formatDateISO(order?.createdAt || order?.orderDate),
+    for (const order of ordersArr) {
+const address = order?.shippingAddressSnapshot || {};
 
-      customerName: safe(
-        order?.customerId?.name ||
-          order?.shippingAddressSnapshot?.fullName
-      ),
+const base = {
+  orderId: safe(order?._id || order?.id),
+  orderNumber: safe(order?.orderNumber),
+  orderDate: formatDateISO(order?.createdAt || order?.orderDate),
 
-      customerEmail: safe(
-        order?.customerId?.email ||
-          order?.shippingAddressSnapshot?.email
-      ),
+  customerName: safe(order?.customerId?.name || address?.fullName),
+  customerEmail: safe(order?.customerId?.email || address?.email),
+  customerPhone: safe(order?.customerId?.phone || address?.phone),
 
-      customerPhone: safe(
-        order?.customerId?.phone ||
-          order?.shippingAddressSnapshot?.phone
-      ),
+  addressLine1: safe(address?.line1),
+  addressLine2: safe(address?.line2),
+  city: safe(address?.city),
+  state: safe(address?.state),
+  pincode: safe(address?.pincode),
 
-      isConfirmed: order?.isConfirmed === true ? "YES" : "NO",
-      fulfillmentStatus: safe(order?.fulfillmentStatus),
+  isConfirmed: order?.isConfirmed === true ? "YES" : "NO",
+  fulfillmentStatus: safe(order?.fulfillmentStatus),
 
-      subtotal: money(order?.subtotal),
-      discount: money(order?.discount),
-      shippingFee: money(order?.shippingFee),
-      tax: money(order?.tax),
-      totalAmount: money(order?.totalAmount),
-      finalPayable: money(order?.finalPayable),
-    };
+  subtotal: money(order?.subtotal),
+  discount: money(order?.discount),
+  shippingFee: money(order?.shippingFee),
+  tax: money(order?.tax),
+  totalAmount: money(order?.totalAmount),
+  finalPayable: money(order?.finalPayable),
+};
+      const items = Array.isArray(order?.items) ? order.items : [];
 
-    const items = Array.isArray(order?.items) ? order.items : [];
+      if (!items.length) {
+        rows.push({
+          ...base,
 
-    if (!items.length) {
-      rows.push({
-        ...base,
+          itemIndex: "",
+          itemTitle: "",
+          itemProductCode: "",
+          itemSku: "",
+          itemSize: "",
+          itemQuantity: "",
+          itemPrice: "",
 
-        itemIndex: "",
-        itemTitle: "",
-        itemProductCode: "",
-        itemSku: "",
-        itemSize: "",
-        itemQuantity: "",
-        itemPrice: "",
+          reservationStatus: "",
+          reservationQty: "",
+          reservedQty: "",
+          requiredQty: "",
+          reservationLabel: "",
+        });
 
-        reservationStatus: "",
-        reservationQty: "",
-        reservedQty: "",
-        requiredQty: "",
-        reservationLabel: "",
-      });
+        continue;
+      }
 
-      continue;
-    }
+      items.forEach((item, idx) => {
+        const snap = item?.productSnapshot || {};
+        const reservation = item?.inventoryReservation || {};
 
-    items.forEach((item, idx) => {
-      const snap = item?.productSnapshot || {};
-      const reservation = item?.inventoryReservation || {};
+        const attrs = Array.isArray(item?.variant?.attributes)
+          ? item.variant.attributes
+          : [];
 
-      const attrs = Array.isArray(item?.variant?.attributes)
-        ? item.variant.attributes
-        : [];
+        const attrSize =
+          attrs.find(
+            (a) =>
+              String(a?.key || "").toLowerCase() === "size"
+          )?.value ||
+          attrs.find(
+            (a) =>
+              String(a?.key || "").toLowerCase() === "sizes"
+          )?.value ||
+          "";
 
-      const attrSize =
-        attrs.find(
-          (a) =>
-            String(a?.key || "").toLowerCase() === "size"
-        )?.value ||
-        attrs.find(
-          (a) =>
-            String(a?.key || "").toLowerCase() === "sizes"
-        )?.value ||
-        "";
+        rows.push({
+          ...base,
 
-      rows.push({
-        ...base,
+          itemIndex: idx + 1,
 
-        itemIndex: idx + 1,
-
-        itemTitle: safe(
-          item?.title ||
+          itemTitle: safe(
+            item?.title ||
             snap?.title
-        ),
+          ),
 
-        itemProductCode: safe(
-          item?.productCode ||
+          itemProductCode: safe(
+            item?.productCode ||
             snap?.productCode
-        ),
+          ),
 
-        itemSku: safe(
-          item?.sku ||
+          itemSku: safe(
+            item?.sku ||
             item?.variant?.sku ||
             snap?.sku
-        ),
+          ),
 
-        itemSize: safe(
-          item?.selectedSize ||
+          itemSize: safe(
+            item?.selectedSize ||
             attrSize
-        ),
+          ),
 
-        itemQuantity: money(item?.quantity),
-        itemPrice: money(item?.price),
+          itemQuantity: money(item?.quantity),
+          itemPrice: money(item?.price),
 
-        // ✅ Inventory Reservation
-        reservationStatus: safe(
-          reservation?.status || "not_reserved"
-        ),
+          // ✅ Inventory Reservation
+          reservationStatus: safe(
+            reservation?.status || "not_reserved"
+          ),
 
-        reservationQty: money(
-          reservation?.qty ?? 0
-        ),
+          reservationQty: money(
+            reservation?.qty ?? 0
+          ),
 
-        reservedQty: money(
-          reservation?.reservedQty ?? 0
-        ),
+          reservedQty: money(
+            reservation?.reservedQty ?? 0
+          ),
 
-        requiredQty: money(
-          reservation?.requiredQty ??
+          requiredQty: money(
+            reservation?.requiredQty ??
             item?.quantity ??
             0
-        ),
+          ),
 
-        reservationLabel: safe(
-          reservation?.label || ""
-        ),
+          reservationLabel: safe(
+            reservation?.label || ""
+          ),
+        });
       });
-    });
-  }
-
-  return rows;
-};
-
-const exportToCSV = useCallback(async () => {
-  if (exportLoading || loading) return;
-
-  setExportLoading(true);
-
-  try {
-    const originalFilters = { ...backendFilters };
-
-    const baseFilters = { ...backendFilters };
-    delete baseFilters.page;
-    delete baseFilters.limit;
-
-    // ✅ fetch every matching order
-    const allOrders = await fetchAllOrdersAllPages({
-      ...baseFilters,
-      limit: 100,
-    });
-
-    // ✅ remove duplicates
-    const uniqueOrders = Array.from(
-      new Map(
-        (allOrders || []).map((order) => [
-          order?._id ||
-            order?.id ||
-            order?.orderNumber,
-          order,
-        ])
-      ).values()
-    );
-
-    const exportOrders = applyClientFiltersToOrders({
-      orders: uniqueOrders,
-      confirmFilter,
-      priority,
-      search,
-    });
-
-    if (!exportOrders.length) {
-      alert("No orders found to export.");
-      return;
     }
 
-    const rows = buildCsvRows(exportOrders);
+    return rows;
+  };
 
-    const headers = [
-      "Order DB Id",
-      "Order #",
-"Order Date",
-      "Customer Name",
-      "Customer Email",
-      "Customer Phone",
+  const exportToCSV = useCallback(async () => {
+    if (exportLoading || loading) return;
 
-      "Is Confirmed",
-      "Fulfillment Status",
+    setExportLoading(true);
 
-      "Subtotal",
-      "Discount",
-      "Shipping Fee",
-      "Tax",
-      "Total Amount",
-      "Final Payable",
+    try {
+      const originalFilters = { ...backendFilters };
 
-      "Item #",
-      "Item Title",
-      "Product Code",
-      "Item SKU",
-      "Item Size",
-      "Item Quantity",
-      "Item Price",
+      const baseFilters = { ...backendFilters };
+      delete baseFilters.page;
+      delete baseFilters.limit;
 
-      // ✅ Inventory Reservation
-      "Reservation Status",
-      "Reservation Qty",
-      "Reserved Qty",
-      "Required Qty",
-      "Reservation",
-    ];
+      // ✅ fetch every matching order
+      const allOrders = await fetchAllOrdersAllPages({
+        ...baseFilters,
+        limit: 100,
+      });
 
-    const csvLines = [
-      headers.map(escapeCSV).join(","),
+      // ✅ remove duplicates
+      const uniqueOrders = Array.from(
+        new Map(
+          (allOrders || []).map((order) => [
+            order?._id ||
+            order?.id ||
+            order?.orderNumber,
+            order,
+          ])
+        ).values()
+      );
 
-      ...rows.map((r) =>
-        [
-          r.orderId,
-          r.orderNumber,
-          r.orderDate,
+      const exportOrders = applyClientFiltersToOrders({
+        orders: uniqueOrders,
+        confirmFilter,
+        priority,
+        search,
+      });
 
-          r.customerName,
-          r.customerEmail,
-          r.customerPhone,
-
-          r.isConfirmed,
-          r.fulfillmentStatus,
-
-          r.subtotal,
-          r.discount,
-          r.shippingFee,
-          r.tax,
-          r.totalAmount,
-          r.finalPayable,
-
-          r.itemIndex,
-          r.itemTitle,
-          r.itemProductCode,
-          r.itemSku,
-          r.itemSize,
-          r.itemQuantity,
-          r.itemPrice,
-
-          r.reservationStatus,
-          r.reservationQty,
-          r.reservedQty,
-          r.requiredQty,
-          r.reservationLabel,
-        ]
-          .map(escapeCSV)
-          .join(",")
-      ),
-    ];
-
-    const blob = new Blob(
-      [csvLines.join("\r\n")],
-      {
-        type: "text/csv;charset=utf-8;",
+      if (!exportOrders.length) {
+        alert("No orders found to export.");
+        return;
       }
-    );
 
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
+      const rows = buildCsvRows(exportOrders);
 
-    const ts = new Date()
-      .toISOString()
-      .slice(0, 19)
-      .replace(/[:T]/g, "-");
+      const headers = [
+        "Order DB Id",
+        "Order #",
+        "Order Date",
 
-    link.href = url;
-    link.download = `orders-all-pages-${ts}.csv`;
+        "Customer Name",
+        "Customer Email",
+        "Customer Phone",
 
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+        "Address Line 1",
+        "Address Line 2",
+        "City",
+        "State",
+        "Pincode",
 
-    URL.revokeObjectURL(url);
+        "Is Confirmed",
+        "Fulfillment Status",
 
-    // ✅ restore current page
-    await fetchAllOrders(originalFilters);
-  } catch (error) {
-    console.error("CSV export failed:", error);
-    alert("Failed to export all orders.");
-  } finally {
-    setExportLoading(false);
-  }
-}, [
-  exportLoading,
-  loading,
-  backendFilters,
-  fetchAllOrders,
-  fetchAllOrdersAllPages,
-  confirmFilter,
-  priority,
-  search,
-]);
+        "Subtotal",
+        "Discount",
+        "Shipping Fee",
+        "Tax",
+        "Total Amount",
+        "Final Payable",
+
+        "Item #",
+        "Item Title",
+        "Product Code",
+        "Item SKU",
+        "Item Size",
+        "Item Quantity",
+        "Item Price",
+
+        "Reservation Status",
+        "Reservation Qty",
+        "Reserved Qty",
+        "Required Qty",
+        "Reservation",
+      ];
+
+      const csvLines = [
+        headers.map(escapeCSV).join(","),
+
+        ...rows.map((r) =>
+          [
+            r.orderId,
+            r.orderNumber,
+            r.orderDate,
+
+            r.customerName,
+            r.customerEmail,
+            r.customerPhone,
+
+            r.addressLine1,
+            r.addressLine2,
+            r.city,
+            r.state,
+            r.pincode,
+
+            r.isConfirmed,
+            r.fulfillmentStatus,
+
+            r.subtotal,
+            r.discount,
+            r.shippingFee,
+            r.tax,
+            r.totalAmount,
+            r.finalPayable,
+
+            r.itemIndex,
+            r.itemTitle,
+            r.itemProductCode,
+            r.itemSku,
+            r.itemSize,
+            r.itemQuantity,
+            r.itemPrice,
+
+            r.reservationStatus,
+            r.reservationQty,
+            r.reservedQty,
+            r.requiredQty,
+            r.reservationLabel,
+          ]
+            .map(escapeCSV)
+            .join(",")
+        ),
+      ];
+      const blob = new Blob(
+        [csvLines.join("\r\n")],
+        {
+          type: "text/csv;charset=utf-8;",
+        }
+      );
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      const ts = new Date()
+        .toISOString()
+        .slice(0, 19)
+        .replace(/[:T]/g, "-");
+
+      link.href = url;
+      link.download = `orders-all-pages-${ts}.csv`;
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      URL.revokeObjectURL(url);
+
+      // ✅ restore current page
+      await fetchAllOrders(originalFilters);
+    } catch (error) {
+      console.error("CSV export failed:", error);
+      alert("Failed to export all orders.");
+    } finally {
+      setExportLoading(false);
+    }
+  }, [
+    exportLoading,
+    loading,
+    backendFilters,
+    fetchAllOrders,
+    fetchAllOrdersAllPages,
+    confirmFilter,
+    priority,
+    search,
+  ]);
 
   const totalCount = toNumber(ordersMeta?.totalCount);
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
@@ -806,7 +813,7 @@ const exportToCSV = useCallback(async () => {
     { key: "today", label: "Today", type: "quickDate" },
     { key: "yesterday", label: "Yesterday", type: "quickDate" },
     { key: "shopify", label: "Shopify Orders", type: "source" },
-{ key: "website", label: "Website Orders", type: "source" },
+    { key: "website", label: "Website Orders", type: "source" },
   ];
 
   return (
@@ -868,8 +875,8 @@ const exportToCSV = useCallback(async () => {
               onClick={exportToCSV}
               disabled={exportLoading || loading}
               className={`inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl text-sm font-semibold shadow-sm active:scale-[0.98] transition ${exportLoading || loading
-                  ? "bg-gray-300 text-gray-600 cursor-not-allowed"
-                  : "bg-black text-white hover:opacity-90"
+                ? "bg-gray-300 text-gray-600 cursor-not-allowed"
+                : "bg-black text-white hover:opacity-90"
                 }`}
             >
               {exportLoading ? (
@@ -992,26 +999,26 @@ const exportToCSV = useCallback(async () => {
                 <option value="exchange">Exchange</option>
               </select>
             </div>
-<div>
-  <label className="text-sm font-semibold text-gray-700">
-    Order Source
-  </label>
-  <select
-    className="w-full mt-2 px-3 py-2.5 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-black/10 transition"
-    value={source}
-    onChange={(e) => {
-      setCurrentPage(1);
-      setSource(e.target.value);
-    }}
-  >
-    <option value="">All</option>
-    <option value="website">Website</option>
-    <option value="shopify">Shopify</option>
-    <option value="manual">Manual</option>
-    <option value="social_media">Social Media</option>
-    <option value="mobile_app">Mobile App</option>
-  </select>
-</div>
+            <div>
+              <label className="text-sm font-semibold text-gray-700">
+                Order Source
+              </label>
+              <select
+                className="w-full mt-2 px-3 py-2.5 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-black/10 transition"
+                value={source}
+                onChange={(e) => {
+                  setCurrentPage(1);
+                  setSource(e.target.value);
+                }}
+              >
+                <option value="">All</option>
+                <option value="website">Website</option>
+                <option value="shopify">Shopify</option>
+                <option value="manual">Manual</option>
+                <option value="social_media">Social Media</option>
+                <option value="mobile_app">Mobile App</option>
+              </select>
+            </div>
             <div>
               <label className="text-sm font-semibold text-gray-700">
                 Confirmation
@@ -1068,61 +1075,61 @@ const exportToCSV = useCallback(async () => {
           <div className="mt-6 flex flex-wrap gap-2">
             {chips.map((s) => {
               const isActive =
-  s.type === "status"
-    ? status === s.key
-    : s.type === "confirm"
-      ? confirmFilter === s.key
-      : s.type === "priority"
-        ? priority === s.key
-        : s.type === "quickDate"
-          ? quickDate === s.key
-          : s.type === "source"
-            ? source === s.key
-            : status === "" &&
-              confirmFilter === "" &&
-              priority === "" &&
-              quickDate === "" &&
-              source === "";
+                s.type === "status"
+                  ? status === s.key
+                  : s.type === "confirm"
+                    ? confirmFilter === s.key
+                    : s.type === "priority"
+                      ? priority === s.key
+                      : s.type === "quickDate"
+                        ? quickDate === s.key
+                        : s.type === "source"
+                          ? source === s.key
+                          : status === "" &&
+                          confirmFilter === "" &&
+                          priority === "" &&
+                          quickDate === "" &&
+                          source === "";
               const onClick = () => {
-  setCurrentPage(1);
+                setCurrentPage(1);
 
-  if (s.type === "all") {
-    setStatus("");
-    setConfirmFilter("");
-    setPriority("");
-    setQuickDate("");
-    setSource("");
-    return;
-  }
+                if (s.type === "all") {
+                  setStatus("");
+                  setConfirmFilter("");
+                  setPriority("");
+                  setQuickDate("");
+                  setSource("");
+                  return;
+                }
 
-  if (s.type === "status") {
-    setStatus((prev) => (prev === s.key ? "" : s.key));
-  }
+                if (s.type === "status") {
+                  setStatus((prev) => (prev === s.key ? "" : s.key));
+                }
 
-  if (s.type === "confirm") {
-    setConfirmFilter((prev) => (prev === s.key ? "" : s.key));
-  }
+                if (s.type === "confirm") {
+                  setConfirmFilter((prev) => (prev === s.key ? "" : s.key));
+                }
 
-  if (s.type === "priority") {
-    setPriority((prev) => (prev === s.key ? "" : s.key));
-  }
+                if (s.type === "priority") {
+                  setPriority((prev) => (prev === s.key ? "" : s.key));
+                }
 
-  if (s.type === "quickDate") {
-    setQuickDate((prev) => (prev === s.key ? "" : s.key));
-  }
+                if (s.type === "quickDate") {
+                  setQuickDate((prev) => (prev === s.key ? "" : s.key));
+                }
 
-  if (s.type === "source") {
-    setSource((prev) => (prev === s.key ? "" : s.key));
-  }
-};  
+                if (s.type === "source") {
+                  setSource((prev) => (prev === s.key ? "" : s.key));
+                }
+              };
 
               return (
                 <button
                   key={`${s.type}-${s.key || "all"}`}
                   onClick={onClick}
                   className={`px-4 py-2 rounded-xl text-sm font-medium transition whitespace-nowrap ${isActive
-                      ? "bg-black text-white shadow-sm"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    ? "bg-black text-white shadow-sm"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
                 >
                   {s.label}
@@ -1147,60 +1154,60 @@ const exportToCSV = useCallback(async () => {
         </Card>
 
         {/* Table */}
-      {/* Table */}
-<div className="overflow-hidden rounded-[28px] bg-white shadow-sm ring-1 ring-black/[0.04]">
-  <div className="overflow-x-auto">
-    <table className="w-full min-w-[1180px] text-sm">
-      <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
-        <tr>
-          <th className="px-5 py-4 text-left font-semibold">Order</th>
-          <th className="px-5 py-4 text-left font-semibold">Customer</th>
-          <th className="px-5 py-4 text-left font-semibold">Payment Status</th>
-          <th className="px-5 py-4 text-left font-semibold">Method</th>
-          <th className="px-5 py-4 text-left font-semibold">Fulfillment</th>
-          <th className="px-5 py-4 text-left font-semibold">Amount</th>
-          <th className="px-5 py-4 text-left font-semibold">Date</th>
-          <th className="px-5 py-4 text-right font-semibold">Actions</th>
-        </tr>
-      </thead>
+        {/* Table */}
+        <div className="overflow-hidden rounded-[28px] bg-white shadow-sm ring-1 ring-black/[0.04]">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1180px] text-sm">
+              <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+                <tr>
+                  <th className="px-5 py-4 text-left font-semibold">Order</th>
+                  <th className="px-5 py-4 text-left font-semibold">Customer</th>
+                  <th className="px-5 py-4 text-left font-semibold">Payment Status</th>
+                  <th className="px-5 py-4 text-left font-semibold">Method</th>
+                  <th className="px-5 py-4 text-left font-semibold">Fulfillment</th>
+                  <th className="px-5 py-4 text-left font-semibold">Amount</th>
+                  <th className="px-5 py-4 text-left font-semibold">Date</th>
+                  <th className="px-5 py-4 text-right font-semibold">Actions</th>
+                </tr>
+              </thead>
 
-      <tbody className="divide-y divide-gray-100">
-        {loading && !hasLoadedOnce ? (
-          <tr>
-            <td colSpan={8} className="py-14 text-center text-gray-500">
-              <div className="inline-flex items-center gap-2">
-                <Loader2 size={18} className="animate-spin" />
-                Loading orders...
-              </div>
-            </td>
-          </tr>
-        ) : sortedOrders.length ? (
-          sortedOrders.map((order, idx) => {
-            const rowKey =
-              order?._id ||
-              order?.id ||
-              order?.orderNumber ||
-              `order-${idx}`;
+              <tbody className="divide-y divide-gray-100">
+                {loading && !hasLoadedOnce ? (
+                  <tr>
+                    <td colSpan={8} className="py-14 text-center text-gray-500">
+                      <div className="inline-flex items-center gap-2">
+                        <Loader2 size={18} className="animate-spin" />
+                        Loading orders...
+                      </div>
+                    </td>
+                  </tr>
+                ) : sortedOrders.length ? (
+                  sortedOrders.map((order, idx) => {
+                    const rowKey =
+                      order?._id ||
+                      order?.id ||
+                      order?.orderNumber ||
+                      `order-${idx}`;
 
-            return (
-              <OrderRow
-                key={String(rowKey)}
-                order={order}
-                onUpdated={handleOrderUpdated}
-              />
-            );
-          })
-        ) : (
-          <tr>
-            <td colSpan={8} className="py-12 text-center text-gray-500">
-              No orders found for applied filters.
-            </td>
-          </tr>
-        )}
-      </tbody>
-    </table>
-  </div>
-</div>
+                    return (
+                      <OrderRow
+                        key={String(rowKey)}
+                        order={order}
+                        onUpdated={handleOrderUpdated}
+                      />
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center text-gray-500">
+                      No orders found for applied filters.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
 
         {/* Bottom Pagination */}
         <Card>

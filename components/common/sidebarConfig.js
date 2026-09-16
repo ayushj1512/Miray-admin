@@ -138,13 +138,14 @@ export const sidebarMenus = {
     { label: "Razorpay Remittance", href: "/accounts/razorpay-remittance" },
   ],
 
-  inventory: [
-    { label: "Inventory Dashboard", href: "/inventory" },
-    { label: "Modify Inventory", href: "/inventory/modify-inventory" },
-    { label: "Available Inventory", href: "/inventory/available-inventory" },
-    { label: "Reserved Inventory", href: "/inventory/reserved-inventory" },
-    { label: "On Demand Inventory", href: "/inventory/on-demand-inventory" },
-  ],
+inventory: [
+  { label: "Inventory Dashboard", href: "/inventory" },
+  { label: "Modify Inventory", href: "/inventory/modify-inventory" },
+  { label: "Available Inventory", href: "/inventory/available-inventory" },
+  { label: "Reserved Inventory", href: "/inventory/reserved-inventory" },
+  { label: "On Demand Inventory", href: "/inventory/on-demand-inventory" },
+  { label: "Broken Orders", href: "/inventory/broken-orders" },
+],
 
   fabrics: [
     {

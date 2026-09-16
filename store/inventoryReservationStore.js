@@ -148,6 +148,119 @@ fetchShopifyReservations: async (overrideFilters = null) => {
   }
 },
 
+  /* ---------------- reservation audit / repair ---------------- */
+
+  reservationAudit: null,
+
+  detectBrokenOrderReservations: async ({
+    limit = 500,
+  } = {}) => {
+    set({
+      actionLoading: true,
+      error: null,
+    });
+
+    invLog("detectBrokenOrderReservations ->", {
+      limit,
+    });
+
+    try {
+      const { data } = await api.get(
+        `/api/inventory-reservations/audit/orders${qs({
+          limit,
+        })}`
+      );
+
+      set({
+        actionLoading: false,
+        reservationAudit: data,
+      });
+
+      invLog(
+        "detectBrokenOrderReservations <-",
+        data
+      );
+
+      return data;
+    } catch (e) {
+      const m = msg(
+        e,
+        "Failed to detect broken order reservations"
+      );
+
+      set({
+        actionLoading: false,
+        error: m,
+      });
+
+      invLog(
+        "detectBrokenOrderReservations ERROR",
+        m
+      );
+
+      throw e;
+    }
+  },
+
+ fixBrokenOrderReservations: async ({
+  limit = 200,
+  orderNumbers = [],
+} = {}) => {
+  set({
+    actionLoading: true,
+    error: null,
+  });
+
+  try {
+    const cleanOrderNumbers = Array.from(
+      new Set(
+        (orderNumbers || [])
+          .map((x) => String(x || "").trim())
+          .filter(Boolean)
+      )
+    );
+
+    const { data } = await api.post(
+      "/api/inventory-reservations/audit/orders/fix",
+      {
+        limit,
+        orderNumbers: cleanOrderNumbers,
+      }
+    );
+
+    set({
+      actionLoading: false,
+    });
+
+    await get().fetchReservations();
+
+    try {
+      await get().detectBrokenOrderReservations({
+        limit: 500,
+      });
+    } catch {}
+
+    return data;
+  } catch (e) {
+    const m = msg(
+      e,
+      "Failed to fix broken order reservations"
+    );
+
+    set({
+      actionLoading: false,
+      error: m,
+    });
+
+    throw e;
+  }
+},
+
+  clearReservationAudit: () =>
+    set({
+      reservationAudit: null,
+    }),
+
   /* ---------------- get single ---------------- */
   getReservation: async (id) => {
     if (!id) throw new Error("Reservation id required");

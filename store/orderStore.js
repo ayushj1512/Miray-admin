@@ -644,6 +644,9 @@ export const useOrderStore = create((set, get) => ({
   packedOrderLabels: [],
   productOrderSearchResults: [],
   packedOrderLabelsSummary: null,
+  rtoLogs: [],
+rtoLogsSummary: null,
+rtoLogsPagination: null,
   downloadingMergedLabels: false,
   _start: () => set({ loading: true, error: null }),
   _success: () => set({ loading: false }),
@@ -910,6 +913,94 @@ export const useOrderStore = create((set, get) => ({
     });
   },
 
+  /* =========================================================
+   RTO RECEIVED LOGS
+========================================================= */
+
+fetchRtoLogs: async (filters = {}) => {
+  set({
+    loading: true,
+    error: null,
+  });
+
+  try {
+    const qs = buildQueryString({
+      search: filters?.search || "",
+      startDate: filters?.startDate || "",
+      endDate: filters?.endDate || "",
+      condition: filters?.condition || "",
+      page: filters?.page || 1,
+      limit: filters?.limit || 50,
+    });
+
+    const data = await get()._get(
+      `/api/orders/rto/logs${qs}`,
+      { silent: true }
+    );
+
+    const logs = Array.isArray(data?.logs)
+      ? data.logs
+      : [];
+
+    const summary = data?.summary || {
+      orders: 0,
+      cleanOrders: 0,
+      wrongOrders: 0,
+      damagedOrders: 0,
+      receivedQty: 0,
+      correctQty: 0,
+      wrongQty: 0,
+      damagedQty: 0,
+    };
+
+    const pagination = data?.pagination || {
+      page: 1,
+      limit: Number(filters?.limit || 50),
+      total: 0,
+      pages: 1,
+    };
+
+    set({
+      rtoLogs: logs,
+      rtoLogsSummary: summary,
+      rtoLogsPagination: pagination,
+      loading: false,
+      error: null,
+    });
+
+    return {
+      ...data,
+      logs,
+      summary,
+      pagination,
+    };
+  } catch (error) {
+    console.error(
+      "fetchRtoLogs error:",
+      error
+    );
+
+    set({
+      rtoLogs: [],
+      rtoLogsSummary: null,
+      rtoLogsPagination: null,
+      loading: false,
+      error:
+        error?.message ||
+        "Failed to fetch RTO logs",
+    });
+
+    throw error;
+  }
+},
+
+clearRtoLogs: () =>
+  set({
+    rtoLogs: [],
+    rtoLogsSummary: null,
+    rtoLogsPagination: null,
+  }),
+
   // ✅ CONFIRMED ORDERS
   fetchConfirmedOrders: async (filters = {}) => {
     return get().fetchAllOrders({
@@ -1133,40 +1224,6 @@ export const useOrderStore = create((set, get) => ({
       return true;
     } catch (error) {
       set({ error: error.message });
-      throw error;
-    }
-  },
-
-  bulkMarkRtoReceived: async (file) => {
-    if (!file)
-      throw new Error("Please select Excel file");
-
-    get()._start();
-
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const res = await fetch(
-        `${API}/api/orders/rto/bulk/receive`,
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
-
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        throw new Error(
-          data?.message || "Bulk RTO upload failed"
-        );
-      }
-
-      get()._success();
-      return data;
-    } catch (error) {
-      get()._fail(error);
       throw error;
     }
   },
@@ -1970,33 +2027,38 @@ export const useOrderStore = create((set, get) => ({
       customerSupportOrderDetails: {},
     }),
 
-  resetStore: () =>
-    set({
-      orders: [],
-      order: null,
+resetStore: () =>
+  set({
+    orders: [],
+    order: null,
 
-      loading: false,
-      error: null,
+    loading: false,
+    error: null,
 
-      productOrderCount: null,
-      productOrderSearchResults: [],
-      ordersMeta: null,
+    productOrderCount: null,
+    productOrderSearchResults: [],
+    ordersMeta: null,
 
-      customerSupportOrderDetails: {},
+    customerSupportOrderDetails: {},
 
-      duplicateAlerts: [],
-      duplicateLoading: false,
+    duplicateAlerts: [],
+    duplicateLoading: false,
 
-      confirmationDetails: null,
-      confirmationDetailsLoading: false,
+    confirmationDetails: null,
+    confirmationDetailsLoading: false,
 
-      orderDashboard: null,
-      orderDashboardLoading: false,
+    orderDashboard: null,
+    orderDashboardLoading: false,
 
-      bulkCancellationLoading: false,
+    bulkCancellationLoading: false,
 
-      packedOrderLabels: [],
-      packedOrderLabelsSummary: null,
-      downloadingMergedLabels: false,
-    }),
+    packedOrderLabels: [],
+    packedOrderLabelsSummary: null,
+    downloadingMergedLabels: false,
+
+    // ✅ RTO LOGS
+    rtoLogs: [],
+    rtoLogsSummary: null,
+    rtoLogsPagination: null,
+  }),
 }));

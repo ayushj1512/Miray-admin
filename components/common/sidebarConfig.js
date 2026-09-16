@@ -90,13 +90,14 @@ export const sidebarMenus = {
     { label: "Barcode Generator", href: "/production/barcode" },
   ],
 
-  rto: [
-    { label: "RTO Dashboard", href: "/rto" },
-    { label: "Receive RTO", href: "/rto/receive" },
-    { label: "Bulk RTO Receive", href: "/rto/bulk" },
-    { label: "Received RTO", href: "/rto/received" },
-    { label: "Reports", href: "/rto/reports" },
-  ],
+rto: [
+  { label: "RTO Dashboard", href: "/rto" },
+  { label: "Receive RTO", href: "/rto/receive" },
+  { label: "Bulk RTO Receive", href: "/rto/bulk" },
+  { label: "Received RTO", href: "/rto/received" },
+  { label: "RTO Logs", href: "/rto/logs" },
+  { label: "Reports", href: "/rto/reports" },
+],
 
   fast2sms: [
     { label: "Fast2SMS Dashboard", href: "/fast2sms" },

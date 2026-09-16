@@ -407,6 +407,70 @@ fetchShopifyReservations: async (overrideFilters = null) => {
     }
   },
 
+    /* ---------------- reconcile all pending ---------------- */
+  reconcileAllPendingReservations: async ({
+    maxProducts = 500,
+    maxRowsPerProduct = 200,
+  } = {}) => {
+    set({
+      actionLoading: true,
+      error: null,
+    });
+
+    invLog("reconcileAllPendingReservations ->", {
+      maxProducts,
+      maxRowsPerProduct,
+    });
+
+    try {
+      const { data } = await api.post(
+        "/api/inventory-reservations/reconcile-all-pending",
+        {
+          maxProducts,
+          maxRowsPerProduct,
+        }
+      );
+
+      set({
+        actionLoading: false,
+      });
+
+      // refresh reservations after pending -> reserved changes
+      await get().fetchReservations();
+
+      // refresh broken order audit also
+      try {
+        await get().detectBrokenOrderReservations({
+          limit: 500,
+        });
+      } catch {}
+
+      invLog(
+        "reconcileAllPendingReservations <-",
+        data
+      );
+
+      return data;
+    } catch (e) {
+      const m = msg(
+        e,
+        "Failed to reconcile pending reservations"
+      );
+
+      set({
+        actionLoading: false,
+        error: m,
+      });
+
+      invLog(
+        "reconcileAllPendingReservations ERROR",
+        m
+      );
+
+      throw e;
+    }
+  },
+
   restockFromRTO: async ({
     productId,
     variantId = null,

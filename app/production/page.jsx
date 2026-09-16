@@ -19,10 +19,20 @@ import {
 } from "@/components/production/productionUtils";
 import ProductionPackabilityTabs from "@/components/production/ProductionPackabilityTabs";
 import ProductionDuplicateAlert from "@/components/production/ProductionDuplicateAlert";
+import { useInventoryReservationStore } from "@/store/inventoryReservationStore";
 
 export default function ProductionDashboardPage() {
   const router = useRouter();
   const store = useAdminProductionStore();
+  const reconcileAllPendingReservations =
+  useInventoryReservationStore(
+    (state) => state.reconcileAllPendingReservations
+  );
+
+const reservationActionLoading =
+  useInventoryReservationStore(
+    (state) => state.actionLoading
+  );
 
 const cancelOrder = useOrderStore((state) => state.cancelOrder);
 
@@ -78,6 +88,7 @@ const duplicateAlerts = useOrderStore(
   const [bulkPacking, setBulkPacking] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [jumpPage, setJumpPage] = useState("1");
+  const [reconcileResult, setReconcileResult] = useState(null);
 
   const isBlacklistedOrder = (order = {}) => {
     return Boolean(
@@ -192,6 +203,68 @@ useEffect(() => {
     await refreshQueue(buildQueuePayload(overrides));
   };
 
+  const handleReconcilePendingReservations = async () => {
+  if (reservationActionLoading) return;
+
+  const confirmed = window.confirm(
+    "Reconcile pending reservations?\n\n" +
+      "Current available inventory will be used.\n" +
+      "Physical stock will NOT be added."
+  );
+
+  if (!confirmed) return;
+
+  try {
+    setReconcileResult(null);
+
+    const result =
+      await reconcileAllPendingReservations({
+        maxProducts: 500,
+        maxRowsPerProduct: 200,
+      });
+
+    const summary = result?.summary || {};
+
+    const nextResult = {
+      groupsScanned: Number(
+        summary?.groupsScanned || 0
+      ),
+      promotedCount: Number(
+        summary?.promotedCount || 0
+      ),
+      promotedQty: Number(
+        summary?.promotedQty || 0
+      ),
+      insufficient: Number(
+        summary?.skippedInsufficientStock || 0
+      ),
+      failed: Number(
+        summary?.failed || 0
+      ),
+    };
+
+    setReconcileResult(nextResult);
+
+    if (nextResult.promotedCount > 0) {
+      toast.success(
+        `${nextResult.promotedCount} reservations reconciled`
+      );
+    } else {
+      toast.success("Reconciliation complete");
+    }
+
+    await Promise.allSettled([
+      fetchProductionSummary(),
+      runQueueRefresh(),
+    ]);
+  } catch (error) {
+    toast.error(
+      error?.response?.data?.message ||
+        error?.message ||
+        "Failed to reconcile reservations"
+    );
+  }
+};
 
   const goToPage = async (page) => {
     const safePage = Math.max(1, Number(page || 1));
@@ -456,17 +529,19 @@ toast.success(`${ids.length} orders marked packed`);
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-5 md:px-6 space-y-4">
-      <ProductionHeader
-       onRefresh={async () => {
-  await Promise.allSettled([
-    fetchProductionSummary(),
-    runQueueRefresh(),
-  ]);
-}}
-        onExport={onExportExcel}
-        exporting={exporting}
-        canExport={!!queue.length}
-      />
+     <ProductionHeader
+  onRefresh={async () => {
+    await Promise.allSettled([
+      fetchProductionSummary(),
+      runQueueRefresh(),
+    ]);
+  }}
+  onReconcile={handleReconcilePendingReservations}
+  reconciling={reservationActionLoading}
+  onExport={onExportExcel}
+  exporting={exporting}
+  canExport={!!queue.length}
+/>
 
       <ProductionDuplicateAlert
   duplicates={duplicateAlerts}
@@ -478,6 +553,8 @@ toast.success(`${ids.length} orders marked packed`);
     );
   }}
 />
+
+
 
       {error ? (
         <div className="flex items-center justify-between rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700">

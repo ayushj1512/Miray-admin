@@ -90,14 +90,14 @@ export const sidebarMenus = {
     { label: "Barcode Generator", href: "/production/barcode" },
   ],
 
-rto: [
-  { label: "RTO Dashboard", href: "/rto" },
-  { label: "Receive RTO", href: "/rto/receive" },
-  { label: "Bulk RTO Receive", href: "/rto/bulk" },
-  { label: "Received RTO", href: "/rto/received" },
-  { label: "RTO Logs", href: "/rto/logs" },
-  { label: "Reports", href: "/rto/reports" },
-],
+  rto: [
+    { label: "RTO Dashboard", href: "/rto" },
+    { label: "Receive RTO", href: "/rto/receive" },
+    { label: "Bulk RTO Receive", href: "/rto/bulk" },
+    { label: "Received RTO", href: "/rto/received" },
+    { label: "RTO Logs", href: "/rto/logs" },
+    { label: "Reports", href: "/rto/reports" },
+  ],
 
   fast2sms: [
     { label: "Fast2SMS Dashboard", href: "/fast2sms" },
@@ -139,14 +139,21 @@ rto: [
     { label: "Razorpay Remittance", href: "/accounts/razorpay-remittance" },
   ],
 
-inventory: [
-  { label: "Inventory Dashboard", href: "/inventory" },
-  { label: "Modify Inventory", href: "/inventory/modify-inventory" },
-  { label: "Available Inventory", href: "/inventory/available-inventory" },
-  { label: "Reserved Inventory", href: "/inventory/reserved-inventory" },
-  { label: "On Demand Inventory", href: "/inventory/on-demand-inventory" },
-  { label: "Broken Orders", href: "/inventory/broken-orders" },
-],
+  inventory: [
+    { label: "Inventory Dashboard", href: "/inventory" },
+
+    { label: "Modify Inventory", href: "/inventory/modify-inventory" },
+
+    { label: "Bulk Add Inventory", href: "/inventory/bulk-add" },
+
+    { label: "Available Inventory", href: "/inventory/available-inventory" },
+
+    { label: "Reserved Inventory", href: "/inventory/reserved-inventory" },
+
+    { label: "On Demand Inventory", href: "/inventory/on-demand-inventory" },
+
+    { label: "Broken Orders", href: "/inventory/broken-orders" },
+  ],
 
   fabrics: [
     {

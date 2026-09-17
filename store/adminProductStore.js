@@ -88,8 +88,8 @@ const normalizeProductPayload = (payload) => {
     out.hsnCode = hsn === "" ? "" : hsn.replace(/[^\d]/g, "");
   }
   if (out.isPrimaryProduct !== undefined) {
-  out.isPrimaryProduct = toBool(out.isPrimaryProduct);
-}
+    out.isPrimaryProduct = toBool(out.isPrimaryProduct);
+  }
 
   // allow JSON strings
   const tryJson = (v) => {
@@ -105,82 +105,82 @@ const normalizeProductPayload = (payload) => {
   out.avgFabricConsumption = tryJson(out.avgFabricConsumption);
   out.accessories = tryJson(out.accessories);
 
-/* ✅ ACCESSORIES hygiene */
-const normalizeAccessories = (v) => {
-  const rows = [];
-  const UNITS = new Set(["piece", "pair", "meter", "gram", "roll"]);
+  /* ✅ ACCESSORIES hygiene */
+  const normalizeAccessories = (v) => {
+    const rows = [];
+    const UNITS = new Set(["piece", "pair", "meter", "gram", "roll"]);
 
-  const push = (row) => {
-    if (!row) return;
+    const push = (row) => {
+      if (!row) return;
 
-    if (typeof row === "string") {
-      const name = toStr(row);
+      if (typeof row === "string") {
+        const name = toStr(row);
+        if (!name) return;
+
+        rows.push({
+          name,
+          type: "",
+          quantity: 1,
+          unit: "piece",
+          notes: "",
+        });
+        return;
+      }
+
+      if (typeof row !== "object") return;
+
+      const name = toStr(row.name);
+      const type = toStr(row.type).toLowerCase();
+      const quantity = Number(row.quantity ?? 1);
+      const unitRaw = toStr(row.unit || "piece").toLowerCase();
+
+      if (!name && !type && !toStr(row.notes)) return;
       if (!name) return;
 
       rows.push({
         name,
-        type: "",
-        quantity: 1,
-        unit: "piece",
-        notes: "",
+        type,
+        quantity: Number.isFinite(quantity) && quantity >= 0 ? quantity : 1,
+        unit: UNITS.has(unitRaw) ? unitRaw : "piece",
+        notes: toStr(row.notes),
       });
-      return;
+    };
+
+    if (typeof v === "string") {
+      const t = v.trim();
+      if (!t) return [];
+
+      try {
+        v = JSON.parse(t);
+      } catch {
+        const parts = t.includes("|") ? t.split("|") : t.split(",");
+        parts.forEach((p) => push(String(p || "")));
+        return rows;
+      }
     }
 
-    if (typeof row !== "object") return;
+    if (Array.isArray(v)) return v.forEach(push), rows;
 
-    const name = toStr(row.name);
-    const type = toStr(row.type).toLowerCase();
-    const quantity = Number(row.quantity ?? 1);
-    const unitRaw = toStr(row.unit || "piece").toLowerCase();
+    if (v && typeof v === "object") {
+      const looksSingle =
+        "name" in v ||
+        "type" in v ||
+        "quantity" in v ||
+        "unit" in v ||
+        "notes" in v;
 
-    if (!name && !type && !toStr(row.notes)) return;
-    if (!name) return;
+      if (looksSingle) return push(v), rows;
 
-    rows.push({
-      name,
-      type,
-      quantity: Number.isFinite(quantity) && quantity >= 0 ? quantity : 1,
-      unit: UNITS.has(unitRaw) ? unitRaw : "piece",
-      notes: toStr(row.notes),
-    });
-  };
-
-  if (typeof v === "string") {
-    const t = v.trim();
-    if (!t) return [];
-
-    try {
-      v = JSON.parse(t);
-    } catch {
-      const parts = t.includes("|") ? t.split("|") : t.split(",");
-      parts.forEach((p) => push(String(p || "")));
+      Object.entries(v).forEach(([type, name]) => push({ type, name }));
       return rows;
     }
+
+    return [];
+  };
+
+  if (out.accessories !== undefined) {
+    out.accessories = normalizeAccessories(out.accessories);
   }
-
-  if (Array.isArray(v)) return v.forEach(push), rows;
-
-  if (v && typeof v === "object") {
-    const looksSingle =
-      "name" in v ||
-      "type" in v ||
-      "quantity" in v ||
-      "unit" in v ||
-      "notes" in v;
-
-    if (looksSingle) return push(v), rows;
-
-    Object.entries(v).forEach(([type, name]) => push({ type, name }));
-    return rows;
-  }
-
-  return [];
-};
-
-if (out.accessories !== undefined) {
-  out.accessories = normalizeAccessories(out.accessories);
-}
 
   // ✅ highlights -> keyFeatures
   if (out.highlights !== undefined && out.keyFeatures === undefined) {
@@ -367,7 +367,7 @@ export const useAdminProductStore = create((set, get) => ({
   saving: false,
   error: null,
   assignmentProducts: [],
-assignmentProductsLoading: false,
+  assignmentProductsLoading: false,
 
   /* ============================================================
     HELPERS
@@ -397,249 +397,83 @@ assignmentProductsLoading: false,
     FETCH ALL PRODUCTS (ADMIN GRID)
   ============================================================ */
   fetchProducts: async (params = {}) => {
-  try {
-    const currentPage = Number(params.page ?? get().page ?? 1) || 1;
-    const currentLimit = Number(params.limit ?? get().limit ?? 100) || 100;
+    try {
+      const currentPage = Number(params.page ?? get().page ?? 1) || 1;
+      const currentLimit = Number(params.limit ?? get().limit ?? 100) || 100;
 
-    set({ loading: true, error: null });
+      set({ loading: true, error: null });
 
-    const query = buildProductQuery({
-      page: currentPage,
-      limit: currentLimit,
-
-      // existing
-      category: params.category,
-      collection: params.collection,
-      tags: params.tags,
-      minPrice: params.minPrice,
-      maxPrice: params.maxPrice,
-      isActive: params.isActive,
-      isDraft: params.isDraft,
-      isBestSeller: params.isBestSeller,
-      isTrending: params.isTrending,
-      isPrimaryProduct: params.isPrimaryProduct,
-      search: params.search,
-      sort: params.sort,
-      sku: params.sku,
-      q: params.q,
-      title: params.title,
-      productCode: params.productCode,
-      code: params.code,
-
-      // new filters
-      isFeatured: params.isFeatured,
-      isPatternReady: params.isPatternReady,
-      isSamplingDone: params.isSamplingDone,
-      isInStock: params.isInStock,
-      productType: params.productType,
-      currency: params.currency,
-      taxClass: params.taxClass,
-      color: params.color,
-      colors: params.colors,
-      fabricName: params.fabricName,
-      fabricCode: params.fabricCode,
-      fabricColor: params.fabricColor,
-      role: params.role,
-      hsnCode: params.hsnCode,
-      slug: params.slug,
-      titleExact: params.titleExact,
-      externalURL: params.externalURL,
-      originalProductLink: params.originalProductLink,
-      wordpressId: params.wordpressId,
-
-      minRating: params.minRating,
-      maxRating: params.maxRating,
-      minViews: params.minViews,
-      maxViews: params.maxViews,
-      minPurchases: params.minPurchases,
-      maxPurchases: params.maxPurchases,
-      minCartAdds: params.minCartAdds,
-      maxCartAdds: params.maxCartAdds,
-      minWishlistCount: params.minWishlistCount,
-      maxWishlistCount: params.maxWishlistCount,
-      minSearchAppearances: params.minSearchAppearances,
-      maxSearchAppearances: params.maxSearchAppearances,
-
-      minStock: params.minStock,
-      maxStock: params.maxStock,
-      minReservedStock: params.minReservedStock,
-      maxReservedStock: params.maxReservedStock,
-
-      createdFrom: params.createdFrom,
-      createdTo: params.createdTo,
-      updatedFrom: params.updatedFrom,
-      updatedTo: params.updatedTo,
-      publishFrom: params.publishFrom,
-      publishTo: params.publishTo,
-
-      sortKey: params.sortKey,
-      sortDir: params.sortDir,
-    });
-
-    const res = await fetch(`${API}?${query}`, {
-      credentials: "include",
-      cache: "no-store",
-    });
-
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.message || "Failed to fetch products");
-
-    set({
-      products: Array.isArray(data.products) ? data.products : [],
-      page: Number(data.page || currentPage || 1),
-      limit: currentLimit,
-      pages: Number(data.pages || 1),
-      total: Number(data.total || 0),
-    });
-
-    return data;
-  } catch (e) {
-    console.error(e);
-    set({ error: e.message });
-    toast.error(e.message);
-    return null;
-  } finally {
-    set({ loading: false });
-  }
-},
-
-  /* ============================================================
-    ✅ FETCH PRODUCTS BY CATEGORY (ADMIN)
-  ============================================================ */
-  fetchProducts: async (params = {}) => {
-  try {
-    const currentPage = Number(params.page ?? get().page ?? 1) || 1;
-    const currentLimit = Number(params.limit ?? get().limit ?? 100) || 100;
-
-    set({ loading: true, error: null });
-
-    const query = buildProductQuery({
-      page: currentPage,
-      limit: currentLimit,
-
-      // existing
-      category: params.category,
-      collection: params.collection,
-      tags: params.tags,
-      minPrice: params.minPrice,
-      maxPrice: params.maxPrice,
-      isActive: params.isActive,
-      isDraft: params.isDraft,
-      isBestSeller: params.isBestSeller,
-      isTrending: params.isTrending,
-      isPrimaryProduct: params.isPrimaryProduct,
-      search: params.search,
-      sort: params.sort,
-      sku: params.sku,
-      q: params.q,
-      title: params.title,
-      productCode: params.productCode,
-      code: params.code,
-
-      // new filters
-      isFeatured: params.isFeatured,
-      isPatternReady: params.isPatternReady,
-      isSamplingDone: params.isSamplingDone,
-      isInStock: params.isInStock,
-      productType: params.productType,
-      currency: params.currency,
-      taxClass: params.taxClass,
-      color: params.color,
-      colors: params.colors,
-      fabricName: params.fabricName,
-      fabricCode: params.fabricCode,
-      fabricColor: params.fabricColor,
-      role: params.role,
-      hsnCode: params.hsnCode,
-      slug: params.slug,
-      titleExact: params.titleExact,
-      externalURL: params.externalURL,
-      originalProductLink: params.originalProductLink,
-      wordpressId: params.wordpressId,
-
-      minRating: params.minRating,
-      maxRating: params.maxRating,
-      minViews: params.minViews,
-      maxViews: params.maxViews,
-      minPurchases: params.minPurchases,
-      maxPurchases: params.maxPurchases,
-      minCartAdds: params.minCartAdds,
-      maxCartAdds: params.maxCartAdds,
-      minWishlistCount: params.minWishlistCount,
-      maxWishlistCount: params.maxWishlistCount,
-      minSearchAppearances: params.minSearchAppearances,
-      maxSearchAppearances: params.maxSearchAppearances,
-
-      minStock: params.minStock,
-      maxStock: params.maxStock,
-      minReservedStock: params.minReservedStock,
-      maxReservedStock: params.maxReservedStock,
-
-      createdFrom: params.createdFrom,
-      createdTo: params.createdTo,
-      updatedFrom: params.updatedFrom,
-      updatedTo: params.updatedTo,
-      publishFrom: params.publishFrom,
-      publishTo: params.publishTo,
-
-      sortKey: params.sortKey,
-      sortDir: params.sortDir,
-    });
-
-    const res = await fetch(`${API}?${query}`, {
-      credentials: "include",
-      cache: "no-store",
-    });
-
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.message || "Failed to fetch products");
-
-    set({
-      products: Array.isArray(data.products) ? data.products : [],
-      page: Number(data.page || currentPage || 1),
-      limit: currentLimit,
-      pages: Number(data.pages || 1),
-      total: Number(data.total || 0),
-    });
-
-    return data;
-  } catch (e) {
-    console.error(e);
-    set({ error: e.message });
-    toast.error(e.message);
-    return null;
-  } finally {
-    set({ loading: false });
-  }
-},
-
-
-/* ============================================================
-   FABRIC ASSIGNMENT PRODUCTS
-   Loads all products without replacing the normal products grid
-============================================================ */
-fetchFabricAssignmentProducts: async (params = {}) => {
-  try {
-    set({
-      assignmentProductsLoading: true,
-      error: null,
-    });
-
-    const requestLimit = 250;
-    const mergedProducts = [];
-    const seenProductIds = new Set();
-
-    let currentPage = 1;
-    let totalPages = 1;
-
-    do {
       const query = buildProductQuery({
         page: currentPage,
-        limit: requestLimit,
-        isActive: params.isActive ?? true,
+        limit: currentLimit,
+
+        // existing
+        category: params.category,
+        collection: params.collection,
+        tags: params.tags,
+        minPrice: params.minPrice,
+        maxPrice: params.maxPrice,
+        isActive: params.isActive,
         isDraft: params.isDraft,
+        isBestSeller: params.isBestSeller,
+        isTrending: params.isTrending,
+        isPrimaryProduct: params.isPrimaryProduct,
         search: params.search,
-        sort: params.sort || "newest",
+        sort: params.sort,
+        sku: params.sku,
+        q: params.q,
+        title: params.title,
+        productCode: params.productCode,
+        code: params.code,
+
+        // new filters
+        isFeatured: params.isFeatured,
+        isPatternReady: params.isPatternReady,
+        isSamplingDone: params.isSamplingDone,
+        isInStock: params.isInStock,
+        productType: params.productType,
+        currency: params.currency,
+        taxClass: params.taxClass,
+        color: params.color,
+        colors: params.colors,
+        fabricName: params.fabricName,
+        fabricCode: params.fabricCode,
+        fabricColor: params.fabricColor,
+        role: params.role,
+        hsnCode: params.hsnCode,
+        slug: params.slug,
+        titleExact: params.titleExact,
+        externalURL: params.externalURL,
+        originalProductLink: params.originalProductLink,
+        wordpressId: params.wordpressId,
+
+        minRating: params.minRating,
+        maxRating: params.maxRating,
+        minViews: params.minViews,
+        maxViews: params.maxViews,
+        minPurchases: params.minPurchases,
+        maxPurchases: params.maxPurchases,
+        minCartAdds: params.minCartAdds,
+        maxCartAdds: params.maxCartAdds,
+        minWishlistCount: params.minWishlistCount,
+        maxWishlistCount: params.maxWishlistCount,
+        minSearchAppearances: params.minSearchAppearances,
+        maxSearchAppearances: params.maxSearchAppearances,
+
+        minStock: params.minStock,
+        maxStock: params.maxStock,
+        minReservedStock: params.minReservedStock,
+        maxReservedStock: params.maxReservedStock,
+
+        createdFrom: params.createdFrom,
+        createdTo: params.createdTo,
+        updatedFrom: params.updatedFrom,
+        updatedTo: params.updatedTo,
+        publishFrom: params.publishFrom,
+        publishTo: params.publishTo,
+
+        sortKey: params.sortKey,
+        sortDir: params.sortDir,
       });
 
       const res = await fetch(`${API}?${query}`, {
@@ -648,62 +482,228 @@ fetchFabricAssignmentProducts: async (params = {}) => {
       });
 
       const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to fetch products");
 
-      if (!res.ok) {
-        throw new Error(
-          data.message || "Failed to fetch assignment products"
-        );
-      }
-
-      const productList = Array.isArray(data.products)
-        ? data.products
-        : [];
-
-      productList.forEach((product) => {
-        const id = String(product?._id || "");
-
-        if (!id || seenProductIds.has(id)) return;
-
-        seenProductIds.add(id);
-        mergedProducts.push(product);
+      set({
+        products: Array.isArray(data.products) ? data.products : [],
+        page: Number(data.page || currentPage || 1),
+        limit: currentLimit,
+        pages: Number(data.pages || 1),
+        total: Number(data.total || 0),
       });
 
-      totalPages = Math.max(Number(data.pages || 1), 1);
-      currentPage += 1;
-    } while (currentPage <= totalPages);
+      return data;
+    } catch (e) {
+      console.error(e);
+      set({ error: e.message });
+      toast.error(e.message);
+      return null;
+    } finally {
+      set({ loading: false });
+    }
+  },
 
-    set({
-      assignmentProducts: mergedProducts,
-      assignmentProductsLoading: false,
-    });
+  /* ============================================================
+    ✅ FETCH PRODUCTS BY CATEGORY (ADMIN)
+  ============================================================ */
+  fetchProducts: async (params = {}) => {
+    try {
+      const currentPage = Number(params.page ?? get().page ?? 1) || 1;
+      const currentLimit = Number(params.limit ?? get().limit ?? 100) || 100;
 
-    return mergedProducts;
-  } catch (error) {
-    console.error(
-      "❌ fetchFabricAssignmentProducts error:",
-      error
-    );
+      set({ loading: true, error: null });
 
+      const query = buildProductQuery({
+        page: currentPage,
+        limit: currentLimit,
+
+        // existing
+        category: params.category,
+        collection: params.collection,
+        tags: params.tags,
+        minPrice: params.minPrice,
+        maxPrice: params.maxPrice,
+        isActive: params.isActive,
+        isDraft: params.isDraft,
+        isBestSeller: params.isBestSeller,
+        isTrending: params.isTrending,
+        isPrimaryProduct: params.isPrimaryProduct,
+        search: params.search,
+        sort: params.sort,
+        sku: params.sku,
+        q: params.q,
+        title: params.title,
+        productCode: params.productCode,
+        code: params.code,
+
+        // new filters
+        isFeatured: params.isFeatured,
+        isPatternReady: params.isPatternReady,
+        isSamplingDone: params.isSamplingDone,
+        isInStock: params.isInStock,
+        productType: params.productType,
+        currency: params.currency,
+        taxClass: params.taxClass,
+        color: params.color,
+        colors: params.colors,
+        fabricName: params.fabricName,
+        fabricCode: params.fabricCode,
+        fabricColor: params.fabricColor,
+        role: params.role,
+        hsnCode: params.hsnCode,
+        slug: params.slug,
+        titleExact: params.titleExact,
+        externalURL: params.externalURL,
+        originalProductLink: params.originalProductLink,
+        wordpressId: params.wordpressId,
+
+        minRating: params.minRating,
+        maxRating: params.maxRating,
+        minViews: params.minViews,
+        maxViews: params.maxViews,
+        minPurchases: params.minPurchases,
+        maxPurchases: params.maxPurchases,
+        minCartAdds: params.minCartAdds,
+        maxCartAdds: params.maxCartAdds,
+        minWishlistCount: params.minWishlistCount,
+        maxWishlistCount: params.maxWishlistCount,
+        minSearchAppearances: params.minSearchAppearances,
+        maxSearchAppearances: params.maxSearchAppearances,
+
+        minStock: params.minStock,
+        maxStock: params.maxStock,
+        minReservedStock: params.minReservedStock,
+        maxReservedStock: params.maxReservedStock,
+
+        createdFrom: params.createdFrom,
+        createdTo: params.createdTo,
+        updatedFrom: params.updatedFrom,
+        updatedTo: params.updatedTo,
+        publishFrom: params.publishFrom,
+        publishTo: params.publishTo,
+
+        sortKey: params.sortKey,
+        sortDir: params.sortDir,
+      });
+
+      const res = await fetch(`${API}?${query}`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to fetch products");
+
+      set({
+        products: Array.isArray(data.products) ? data.products : [],
+        page: Number(data.page || currentPage || 1),
+        limit: currentLimit,
+        pages: Number(data.pages || 1),
+        total: Number(data.total || 0),
+      });
+
+      return data;
+    } catch (e) {
+      console.error(e);
+      set({ error: e.message });
+      toast.error(e.message);
+      return null;
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+
+  /* ============================================================
+     FABRIC ASSIGNMENT PRODUCTS
+     Loads all products without replacing the normal products grid
+  ============================================================ */
+  fetchFabricAssignmentProducts: async (params = {}) => {
+    try {
+      set({
+        assignmentProductsLoading: true,
+        error: null,
+      });
+
+      const requestLimit = 250;
+      const mergedProducts = [];
+      const seenProductIds = new Set();
+
+      let currentPage = 1;
+      let totalPages = 1;
+
+      do {
+        const query = buildProductQuery({
+          page: currentPage,
+          limit: requestLimit,
+          isActive: params.isActive ?? true,
+          isDraft: params.isDraft,
+          search: params.search,
+          sort: params.sort || "newest",
+        });
+
+        const res = await fetch(`${API}?${query}`, {
+          credentials: "include",
+          cache: "no-store",
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(
+            data.message || "Failed to fetch assignment products"
+          );
+        }
+
+        const productList = Array.isArray(data.products)
+          ? data.products
+          : [];
+
+        productList.forEach((product) => {
+          const id = String(product?._id || "");
+
+          if (!id || seenProductIds.has(id)) return;
+
+          seenProductIds.add(id);
+          mergedProducts.push(product);
+        });
+
+        totalPages = Math.max(Number(data.pages || 1), 1);
+        currentPage += 1;
+      } while (currentPage <= totalPages);
+
+      set({
+        assignmentProducts: mergedProducts,
+        assignmentProductsLoading: false,
+      });
+
+      return mergedProducts;
+    } catch (error) {
+      console.error(
+        "❌ fetchFabricAssignmentProducts error:",
+        error
+      );
+
+      set({
+        assignmentProducts: [],
+        assignmentProductsLoading: false,
+        error: error.message,
+      });
+
+      toast.error(
+        error.message || "Failed to fetch assignment products"
+      );
+
+      return [];
+    }
+  },
+
+  clearFabricAssignmentProducts: () => {
     set({
       assignmentProducts: [],
       assignmentProductsLoading: false,
-      error: error.message,
     });
-
-    toast.error(
-      error.message || "Failed to fetch assignment products"
-    );
-
-    return [];
-  }
-},
-
-clearFabricAssignmentProducts: () => {
-  set({
-    assignmentProducts: [],
-    assignmentProductsLoading: false,
-  });
-},
+  },
   /* ============================================================
     FETCH SINGLE PRODUCT (EDIT PAGE)
   ============================================================ */
@@ -726,7 +726,7 @@ clearFabricAssignmentProducts: () => {
     }
   },
 
-  
+
   /* ============================================================
     CREATE PRODUCT
     - strips variant price fields
@@ -901,10 +901,10 @@ clearFabricAssignmentProducts: () => {
         products: (state.products || []).map((p) =>
           p._id === productId
             ? {
-                ...p,
-                stock: updatedProduct.stock ?? nextStock,
-                isInStock: updatedProduct.isInStock ?? p.isInStock,
-              }
+              ...p,
+              stock: updatedProduct.stock ?? nextStock,
+              isInStock: updatedProduct.isInStock ?? p.isInStock,
+            }
             : p,
         ),
       }));
@@ -955,11 +955,11 @@ clearFabricAssignmentProducts: () => {
         products: (state.products || []).map((p) =>
           p._id === productId
             ? {
-                ...p,
-                stock: updatedProduct.stock ?? p.stock,
-                variants: updatedProduct.variants ?? p.variants,
-                isInStock: updatedProduct.isInStock ?? p.isInStock,
-              }
+              ...p,
+              stock: updatedProduct.stock ?? p.stock,
+              variants: updatedProduct.variants ?? p.variants,
+              isInStock: updatedProduct.isInStock ?? p.isInStock,
+            }
             : p,
         ),
       }));
@@ -1441,7 +1441,7 @@ clearFabricAssignmentProducts: () => {
   },
 
 
-    fetchSelectedProductsByCodes: async (codes = [], opts = {}) => {
+  fetchSelectedProductsByCodes: async (codes = [], opts = {}) => {
     try {
       const normalizeCode = (value) => {
         const raw = String(value ?? "").trim().toUpperCase().replace(/\s+/g, "");
@@ -1591,253 +1591,253 @@ clearFabricAssignmentProducts: () => {
   ✅ UPDATE PRODUCT ACCESSORIES + AVG FABRIC
   PATCH /api/products/:id
 ============================================================ */
-updateProductProductionDetails: async (id, payload = {}) => {
-  try {
-    set({ saving: true, error: null });
+  updateProductProductionDetails: async (id, payload = {}) => {
+    try {
+      set({ saving: true, error: null });
 
-    const normalizedPayload = normalizeProductPayload({
-      accessories: payload.accessories,
-      avgFabricConsumption: payload.avgFabricConsumption,
-    });
+      const normalizedPayload = normalizeProductPayload({
+        accessories: payload.accessories,
+        avgFabricConsumption: payload.avgFabricConsumption,
+      });
 
-    const res = await fetch(`${API}/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify(normalizedPayload),
-    });
+      const res = await fetch(`${API}/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(normalizedPayload),
+      });
 
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.message || "Production details update failed");
-    }
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || "Production details update failed");
+      }
 
-    const updated = data.product;
+      const updated = data.product;
 
-    if (get().product && String(get().product?._id) === String(id)) {
-      set({ product: updated });
-    }
+      if (get().product && String(get().product?._id) === String(id)) {
+        set({ product: updated });
+      }
 
-    set((state) => ({
-      products: (state.products || []).map((p) =>
-        String(p._id) === String(id)
-          ? {
+      set((state) => ({
+        products: (state.products || []).map((p) =>
+          String(p._id) === String(id)
+            ? {
               ...p,
               accessories: updated?.accessories ?? p.accessories,
               avgFabricConsumption:
                 updated?.avgFabricConsumption ?? p.avgFabricConsumption,
             }
-          : p
-      ),
-    }));
+            : p
+        ),
+      }));
 
-    toast.success("Production details updated ✅");
-    return updated;
-  } catch (e) {
-    console.error(e);
-    toast.error(e.message);
-    throw e;
-  } finally {
-    set({ saving: false });
-  }
-},
-
- /* ============================================================
-  SAMPLING STATUS
-  PATCH /api/products/:id/sampling-status
-============================================================ */
-updateSamplingStatus: async (
-  productId,
-  isSamplingDone,
-) => {
-  try {
-    set({ saving: true, error: null });
-
-    if (!productId) {
-      throw new Error("Product ID is required");
+      toast.success("Production details updated ✅");
+      return updated;
+    } catch (e) {
+      console.error(e);
+      toast.error(e.message);
+      throw e;
+    } finally {
+      set({ saving: false });
     }
+  },
 
-    const nextValue = Boolean(isSamplingDone);
+  /* ============================================================
+   SAMPLING STATUS
+   PATCH /api/products/:id/sampling-status
+ ============================================================ */
+  updateSamplingStatus: async (
+    productId,
+    isSamplingDone,
+  ) => {
+    try {
+      set({ saving: true, error: null });
 
-    const res = await fetch(
-      `${API}/${productId}/sampling-status`,
-      {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
+      if (!productId) {
+        throw new Error("Product ID is required");
+      }
+
+      const nextValue = Boolean(isSamplingDone);
+
+      const res = await fetch(
+        `${API}/${productId}/sampling-status`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            isSamplingDone: nextValue,
+          }),
         },
-        credentials: "include",
-        body: JSON.stringify({
-          isSamplingDone: nextValue,
-        }),
-      },
-    );
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(
-        data.message || "Sampling update failed",
       );
-    }
 
-    const updatedProduct = data.product || {
-      _id: productId,
-      isSamplingDone:
-        data.isSamplingDone ?? nextValue,
-    };
+      const data = await res.json();
 
-    if (
-      String(get().product?._id || "") ===
-      String(productId)
-    ) {
-      set((state) => ({
-        product: state.product
-          ? {
+      if (!res.ok) {
+        throw new Error(
+          data.message || "Sampling update failed",
+        );
+      }
+
+      const updatedProduct = data.product || {
+        _id: productId,
+        isSamplingDone:
+          data.isSamplingDone ?? nextValue,
+      };
+
+      if (
+        String(get().product?._id || "") ===
+        String(productId)
+      ) {
+        set((state) => ({
+          product: state.product
+            ? {
               ...state.product,
               ...updatedProduct,
               isSamplingDone:
                 updatedProduct.isSamplingDone ??
                 nextValue,
             }
-          : state.product,
-      }));
-    }
+            : state.product,
+        }));
+      }
 
-    set((state) => ({
-      products: (state.products || []).map((product) =>
-        String(product?._id) === String(productId)
-          ? {
+      set((state) => ({
+        products: (state.products || []).map((product) =>
+          String(product?._id) === String(productId)
+            ? {
               ...product,
               ...updatedProduct,
               isSamplingDone:
                 updatedProduct.isSamplingDone ??
                 nextValue,
             }
-          : product,
-      ),
-    }));
+            : product,
+        ),
+      }));
 
-    toast.success(
-      nextValue
-        ? "Sampling marked as done ✅"
-        : "Sampling marked as pending",
-    );
+      toast.success(
+        nextValue
+          ? "Sampling marked as done ✅"
+          : "Sampling marked as pending",
+      );
 
-    return updatedProduct;
-  } catch (error) {
-    console.error(
-      "❌ updateSamplingStatus:",
-      error,
-    );
+      return updatedProduct;
+    } catch (error) {
+      console.error(
+        "❌ updateSamplingStatus:",
+        error,
+      );
 
-    toast.error(
-      error.message || "Sampling update failed",
-    );
+      toast.error(
+        error.message || "Sampling update failed",
+      );
 
-    throw error;
-  } finally {
-    set({ saving: false });
-  }
-},
+      throw error;
+    } finally {
+      set({ saving: false });
+    }
+  },
 
   /* ============================================================
   VARIANT PATTERN NUMBER
   PATCH /api/products/:id/variant-pattern
   body: { variantId, patternNumber }
 ============================================================ */
-updateVariantPatternNumber: async (
-  productId,
-  variantId,
-  patternNumber,
-) => {
-  try {
-    set({ saving: true, error: null });
+  updateVariantPatternNumber: async (
+    productId,
+    variantId,
+    patternNumber,
+  ) => {
+    try {
+      set({ saving: true, error: null });
 
-    if (!productId) {
-      throw new Error("Product ID is required");
-    }
+      if (!productId) {
+        throw new Error("Product ID is required");
+      }
 
-    if (!variantId) {
-      throw new Error("Variant ID is required");
-    }
+      if (!variantId) {
+        throw new Error("Variant ID is required");
+      }
 
-    const nextPatternNumber = String(
-      patternNumber ?? "",
-    ).trim();
+      const nextPatternNumber = String(
+        patternNumber ?? "",
+      ).trim();
 
-    const res = await fetch(
-      `${API}/${productId}/variant-pattern`,
-      {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
+      const res = await fetch(
+        `${API}/${productId}/variant-pattern`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            variantId,
+            patternNumber: nextPatternNumber,
+          }),
         },
-        credentials: "include",
-        body: JSON.stringify({
-          variantId,
-          patternNumber: nextPatternNumber,
-        }),
-      },
-    );
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(
-        data.message || "Pattern number update failed",
       );
-    }
 
-    const updatedProduct = data.product;
+      const data = await res.json();
 
-    if (
-      String(get().product?._id || "") ===
-      String(productId)
-    ) {
-      set({
-        product: updatedProduct,
-      });
-    }
+      if (!res.ok) {
+        throw new Error(
+          data.message || "Pattern number update failed",
+        );
+      }
 
-    set((state) => ({
-      products: (state.products || []).map((product) =>
-        String(product?._id) === String(productId)
-          ? {
+      const updatedProduct = data.product;
+
+      if (
+        String(get().product?._id || "") ===
+        String(productId)
+      ) {
+        set({
+          product: updatedProduct,
+        });
+      }
+
+      set((state) => ({
+        products: (state.products || []).map((product) =>
+          String(product?._id) === String(productId)
+            ? {
               ...product,
               ...updatedProduct,
             }
-          : product,
-      ),
-    }));
+            : product,
+        ),
+      }));
 
-    toast.success(
-      nextPatternNumber
-        ? "Pattern number updated ✅"
-        : "Pattern number removed",
-    );
+      toast.success(
+        nextPatternNumber
+          ? "Pattern number updated ✅"
+          : "Pattern number removed",
+      );
 
-    return updatedProduct;
-  } catch (error) {
-    console.error(
-      "❌ updateVariantPatternNumber:",
-      error,
-    );
+      return updatedProduct;
+    } catch (error) {
+      console.error(
+        "❌ updateVariantPatternNumber:",
+        error,
+      );
 
-    toast.error(
-      error.message || "Pattern number update failed",
-    );
+      toast.error(
+        error.message || "Pattern number update failed",
+      );
 
-    throw error;
-  } finally {
-    set({ saving: false });
-  }
-},
+      throw error;
+    } finally {
+      set({ saving: false });
+    }
+  },
 
 
-     /* ============================================================
-    ✅ ADD COLOUR 
-  ============================================================ */
+  /* ============================================================
+ ✅ ADD COLOUR 
+============================================================ */
   updateProductColorsOnly: async (productId, colors) => {
     try {
       set({ saving: true, error: null });
@@ -1895,12 +1895,12 @@ updateVariantPatternNumber: async (
     }
   },
 
-    /* ============================================================
-    ✅ TOGGLE BEST SELLER
-    PATCH /api/products/:id/best-seller
-    - body empty => toggle
-    - body { isBestSeller: true/false } => force set
-  ============================================================ */
+  /* ============================================================
+  ✅ TOGGLE BEST SELLER
+  PATCH /api/products/:id/best-seller
+  - body empty => toggle
+  - body { isBestSeller: true/false } => force set
+============================================================ */
   toggleBestSeller: async (productId, nextValue) => {
     try {
       set({ saving: true, error: null });
@@ -1948,12 +1948,12 @@ updateVariantPatternNumber: async (
 
 
 
-    /* ============================================================
-    ✅ TOGGLE TRENDING
-    PATCH /api/products/:id/trending
-    - body empty => toggle
-    - body { isTrending: true/false } => force set
-  ============================================================ */
+  /* ============================================================
+  ✅ TOGGLE TRENDING
+  PATCH /api/products/:id/trending
+  - body empty => toggle
+  - body { isTrending: true/false } => force set
+============================================================ */
   toggleTrending: async (productId, nextValue) => {
     try {
       set({ saving: true, error: null });
@@ -2000,12 +2000,12 @@ updateVariantPatternNumber: async (
   },
 
 
-    /* ============================================================
-    ✅ TOGGLE TRENDING
-    PATCH /api/products/:id/trending
-    - body empty => toggle
-    - body { isTrending: true/false } => force set
-  ============================================================ */
+  /* ============================================================
+  ✅ TOGGLE TRENDING
+  PATCH /api/products/:id/trending
+  - body empty => toggle
+  - body { isTrending: true/false } => force set
+============================================================ */
   toggleTrending: async (productId, nextValue) => {
     try {
       set({ saving: true, error: null });
@@ -2051,10 +2051,10 @@ updateVariantPatternNumber: async (
     }
   },
 
-   /* =========================
-    ✅ NEW: MARK PATTERN READY (manual)
-    PATCH /api/products/:id/mark-pattern-ready
-  ========================= */
+  /* =========================
+   ✅ NEW: MARK PATTERN READY (manual)
+   PATCH /api/products/:id/mark-pattern-ready
+ ========================= */
   markPatternReady: async (productId) => {
     try {
       set({ saving: true, error: null });
@@ -2088,10 +2088,10 @@ updateVariantPatternNumber: async (
     }
   },
 
-    /* ============================================================
-    ✅ ZERO ALL VARIANT STOCK
-    PATCH /api/products/bulk/variant-stock/zero-all
-  ============================================================ */
+  /* ============================================================
+  ✅ ZERO ALL VARIANT STOCK
+  PATCH /api/products/bulk/variant-stock/zero-all
+============================================================ */
   zeroAllVariantStock: async () => {
     try {
       set({ saving: true, error: null });
@@ -2112,10 +2112,10 @@ updateVariantPatternNumber: async (
         const current = get().product;
         const nextVariants = Array.isArray(current.variants)
           ? current.variants.map((v) => ({
-              ...v,
-              stock: 0,
-              isInStock: false,
-            }))
+            ...v,
+            stock: 0,
+            isInStock: false,
+          }))
           : current.variants;
 
         set({
@@ -2160,170 +2160,294 @@ updateVariantPatternNumber: async (
 
 
   updatePrimaryProductStatus: async (payload, isPrimaryProduct) => {
-  try {
-    set({ saving: true, error: null });
+    try {
+      set({ saving: true, error: null });
 
-    const toBool = (v) =>
-      typeof v === "boolean"
-        ? v
-        : ["true", "1", "yes"].includes(String(v).trim().toLowerCase());
+      const toBool = (v) =>
+        typeof v === "boolean"
+          ? v
+          : ["true", "1", "yes"].includes(String(v).trim().toLowerCase());
 
-    const nextValue = toBool(isPrimaryProduct);
+      const nextValue = toBool(isPrimaryProduct);
 
-    const body =
-      typeof payload === "string"
-        ? { productCode: payload, isPrimaryProduct: nextValue }
-        : Array.isArray(payload)
-        ? { productCodes: payload, isPrimaryProduct: nextValue }
-        : {
-            ...(payload || {}),
-            isPrimaryProduct: nextValue,
-          };
+      const body =
+        typeof payload === "string"
+          ? { productCode: payload, isPrimaryProduct: nextValue }
+          : Array.isArray(payload)
+            ? { productCodes: payload, isPrimaryProduct: nextValue }
+            : {
+              ...(payload || {}),
+              isPrimaryProduct: nextValue,
+            };
 
-    const res = await fetch(`${API}/primary-status`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify(body),
-    });
-
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.message || "Primary status update failed");
-
-    const updatedProducts = Array.isArray(data.products)
-      ? data.products
-      : data.product
-      ? [data.product]
-      : [];
-
-    const updatedMap = new Map(
-      updatedProducts.map((p) => [String(p._id), p])
-    );
-
-    const currentProductId = String(get().product?._id || "");
-    if (currentProductId && updatedMap.has(currentProductId)) {
-      set({ product: updatedMap.get(currentProductId) });
-    }
-
-    set((state) => ({
-      products: (state.products || []).map((p) =>
-        updatedMap.has(String(p._id))
-          ? { ...p, ...updatedMap.get(String(p._id)) }
-          : p
-      ),
-    }));
-
-    toast.success(
-      nextValue
-        ? "Marked as primary product ✅"
-        : "Marked as secondary product ✅"
-    );
-
-    return updatedProducts;
-  } catch (e) {
-    console.error(e);
-    toast.error(e.message);
-    throw e;
-  } finally {
-    set({ saving: false });
-  }
-},
-
-
-fetchProductTypeList: async ({
-  page = 1,
-  limit = 100,
-  search = "",
-  category = "all",
-  status = "all",
-} = {}) => {
-  try {
-    set({ loading: true, error: null });
-
-    const params = {
-      page: String(page),
-      limit: String(limit),
-    };
-
-    if (String(search || "").trim()) {
-      params.search = String(search).trim();
-    }
-
-    if (String(category || "").trim() && category !== "all") {
-      params.category = String(category).trim();
-    }
-
-    if (status === "primary") {
-      params.isPrimaryProduct = "true";
-    } else if (status === "secondary") {
-      params.isPrimaryProduct = "false";
-    }
-
-    const query = new URLSearchParams(params).toString();
-    const res = await fetch(`${API}?${query}`, { credentials: "include" });
-
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.message || "Failed to fetch products");
-
-    set({
-      products: data.products || [],
-      page: data.page || 1,
-      pages: data.pages || 1,
-      total: data.total || 0,
-    });
-
-    return data.products || [];
-  } catch (e) {
-    console.error(e);
-    set({ error: e.message });
-    toast.error(e.message);
-    return [];
-  } finally {
-    set({ loading: false });
-  }
-},
-
-/* ============================================================
-   AVAILABLE INVENTORY (BARTER)
-   GET /api/products/inventory/available
-============================================================ */
-fetchAvailableInventory: async (params = {}) => {
-  try {
-    set({ loading: true, error: null });
-
-    const query = buildProductQuery({
-      search: params.search,
-      category: params.category,
-      onlyAvailable: true,
-      page: params.page || 1,
-      limit: params.limit || 500,
-    });
-
-    const res = await fetch(
-      `${API}/inventory/available?${query}`,
-      {
+      const res = await fetch(`${API}/primary-status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
         credentials: "include",
-        cache: "no-store",
-      }
-    );
+        body: JSON.stringify(body),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Primary status update failed");
 
-    if (!res.ok) {
-      throw new Error(
-        data.message || "Failed to fetch available inventory"
+      const updatedProducts = Array.isArray(data.products)
+        ? data.products
+        : data.product
+          ? [data.product]
+          : [];
+
+      const updatedMap = new Map(
+        updatedProducts.map((p) => [String(p._id), p])
       );
-    }
 
-    return data;
-  } catch (e) {
-    console.error(e);
-    toast.error(e.message);
-    return null;
-  } finally {
-    set({ loading: false });
-  }
-},
+      const currentProductId = String(get().product?._id || "");
+      if (currentProductId && updatedMap.has(currentProductId)) {
+        set({ product: updatedMap.get(currentProductId) });
+      }
+
+      set((state) => ({
+        products: (state.products || []).map((p) =>
+          updatedMap.has(String(p._id))
+            ? { ...p, ...updatedMap.get(String(p._id)) }
+            : p
+        ),
+      }));
+
+      toast.success(
+        nextValue
+          ? "Marked as primary product ✅"
+          : "Marked as secondary product ✅"
+      );
+
+      return updatedProducts;
+    } catch (e) {
+      console.error(e);
+      toast.error(e.message);
+      throw e;
+    } finally {
+      set({ saving: false });
+    }
+  },
+
+
+  fetchProductTypeList: async ({
+    page = 1,
+    limit = 100,
+    search = "",
+    category = "all",
+    status = "all",
+  } = {}) => {
+    try {
+      set({ loading: true, error: null });
+
+      const params = {
+        page: String(page),
+        limit: String(limit),
+      };
+
+      if (String(search || "").trim()) {
+        params.search = String(search).trim();
+      }
+
+      if (String(category || "").trim() && category !== "all") {
+        params.category = String(category).trim();
+      }
+
+      if (status === "primary") {
+        params.isPrimaryProduct = "true";
+      } else if (status === "secondary") {
+        params.isPrimaryProduct = "false";
+      }
+
+      const query = new URLSearchParams(params).toString();
+      const res = await fetch(`${API}?${query}`, { credentials: "include" });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to fetch products");
+
+      set({
+        products: data.products || [],
+        page: data.page || 1,
+        pages: data.pages || 1,
+        total: data.total || 0,
+      });
+
+      return data.products || [];
+    } catch (e) {
+      console.error(e);
+      set({ error: e.message });
+      toast.error(e.message);
+      return [];
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  /* ============================================================
+     AVAILABLE INVENTORY (BARTER)
+     GET /api/products/inventory/available
+  ============================================================ */
+  fetchAvailableInventory: async (params = {}) => {
+    try {
+      set({ loading: true, error: null });
+
+      const query = buildProductQuery({
+        search: params.search,
+        category: params.category,
+        onlyAvailable: true,
+        page: params.page || 1,
+        limit: params.limit || 500,
+      });
+
+      const res = await fetch(
+        `${API}/inventory/available?${query}`,
+        {
+          credentials: "include",
+          cache: "no-store",
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(
+          data.message || "Failed to fetch available inventory"
+        );
+      }
+
+      return data;
+    } catch (e) {
+      console.error(e);
+      toast.error(e.message);
+      return null;
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  /* ============================================================
+     BARCODE EXCEL -> INVENTORY IMPORT
+     POST /api/products/inventory/barcode-import
+  
+     FormData:
+     file: .xlsx / .xls / .csv
+  ============================================================ */
+  importBarcodeInventoryExcel: async (file) => {
+    try {
+      if (!file) {
+        toast.error("Please select an Excel file");
+        return null;
+      }
+
+      const allowedExtensions = [
+        ".xlsx",
+        ".xls",
+        ".csv",
+      ];
+
+      const fileName = String(
+        file?.name || ""
+      ).toLowerCase();
+
+      const isAllowed = allowedExtensions.some(
+        (ext) => fileName.endsWith(ext)
+      );
+
+      if (!isAllowed) {
+        toast.error(
+          "Only XLSX, XLS or CSV files are allowed"
+        );
+        return null;
+      }
+
+      set({
+        saving: true,
+        error: null,
+      });
+
+      const formData = new FormData();
+
+      formData.append(
+        "file",
+        file
+      );
+
+      const res = await fetch(
+        `${API}/inventory/barcode-import`,
+        {
+          method: "POST",
+
+          credentials: "include",
+
+          body: formData,
+        }
+      );
+
+      let data = null;
+
+      try {
+        data = await res.json();
+      } catch {
+        data = null;
+      }
+
+      if (!res.ok) {
+        throw new Error(
+          data?.message ||
+          "Barcode inventory import failed"
+        );
+      }
+
+      const inventoryAdded =
+        Number(
+          data?.summary?.inventoryAdded
+        ) || 0;
+
+      const updated =
+        Number(
+          data?.summary?.updated
+        ) || 0;
+
+      const failed =
+        Number(
+          data?.summary?.failed
+        ) || 0;
+
+      if (failed > 0) {
+        toast.success(
+          `${inventoryAdded} pcs added • ${updated} variants updated • ${failed} failed`
+        );
+      } else {
+        toast.success(
+          `${inventoryAdded} pcs added to inventory ✅`
+        );
+      }
+
+      return data;
+    } catch (e) {
+      console.error(
+        "❌ importBarcodeInventoryExcel:",
+        e
+      );
+
+      set({
+        error:
+          e?.message ||
+          "Barcode inventory import failed",
+      });
+
+      toast.error(
+        e?.message ||
+        "Barcode inventory import failed"
+      );
+
+      throw e;
+    } finally {
+      set({
+        saving: false,
+      });
+    }
+  },
 
 
 

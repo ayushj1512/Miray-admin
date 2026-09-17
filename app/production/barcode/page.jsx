@@ -72,16 +72,13 @@ function barcodeToPngDataUrl(value) {
     JsBarcode(canvas, v, {
       format: "CODE128",
 
-      // scanner-friendly proportions
       width: 2,
       height: 52,
 
-      displayValue: true,
-      font: "Arial",
-      fontSize: 14,
-      textMargin: 3,
+      // IMPORTANT:
+      // barcode image ke andar SKU text nahi aayega
+      displayValue: false,
 
-      // IMPORTANT: quiet zone around actual bars
       margin: 12,
       marginTop: 5,
       marginBottom: 5,
@@ -92,7 +89,11 @@ function barcodeToPngDataUrl(value) {
 
     return canvas.toDataURL("image/png");
   } catch (e) {
-    console.error("Barcode generation failed:", e);
+    console.error(
+      "Barcode generation failed:",
+      e
+    );
+
     return "";
   }
 }
@@ -385,12 +386,22 @@ export default function BarcodePage() {
         return `<div class="label empty"></div>`;
       }
 
+      // Always generate a fresh barcode; do not reuse stored PNGs.
+      const freshBarcodePng = barcodeToPngDataUrl(item.sku);
+
       return `
         <div class="label">
-          <img
-            src="${item.barcodePng}"
-            alt="${item.sku || ""}"
-          />
+          <div class="barcode-wrap">
+            <img
+              class="barcode-img"
+              src="${freshBarcodePng}"
+              alt=""
+            />
+          </div>
+
+          <div class="sku-text">
+            ${item.sku || ""}
+          </div>
         </div>
       `;
     };
@@ -458,38 +469,83 @@ export default function BarcodePage() {
               page-break-after: auto;
             }
 
-            .label {
+    .label {
   width: 50.8mm;
   height: 25.4mm;
 
   margin: 0;
-
-  /* ~20% safe area around content */
-  padding: 2.5mm 5mm;
+  padding: 2.2mm 5mm;
 
   overflow: hidden;
+  background: #ffffff;
 
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-
-  background: #fff;
+  justify-content: flex-start;
 }
 
 .label.empty {
   padding: 0;
 }
 
-.label img {
-  display: block;
+/* =========================
+   BARCODE
+========================= */
 
-  width: 100%;
-  height: 100%;
-
-  object-fit: contain;
+.barcode-wrap {
+  width: 40.8mm;
+  height: 15.5mm;
 
   margin: 0;
   padding: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  overflow: hidden;
+}
+
+.barcode-img {
+  display: block;
+
+  width: 40.8mm;
+  height: 15.5mm;
+
+  margin: 0;
+  padding: 0;
+
+  object-fit: fill;
+}
+
+/* =========================
+   SKU
+========================= */
+
+.sku-text {
+  width: 40.8mm;
+
+  /* barcode aur text ke beech small gap */
+  margin: 0.5mm 0 0;
+  padding: 0;
+
+  text-align: center;
+  white-space: nowrap;
+
+  font-family:
+    "Arial Black",
+    Arial,
+    Helvetica,
+    sans-serif;
+
+  font-size: 10pt;
+  font-weight: 900;
+  line-height: 1;
+
+  letter-spacing: 0;
+
+  color: #000000;
 }
           </style>
         </head>
@@ -570,28 +626,77 @@ const downloadSheetPdf = async () => {
       compress: true,
     });
 
-    const drawLabel = (item, labelStartX) => {
-      if (!item) return;
+  const drawLabel = (
+  item,
+  labelStartX
+) => {
+  if (!item) return;
 
-      const x = labelStartX + SIDE_MARGIN;
-      const y = VERTICAL_MARGIN;
+  // IMPORTANT:
+  // stored item.barcodePng use nahi karna.
+  // Fresh barcode = no baked SKU text.
+  const freshBarcodePng =
+    barcodeToPngDataUrl(item.sku);
 
-      /*
-        IMPORTANT:
-        Don't make barcode touch label edges.
-        Keep scanner-safe white area.
-      */
-      doc.addImage(
-        item.barcodePng,
-        "PNG",
-        x,
-        y,
-        CONTENT_W,
-        CONTENT_H,
-        undefined,
-        "FAST"
-      );
-    };
+  if (!freshBarcodePng) return;
+
+  // =========================
+  // DIMENSIONS
+  // =========================
+
+  const BARCODE_W = 40.8;
+  const BARCODE_H = 15.5;
+
+  const BARCODE_X =
+    labelStartX + 5;
+
+  const BARCODE_Y = 2.2;
+
+  // =========================
+  // BARCODE
+  // =========================
+
+  doc.addImage(
+    freshBarcodePng,
+    "PNG",
+    BARCODE_X,
+    BARCODE_Y,
+    BARCODE_W,
+    BARCODE_H,
+    undefined,
+    "FAST"
+  );
+
+  // =========================
+  // SKU TEXT
+  // =========================
+
+  doc.setFont(
+    "helvetica",
+    "bold"
+  );
+
+  doc.setFontSize(10);
+
+  doc.setTextColor(
+    0,
+    0,
+    0
+  );
+
+  doc.text(
+    String(item.sku || ""),
+
+    labelStartX +
+      SINGLE_LABEL_W_MM / 2,
+
+    20.3,
+
+    {
+      align: "center",
+    }
+  );
+};
 
     // =====================================================
     // 2 LABELS = 1 PDF PAGE
@@ -783,21 +888,47 @@ const downloadSheetPdf = async () => {
                         <div className="text-xs text-neutral-600 mb-2">
                           Preview (2×1 inch)
                         </div>
-                        <div
-                          className="border border-neutral-200 bg-white overflow-hidden"
-                          style={{ width: `${LABEL_W_IN}in`, height: `${LABEL_H_IN}in` }}
-                        >
-                          <img
-                            src={barcodeToPngDataUrl(row.selectedSku)}
-                            alt={row.selectedSku}
-                            style={{
-                              width: "100%",
-                              height: "100%",
-                              objectFit: "contain",
-                              display: "block",
-                            }}
-                          />
-                        </div>
+                     <div
+  className="flex flex-col items-center justify-start overflow-hidden border border-neutral-200 bg-white"
+  style={{
+    width: `${LABEL_W_IN}in`,
+    height: `${LABEL_H_IN}in`,
+    padding: "0.09in 0.19in",
+  }}
+>
+  <img
+    src={barcodeToPngDataUrl(
+      row.selectedSku
+    )}
+    alt=""
+    style={{
+      width: "100%",
+      height: "0.61in",
+      objectFit: "fill",
+      display: "block",
+    }}
+  />
+
+  <div
+    style={{
+      marginTop: "0.02in",
+      width: "100%",
+      textAlign: "center",
+      whiteSpace: "nowrap",
+
+      fontFamily:
+        '"Arial Black", Arial, sans-serif',
+
+      fontSize: "13px",
+      fontWeight: 900,
+      lineHeight: 1,
+
+      color: "#000",
+    }}
+  >
+    {row.selectedSku}
+  </div>
+</div>
                       </div>
                     ) : null}
 

@@ -140,20 +140,22 @@ export const sidebarMenus = {
   ],
 
   inventory: [
-    { label: "Inventory Dashboard", href: "/inventory" },
+  { label: "Inventory Dashboard", href: "/inventory" },
 
-    { label: "Modify Inventory", href: "/inventory/modify-inventory" },
+  { label: "Modify Inventory", href: "/inventory/modify-inventory" },
 
-    { label: "Bulk Add Inventory", href: "/inventory/bulk-add" },
+  { label: "Bulk Add Inventory", href: "/inventory/bulk-add" },
 
-    { label: "Available Inventory", href: "/inventory/available-inventory" },
+  { label: "In-Hand Inventory", href: "/inventory/in-hand-inventory" },
 
-    { label: "Reserved Inventory", href: "/inventory/reserved-inventory" },
+  { label: "Available Inventory", href: "/inventory/available-inventory" },
 
-    { label: "On Demand Inventory", href: "/inventory/on-demand-inventory" },
+  { label: "Reserved Inventory", href: "/inventory/reserved-inventory" },
 
-    { label: "Broken Orders", href: "/inventory/broken-orders" },
-  ],
+  { label: "On Demand Inventory", href: "/inventory/on-demand-inventory" },
+
+  { label: "Broken Orders", href: "/inventory/broken-orders" },
+],
 
   fabrics: [
     {

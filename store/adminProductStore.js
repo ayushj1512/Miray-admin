@@ -356,6 +356,10 @@ export const useAdminProductStore = create((set, get) => ({
   ============================================================ */
   products: [],
   product: null,
+  inventorySummary: null,
+inventorySummaryRows: [],
+inventorySummaryLoading: false,
+inventorySummaryError: null,
   bulkSelectedIds: [],
   bulkPriceDraft: {}, // { [id]: { price?, compareAtPrice? } }
   page: 1,
@@ -2448,7 +2452,76 @@ export const useAdminProductStore = create((set, get) => ({
       });
     }
   },
+/* ============================================================
+   INVENTORY IN-HAND SUMMARY
+   GET /api/products/admin/inventory/summary
+============================================================ */
 
+fetchInventoryInHandSummary: async (params = {}) => {
+  try {
+    set({
+      inventorySummaryLoading: true,
+      inventorySummaryError: null,
+    });
+
+    const query = buildProductQuery({
+      q: params.q,
+      category: params.category,
+      hideFootwear: params.hideFootwear ?? true,
+      footwearKeys:
+        params.footwearKeys ||
+        "footwear,shoes,sneakers,slippers,sandals",
+    });
+
+    const url = query
+      ? `${API}/admin/inventory/summary?${query}`
+      : `${API}/admin/inventory/summary`;
+
+    const res = await fetch(url, {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(
+        data?.message || "Failed to fetch inventory summary"
+      );
+    }
+
+    set({
+      inventorySummary: data?.summary || null,
+      inventorySummaryRows: Array.isArray(data?.rows)
+        ? data.rows
+        : [],
+    });
+
+    return data;
+  } catch (error) {
+    console.error(
+      "❌ fetchInventoryInHandSummary error:",
+      error
+    );
+
+    set({
+      inventorySummary: null,
+      inventorySummaryRows: [],
+      inventorySummaryError: error.message,
+    });
+
+    toast.error(
+      error.message || "Failed to fetch inventory summary"
+    );
+
+    return null;
+  } finally {
+    set({
+      inventorySummaryLoading: false,
+    });
+  }
+},
 
 
 }));

@@ -10,6 +10,10 @@ import {
   Loader2,
   ChevronLeft,
   ChevronRight,
+  ZoomIn,
+  ZoomOut,
+  X,
+  RotateCcw,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAdminProductStore } from "@/store/adminProductStore";
@@ -90,6 +94,43 @@ export default function ProductsPage() {
     sortKey: "createdAt",
     sortDir: "desc",
   });
+  const [imagePreview, setImagePreview] = useState(null);
+const [imageZoom, setImageZoom] = useState(1);
+
+
+const openImagePreview = (product) => {
+  const image =
+    product?.thumbnail ||
+    product?.images?.[0] ||
+    "/no-image.png";
+
+  setImagePreview({
+    src: image,
+    title: product?.title || "Product",
+    productCode: product?.productCode || "",
+  });
+
+  setImageZoom(1);
+};
+
+const closeImagePreview = () => {
+  setImagePreview(null);
+  setImageZoom(1);
+};
+
+const zoomInImage = () => {
+  setImageZoom((prev) =>
+    Math.min(Number((prev + 0.25).toFixed(2)), 4)
+  );
+};
+
+const zoomOutImage = () => {
+  setImageZoom((prev) =>
+    Math.max(Number((prev - 0.25).toFixed(2)), 0.5)
+  );
+};
+
+
 
   const visiblePages = useMemo(
     () => getVisiblePages(page || 1, pages || 1),
@@ -530,18 +571,35 @@ export default function ProductsPage() {
             ) : (
               products.map((p) => (
                 <tr key={p._id} className="border-b border-gray-100 transition hover:bg-gray-50">
-                  <td className="px-4 py-3">
-                    <Checkbox checked={selectedIds.has(p._id)} onChange={() => toggleOne(p._id)} />
+<td className="px-4 py-2.5">                    <Checkbox checked={selectedIds.has(p._id)} onChange={() => toggleOne(p._id)} />
                   </td>
 
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <img
-                        src={p.images?.[0] || "/no-image.png"}
-                        alt=""
-                        loading="lazy"
-                        className="h-10 w-10 rounded-md border border-gray-200 object-cover"
-                      />
+                     <button
+  type="button"
+  onClick={() => openImagePreview(p)}
+  className="group relative h-20 w-16 shrink-0 overflow-hidden rounded-xl bg-gray-100 shadow-sm ring-1 ring-gray-200 transition hover:shadow-md hover:ring-gray-300"
+  title="Open image preview"
+>
+  <img
+    src={
+      p.thumbnail ||
+      p.images?.[0] ||
+      "/no-image.png"
+    }
+    alt={p.title || "Product"}
+    loading="lazy"
+    className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+  />
+
+  <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition group-hover:bg-black/20">
+    <ZoomIn
+      size={20}
+      className="text-white opacity-0 drop-shadow-md transition group-hover:opacity-100"
+    />
+  </div>
+</button>
                       <div className="flex flex-col leading-tight">
                         <span className="font-semibold text-gray-900">
                           {p.title || "-"}
@@ -744,6 +802,108 @@ export default function ProductsPage() {
             background: #dc2626;
           }
         `}</style>
+
+        {imagePreview && (
+  <div
+    className="fixed inset-0 z-[200] flex flex-col bg-neutral-950/95 backdrop-blur-sm"
+    onClick={closeImagePreview}
+  >
+    {/* TOP BAR */}
+    <div
+      className="flex h-16 shrink-0 items-center justify-between border-b border-white/10 px-5"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="min-w-0">
+        <p className="truncate text-sm font-semibold text-white">
+          {imagePreview.title}
+        </p>
+
+        {imagePreview.productCode && (
+          <p className="mt-0.5 text-xs text-white/45">
+            {imagePreview.productCode}
+          </p>
+        )}
+      </div>
+
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={zoomOutImage}
+          disabled={imageZoom <= 0.5}
+          className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-white transition hover:bg-white/20 disabled:opacity-30"
+          title="Zoom out"
+        >
+          <ZoomOut size={18} />
+        </button>
+
+        <div className="min-w-[72px] text-center text-xs font-semibold text-white/70">
+          {Math.round(imageZoom * 100)}%
+        </div>
+
+        <button
+          type="button"
+          onClick={zoomInImage}
+          disabled={imageZoom >= 4}
+          className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-white transition hover:bg-white/20 disabled:opacity-30"
+          title="Zoom in"
+        >
+          <ZoomIn size={18} />
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setImageZoom(1)}
+          className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-white transition hover:bg-white/20"
+          title="Reset zoom"
+        >
+          <RotateCcw size={17} />
+        </button>
+
+        <div className="mx-1 h-6 w-px bg-white/10" />
+
+        <button
+          type="button"
+          onClick={closeImagePreview}
+          className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-white transition hover:bg-white/20"
+          title="Close"
+        >
+          <X size={20} />
+        </button>
+      </div>
+    </div>
+
+    {/* LIGHTROOM CANVAS */}
+    <div
+      className="relative flex min-h-0 flex-1 items-center justify-center overflow-auto p-6 md:p-10"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div
+        className="flex min-h-full min-w-full items-center justify-center"
+        onDoubleClick={() =>
+          setImageZoom((prev) =>
+            prev === 1 ? 2 : 1
+          )
+        }
+      >
+        <img
+          src={imagePreview.src}
+          alt={imagePreview.title}
+          draggable={false}
+          className="max-h-[calc(100vh-130px)] max-w-[90vw] select-none object-contain shadow-2xl transition-transform duration-200"
+          style={{
+            transform: `scale(${imageZoom})`,
+          }}
+        />
+      </div>
+    </div>
+
+    {/* BOTTOM HINT */}
+    <div className="pointer-events-none absolute bottom-5 left-1/2 -translate-x-1/2 rounded-full bg-black/50 px-4 py-2 text-xs font-medium text-white/60 backdrop-blur-md">
+      Double click to zoom • Click outside to close
+    </div>
+  </div>
+)}
+
 
       {deleteTarget && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 px-4">

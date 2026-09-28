@@ -369,26 +369,28 @@ export default function OrdersListPage() {
     setSource("");
   }, []);
 
-  useEffect(() => {
-    if (quickDate === "today") {
-      const t = todayYMD_IST();
-      setStartDate(t);
-      setEndDate(t);
-      return;
-    }
+  const applyQuickDate = useCallback((value) => {
+  setCurrentPage(1);
+  setQuickDate(value);
 
-    if (quickDate === "yesterday") {
-      const y = yesterdayYMD_IST();
-      setStartDate(y);
-      setEndDate(y);
-      return;
-    }
+  if (value === "today") {
+    const today = todayYMD_IST();
+    setStartDate(today);
+    setEndDate(today);
+    return;
+  }
 
-    if (quickDate === "") {
-      setStartDate("");
-      setEndDate("");
-    }
-  }, [quickDate]);
+  if (value === "yesterday") {
+    const yesterday = yesterdayYMD_IST();
+    setStartDate(yesterday);
+    setEndDate(yesterday);
+    return;
+  }
+
+  setStartDate("");
+  setEndDate("");
+}, []);
+
 
   const backendFilters = useMemo(() => {
     const f = {};
@@ -903,10 +905,7 @@ const base = {
               <select
                 className="w-full mt-2 px-3 py-2.5 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-black/10 transition"
                 value={quickDate}
-                onChange={(e) => {
-                  setCurrentPage(1);
-                  setQuickDate(e.target.value);
-                }}
+          onChange={(e) => applyQuickDate(e.target.value)}
               >
                 <option value="">All</option>
                 <option value="today">Today</option>
@@ -1114,9 +1113,10 @@ const base = {
                   setPriority((prev) => (prev === s.key ? "" : s.key));
                 }
 
-                if (s.type === "quickDate") {
-                  setQuickDate((prev) => (prev === s.key ? "" : s.key));
-                }
+          if (s.type === "quickDate") {
+  const nextValue = quickDate === s.key ? "" : s.key;
+  applyQuickDate(nextValue);
+}
 
                 if (s.type === "source") {
                   setSource((prev) => (prev === s.key ? "" : s.key));

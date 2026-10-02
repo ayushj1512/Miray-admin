@@ -165,8 +165,9 @@ export default function ReservedInventoryPage() {
     consumeReservation,
     expireReservation,
     expireDueReservations,
-    expireStaleOrderReservations,
-    deleteStalePendingOrderReservations,
+   previewStaleOrderReservations,
+expireStaleOrderReservations,
+deleteStalePendingOrderReservations,
   } = useInventoryReservationStore();
 
   const [form, setForm] = useState({
@@ -178,6 +179,9 @@ export default function ReservedInventoryPage() {
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [reasonById, setReasonById] = useState({});
   const [bulkReason, setBulkReason] = useState("");
+  const [stalePreviewOpen, setStalePreviewOpen] = useState(false);
+const [stalePreviewLoading, setStalePreviewLoading] = useState(false);
+const [stalePreview, setStalePreview] = useState(null);
 
   useEffect(() => {
     fetchReservations().catch(() => { });
@@ -467,45 +471,63 @@ export default function ReservedInventoryPage() {
     }
   };
 
-  const handleExpireStaleOrders = async () => {
-    clearError?.();
+  const handlePreviewStaleOrders = async () => {
+  clearError?.();
 
-    try {
-      const result = await expireStaleOrderReservations({
-        orderPrefix: "MIRAY",
-        includeMissingOrders: true,
-        limit: 500,
-      });
+  try {
+    setStalePreviewLoading(true);
 
-      clearSelection();
+    const result = await previewStaleOrderReservations({
+      orderPrefix: "",
+      includeMissingOrders: true,
+      limit: 1000,
+    });
 
-      setForm((previous) => ({
-        ...previous,
-        status: "",
-        refType: "order",
-        orderState: "stale",
-      }));
+    setStalePreview(result);
+    setStalePreviewOpen(true);
+  } catch {
+    // Store handles error
+  } finally {
+    setStalePreviewLoading(false);
+  }
+};
 
-      setFilters({
-        status: "",
-        refType: "order",
-        orderState: "stale",
-      });
+const handleExpireStaleOrders = async () => {
+  const count = Number(stalePreview?.summary?.total || 0);
 
-      await fetchReservations({
-        ...filters,
-        status: "",
-        refType: "order",
-        orderState: "stale",
-      });
+  if (!count) return;
 
-      window.alert(
-        `${Number(result?.expiredCount || 0)} stale MIRAY reservation(s) expired.`,
-      );
-    } catch {
-      // Error is handled by Zustand store.
-    }
-  };
+  const confirmed = window.confirm(
+    `Expire ${count} stale reservation(s)?\n\nThis will update inventory reservations.`
+  );
+
+  if (!confirmed) return;
+
+  clearError?.();
+
+  try {
+    const result = await expireStaleOrderReservations({
+      orderPrefix: "",
+      includeMissingOrders: true,
+      limit: 1000,
+    });
+
+    setStalePreviewOpen(false);
+    setStalePreview(null);
+
+    clearSelection();
+
+    await fetchReservations();
+
+    window.alert(
+      `${Number(
+        result?.expiredCount || 0
+      )} stale reservation(s) expired.`
+    );
+  } catch {
+    // Store handles error
+  }
+};
 
   const handleDeleteStalePending = async () => {
     clearError?.();
@@ -569,14 +591,16 @@ export default function ReservedInventoryPage() {
               {loading ? "Refreshing..." : "Refresh"}
             </button>
 
-            <button
-              type="button"
-              onClick={handleExpireStaleOrders}
-              disabled={disabled}
-              className="inline-flex h-10 items-center justify-center rounded-xl bg-red-600 px-4 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {actionLoading ? "Processing..." : "Expire stale MIRAY"}
-            </button>
+<button
+  type="button"
+  onClick={handlePreviewStaleOrders}
+  disabled={disabled || stalePreviewLoading}
+  className={secondaryButtonClassName}
+>
+  {stalePreviewLoading
+    ? "Checking..."
+    : "Preview Stale"}
+</button>
 
             <button
               type="button"
@@ -1393,6 +1417,283 @@ export default function ReservedInventoryPage() {
             passed.
           </div>
         </section>
+
+        {stalePreviewOpen ? (
+  <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+    <div className="flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+
+      {/* HEADER */}
+      <div className="flex items-start justify-between border-b border-gray-100 px-5 py-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-bold text-gray-950">
+              Stale Reservation Preview
+            </h2>
+
+            <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-bold text-red-700">
+              {safeNumber(stalePreview?.summary?.total)} found
+            </span>
+          </div>
+
+          <p className="mt-1 text-xs text-gray-500">
+            Review these reservations before expiring them.
+            Nothing has been changed yet.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setStalePreviewOpen(false)}
+          disabled={actionLoading}
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-xl text-gray-500 hover:bg-gray-200 hover:text-black"
+        >
+          ×
+        </button>
+      </div>
+
+      {/* SUMMARY */}
+      <div className="grid grid-cols-2 gap-2 border-b border-gray-100 bg-gray-50 p-4 md:grid-cols-3 lg:grid-cols-6">
+        <div className="rounded-xl bg-white p-3">
+          <p className="text-[10px] font-bold uppercase text-gray-400">
+            Reservations
+          </p>
+          <p className="mt-1 text-xl font-bold">
+            {safeNumber(stalePreview?.summary?.total)}
+          </p>
+        </div>
+
+        <div className="rounded-xl bg-white p-3">
+          <p className="text-[10px] font-bold uppercase text-gray-400">
+            Total Qty
+          </p>
+          <p className="mt-1 text-xl font-bold">
+            {safeNumber(stalePreview?.summary?.totalQty)}
+          </p>
+        </div>
+
+        <div className="rounded-xl bg-white p-3">
+          <p className="text-[10px] font-bold uppercase text-gray-400">
+            SHOP
+          </p>
+          <p className="mt-1 text-xl font-bold">
+            {safeNumber(stalePreview?.summary?.bySource?.shop)}
+          </p>
+        </div>
+
+        <div className="rounded-xl bg-white p-3">
+          <p className="text-[10px] font-bold uppercase text-gray-400">
+            MIRAY
+          </p>
+          <p className="mt-1 text-xl font-bold">
+            {safeNumber(stalePreview?.summary?.bySource?.miray)}
+          </p>
+        </div>
+
+        <div className="rounded-xl bg-white p-3">
+          <p className="text-[10px] font-bold uppercase text-gray-400">
+            Reserved
+          </p>
+          <p className="mt-1 text-xl font-bold">
+            {safeNumber(
+              stalePreview?.summary?.byReservationStatus?.reserved
+            )}
+          </p>
+        </div>
+
+        <div className="rounded-xl bg-white p-3">
+          <p className="text-[10px] font-bold uppercase text-gray-400">
+            Pending
+          </p>
+          <p className="mt-1 text-xl font-bold">
+            {safeNumber(
+              stalePreview?.summary?.byReservationStatus?.pending
+            )}
+          </p>
+        </div>
+      </div>
+
+      {/* ORDER STATUS BREAKDOWN */}
+      <div className="flex flex-wrap gap-2 border-b border-gray-100 px-5 py-3">
+        {Object.entries(
+          stalePreview?.summary?.byOrderStatus || {}
+        ).map(([status, count]) => (
+          <span
+            key={status}
+            className="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-semibold text-gray-700"
+          >
+            {formatLabel(status)}
+            <span className="ml-1.5 text-gray-400">
+              {safeNumber(count)}
+            </span>
+          </span>
+        ))}
+
+        {safeNumber(stalePreview?.summary?.missingOrders) > 0 ? (
+          <span className="rounded-full bg-red-50 px-3 py-1 text-[11px] font-semibold text-red-700">
+            Missing orders{" "}
+            {safeNumber(stalePreview?.summary?.missingOrders)}
+          </span>
+        ) : null}
+      </div>
+
+      {/* ROWS */}
+      <div className="flex-1 overflow-auto">
+        <table className="w-full min-w-[950px] text-left text-xs">
+          <thead className="sticky top-0 z-10 border-b border-gray-200 bg-white text-[10px] uppercase tracking-wide text-gray-400">
+            <tr>
+              <th className="px-5 py-3">Order</th>
+              <th className="px-3 py-3">Product</th>
+              <th className="px-3 py-3">Variant</th>
+              <th className="px-3 py-3 text-center">Qty</th>
+              <th className="px-3 py-3">Reservation</th>
+              <th className="px-3 py-3">Order Status</th>
+              <th className="px-3 py-3">Reason</th>
+              <th className="px-5 py-3 text-right">Age</th>
+            </tr>
+          </thead>
+
+          <tbody className="divide-y divide-gray-100">
+            {(stalePreview?.items || []).map((item) => (
+              <tr
+                key={safeString(item?.reservationId)}
+                className="hover:bg-gray-50"
+              >
+                <td className="px-5 py-3">
+                  <div className="font-bold text-gray-950">
+                    {item?.orderNumber || "Unknown"}
+                  </div>
+
+                  <div className="mt-0.5 text-[9px] font-semibold uppercase text-gray-400">
+                    {item?.source || "other"}
+                  </div>
+                </td>
+
+                <td className="px-3 py-3">
+                  <div className="flex items-center gap-2">
+                    {item?.productImage ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={item.productImage}
+                        alt=""
+                        className="h-10 w-9 rounded-lg border border-gray-100 object-cover"
+                      />
+                    ) : (
+                      <div className="h-10 w-9 rounded-lg bg-gray-100" />
+                    )}
+
+                    <div className="min-w-0">
+                      <div className="max-w-[200px] truncate font-semibold">
+                        {item?.productTitle || "Product"}
+                      </div>
+
+                      <div className="text-[10px] text-gray-400">
+                        {item?.productCode || "No code"}
+                      </div>
+                    </div>
+                  </div>
+                </td>
+
+                <td className="px-3 py-3">
+                  <div className="font-semibold">
+                    {item?.selectedSize
+                      ? safeString(item.selectedSize).toUpperCase()
+                      : "-"}
+                  </div>
+
+                  <div className="max-w-[140px] truncate text-[10px] text-gray-400">
+                    {item?.variantSku || item?.selectedColor || "-"}
+                  </div>
+                </td>
+
+                <td className="px-3 py-3 text-center">
+                  <span className="inline-flex min-w-7 justify-center rounded-md bg-black px-2 py-1 font-bold text-white">
+                    {safeNumber(item?.qty)}
+                  </span>
+                </td>
+
+                <td className="px-3 py-3">
+                  <StatusBadge
+                    status={item?.reservationStatus}
+                  />
+                </td>
+
+                <td className="px-3 py-3">
+                  <span className="rounded-full bg-red-50 px-2 py-1 text-[10px] font-semibold text-red-700">
+                    {formatLabel(item?.fulfillmentStatus)}
+                  </span>
+                </td>
+
+                <td className="px-3 py-3">
+                  <div className="max-w-[180px] text-[11px] leading-4 text-gray-600">
+                    {item?.reason || "Stale reservation"}
+                  </div>
+                </td>
+
+                <td className="px-5 py-3 text-right font-semibold text-gray-500">
+                  {item?.ageHours == null
+                    ? "-"
+                    : safeNumber(item.ageHours) < 24
+                      ? `${safeNumber(item.ageHours)}h`
+                      : `${Math.floor(
+                          safeNumber(item.ageHours) / 24
+                        )}d`}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {!stalePreview?.items?.length ? (
+          <div className="flex min-h-48 items-center justify-center text-sm text-gray-400">
+            No stale reservations found.
+          </div>
+        ) : null}
+      </div>
+
+      {/* FOOTER */}
+      <div className="flex flex-col gap-3 border-t border-gray-100 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold text-gray-700">
+            No inventory changes have been made yet.
+          </p>
+
+          <p className="mt-0.5 text-[10px] text-gray-400">
+            Only continue after reviewing the affected orders.
+          </p>
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setStalePreviewOpen(false)}
+            disabled={actionLoading}
+            className={secondaryButtonClassName}
+          >
+            Cancel
+          </button>
+
+          <button
+            type="button"
+            onClick={handleExpireStaleOrders}
+            disabled={
+              actionLoading ||
+              !safeNumber(stalePreview?.summary?.total)
+            }
+            className="inline-flex h-10 items-center justify-center rounded-xl bg-red-600 px-5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {actionLoading
+              ? "Expiring..."
+              : `Expire ${safeNumber(
+                  stalePreview?.summary?.total
+                )} Reservations`}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+) : null}
+
+
       </div>
     </main>
   );

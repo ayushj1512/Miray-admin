@@ -76,6 +76,25 @@ export const useInventoryReservationStore = create((set, get) => ({
   reservations: [],
   total: 0,
 
+  inventoryLogs: [],
+inventoryLogsSummary: {
+  totalLogs: 0,
+  totalAdded: 0,
+  totalSubtracted: 0,
+  netMovement: 0,
+},
+inventoryLogsPagination: {
+  page: 1,
+  limit: 50,
+  total: 0,
+  pages: 0,
+  hasNext: false,
+  hasPrev: false,
+},
+inventoryLogsLoading: false,
+productTimeline: null,
+productTimelineLoading: false,
+
   filters: { ...DEFAULT_FILTERS },
 
   clearError: () => set({ error: null }),
@@ -115,6 +134,145 @@ export const useInventoryReservationStore = create((set, get) => ({
       throw e;
     }
   },
+
+  fetchInventoryLogs: async (params = {}) => {
+  set({
+    inventoryLogsLoading: true,
+    error: null,
+  });
+
+  try {
+    const { data } = await api.get(
+      `/api/products/admin/inventory-logs${qs({
+        page: 1,
+        limit: 50,
+        sort: "newest",
+        ...params,
+      })}`
+    );
+
+    set({
+      inventoryLogs: data?.logs || [],
+      inventoryLogsSummary: data?.summary || {
+        totalLogs: 0,
+        totalAdded: 0,
+        totalSubtracted: 0,
+        netMovement: 0,
+      },
+      inventoryLogsPagination: data?.pagination || {
+        page: 1,
+        limit: 50,
+        total: 0,
+        pages: 0,
+        hasNext: false,
+        hasPrev: false,
+      },
+      inventoryLogsLoading: false,
+    });
+
+    return data;
+  } catch (e) {
+    const m = msg(
+      e,
+      "Failed to fetch inventory logs"
+    );
+
+    set({
+      inventoryLogsLoading: false,
+      error: m,
+    });
+
+    throw e;
+  }
+},
+
+
+
+clearInventoryLogs: () =>
+  set({
+    inventoryLogs: [],
+    inventoryLogsSummary: {
+      totalLogs: 0,
+      totalAdded: 0,
+      totalSubtracted: 0,
+      netMovement: 0,
+    },
+    inventoryLogsPagination: {
+      page: 1,
+      limit: 50,
+      total: 0,
+      pages: 0,
+      hasNext: false,
+      hasPrev: false,
+    },
+  }),
+
+
+  /* ---------------- product inventory timeline ---------------- */
+
+fetchProductTimeline: async (
+  productId,
+  params = {}
+) => {
+  if (!productId) {
+    throw new Error("productId required");
+  }
+
+  set({
+    productTimelineLoading: true,
+    error: null,
+  });
+
+  invLog("fetchProductTimeline ->", {
+    productId,
+    params,
+  });
+
+  try {
+    const { data } = await api.get(
+      `/api/inventory-reservations/product/${productId}/timeline${qs({
+        page: 1,
+        limit: 50,
+        ...params,
+      })}`
+    );
+
+    set({
+      productTimeline: data,
+      productTimelineLoading: false,
+    });
+
+    invLog("fetchProductTimeline <-", {
+      productId,
+      total: data?.pagination?.total || 0,
+    });
+
+    return data;
+  } catch (e) {
+    const m = msg(
+      e,
+      "Failed to fetch product inventory timeline"
+    );
+
+    set({
+      productTimelineLoading: false,
+      error: m,
+    });
+
+    invLog(
+      "fetchProductTimeline ERROR",
+      m
+    );
+
+    throw e;
+  }
+},
+
+clearProductTimeline: () =>
+  set({
+    productTimeline: null,
+    productTimelineLoading: false,
+  }), 
 
   // add this inside store, after fetchReservations
 
@@ -588,24 +746,76 @@ fetchShopifyReservations: async (overrideFilters = null) => {
     return get().cancelOrderReservations(orderId, reason || "order cancelled", "released");
   },
 
-  expireStaleOrderReservations: async ({
-  orderPrefix = "MIRAY",
+  previewStaleOrderReservations: async ({
+  orderPrefix = "",
   includeMissingOrders = true,
-  limit = 500,
+  limit = 1000,
 } = {}) => {
   set({
     actionLoading: true,
     error: null,
   });
 
-  invLog(
-    "expireStaleOrderReservations ->",
-    {
-      orderPrefix,
-      includeMissingOrders,
-      limit,
-    }
-  );
+  invLog("previewStaleOrderReservations ->", {
+    orderPrefix,
+    includeMissingOrders,
+    limit,
+  });
+
+  try {
+    const { data } = await api.get(
+      `/api/inventory-reservations/preview-stale-orders${qs({
+        orderPrefix,
+        includeMissingOrders,
+        limit,
+      })}`
+    );
+
+    set({
+      actionLoading: false,
+    });
+
+    invLog(
+      "previewStaleOrderReservations <-",
+      data
+    );
+
+    return data;
+  } catch (error) {
+    const message = msg(
+      error,
+      "Failed to preview stale order reservations"
+    );
+
+    set({
+      actionLoading: false,
+      error: message,
+    });
+
+    invLog(
+      "previewStaleOrderReservations ERROR",
+      message
+    );
+
+    throw error;
+  }
+},
+
+  expireStaleOrderReservations: async ({
+  orderPrefix = "", // "" = MIRAY + SHOP + all orders
+  includeMissingOrders = true,
+  limit = 1000,
+} = {}) => {
+  set({
+    actionLoading: true,
+    error: null,
+  });
+
+  invLog("expireStaleOrderReservations ->", {
+    orderPrefix,
+    includeMissingOrders,
+    limit,
+  });
 
   try {
     const { data } = await api.post(

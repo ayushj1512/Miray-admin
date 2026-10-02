@@ -357,6 +357,24 @@ export const useAdminProductStore = create((set, get) => ({
   products: [],
   product: null,
   inventorySummary: null,
+  /* ================= PRODUCT PERFORMANCE REPORT ================= */
+
+productPerformanceReport: null,
+productPerformanceProducts: [],
+productPerformanceSummary: null,
+productPerformanceHighlights: {
+  mostPurchased: [],
+  leastPurchased: [],
+},
+productPerformancePagination: {
+  page: 1,
+  limit: 50,
+  total: 0,
+  pages: 0,
+},
+productPerformancePeriod: null,
+productPerformanceLoading: false,
+productPerformanceError: null,
 inventorySummaryRows: [],
 inventorySummaryLoading: false,
 inventorySummaryError: null,
@@ -506,6 +524,250 @@ inventorySummaryError: null,
       set({ loading: false });
     }
   },
+
+  /* ============================================================
+   PRODUCT PERFORMANCE REPORT
+   GET /api/products/admin/reports/product-performance
+
+   Supported:
+   - days
+   - from / to
+   - search
+   - category
+   - tag
+   - isActive
+   - isDraft
+   - isBestSeller
+   - isTrending
+   - sort
+   - page
+   - limit
+============================================================ */
+
+fetchProductPerformanceReport: async (params = {}) => {
+  try {
+    set({
+      productPerformanceLoading: true,
+      productPerformanceError: null,
+    });
+
+    /* =========================================================
+       BUILD QUERY
+    ========================================================= */
+
+    const query = buildProductQuery({
+      // Sales/order duration
+      days: params.days ?? 30,
+      from: params.from,
+      to: params.to,
+
+      // Product search
+      search: params.search,
+
+      // Sorting
+      sort: params.sort || "units_desc",
+
+      // Pagination
+      page: params.page ?? 1,
+      limit: params.limit ?? 50,
+    });
+
+    const url =
+      `${API}/admin/reports/product-performance` +
+      (query ? `?${query}` : "");
+
+    /* =========================================================
+       FETCH REPORT
+    ========================================================= */
+
+    const res = await fetch(url, {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(
+        data?.message ||
+          "Failed to fetch product performance report"
+      );
+    }
+
+    /* =========================================================
+       PRODUCTS
+    ========================================================= */
+
+    const products = Array.isArray(data?.products)
+      ? data.products
+      : [];
+
+    /* =========================================================
+       SUMMARY
+    ========================================================= */
+
+    const summary = data?.summary || {
+      totalProducts: 0,
+      totalOrders: 0,
+      totalUnits: 0,
+
+      grossSales: 0,
+
+      activeUnits: 0,
+      activeSales: 0,
+
+      deliveredUnits: 0,
+      deliveredSales: 0,
+
+      processingUnits: 0,
+      shippedUnits: 0,
+
+      cancelledUnits: 0,
+      rtoUnits: 0,
+      returnUnits: 0,
+    };
+
+    /* =========================================================
+       HIGHLIGHTS
+    ========================================================= */
+
+    const highlights = {
+      mostSold: Array.isArray(
+        data?.highlights?.mostSold
+      )
+        ? data.highlights.mostSold
+        : [],
+
+      leastSold: Array.isArray(
+        data?.highlights?.leastSold
+      )
+        ? data.highlights.leastSold
+        : [],
+    };
+
+    /* =========================================================
+       PAGINATION
+    ========================================================= */
+
+    const pagination = {
+      page: Number(
+        data?.pagination?.page || 1
+      ),
+
+      limit: Number(
+        data?.pagination?.limit || 50
+      ),
+
+      total: Number(
+        data?.pagination?.total || 0
+      ),
+
+      pages: Number(
+        data?.pagination?.pages || 0
+      ),
+    };
+
+    /* =========================================================
+       UPDATE STORE
+    ========================================================= */
+
+    set({
+      productPerformanceReport: data,
+
+      productPerformanceProducts:
+        products,
+
+      productPerformanceSummary:
+        summary,
+
+      productPerformanceHighlights:
+        highlights,
+
+      productPerformancePagination:
+        pagination,
+
+      productPerformancePeriod:
+        data?.period || null,
+
+      productPerformanceLoading: false,
+      productPerformanceError: null,
+    });
+
+    return data;
+  } catch (error) {
+    console.error(
+      "❌ fetchProductPerformanceReport:",
+      error
+    );
+
+    /* =========================================================
+       RESET REPORT ON ERROR
+    ========================================================= */
+
+    set({
+      productPerformanceReport: null,
+
+      productPerformanceProducts: [],
+
+      productPerformanceSummary: null,
+
+      productPerformanceHighlights: {
+        mostSold: [],
+        leastSold: [],
+      },
+
+      productPerformancePagination: {
+        page: 1,
+        limit: 50,
+        total: 0,
+        pages: 0,
+      },
+
+      productPerformancePeriod: null,
+
+      productPerformanceLoading: false,
+
+      productPerformanceError:
+        error?.message ||
+        "Failed to fetch product performance report",
+    });
+
+    toast.error(
+      error?.message ||
+        "Failed to fetch product performance report"
+    );
+
+    return null;
+  }
+}, 
+
+resetProductPerformanceReport: () =>
+  set({
+    productPerformanceReport: null,
+
+    productPerformanceProducts: [],
+
+    productPerformanceSummary: null,
+
+    productPerformanceHighlights: {
+      mostSold: [],
+      leastSold: [],
+    },
+
+    productPerformancePagination: {
+      page: 1,
+      limit: 50,
+      total: 0,
+      pages: 0,
+    },
+
+    productPerformancePeriod: null,
+
+    productPerformanceLoading: false,
+
+    productPerformanceError: null,
+  }),
 
   /* ============================================================
     ✅ FETCH PRODUCTS BY CATEGORY (ADMIN)

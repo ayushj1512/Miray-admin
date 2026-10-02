@@ -139,7 +139,7 @@ export const sidebarMenus = {
     { label: "Razorpay Remittance", href: "/accounts/razorpay-remittance" },
   ],
 
-  inventory: [
+inventory: [
   { label: "Inventory Dashboard", href: "/inventory" },
 
   { label: "Modify Inventory", href: "/inventory/modify-inventory" },
@@ -153,6 +153,13 @@ export const sidebarMenus = {
   { label: "Reserved Inventory", href: "/inventory/reserved-inventory" },
 
   { label: "On Demand Inventory", href: "/inventory/on-demand-inventory" },
+
+  { label: "Inventory Logs", href: "/inventory/inventory-logs" },
+
+  {
+    label: "Reservation Logs",
+    href: "/inventory/inventory-reservation-logs",
+  },
 
   { label: "Broken Orders", href: "/inventory/broken-orders" },
 ],
@@ -222,44 +229,52 @@ export const sidebarMenus = {
   ],
 
   products: [
-    { label: "Product Dashboard", href: "/products" },
-    { label: "Add New Product", href: "/products/add" },
-    { label: "Manage Products", href: "/products/manage" },
-    { label: "Search Product", href: "/products/search" },
+  { label: "Product Dashboard", href: "/products" },
+  { label: "Add New Product", href: "/products/add" },
+  { label: "Manage Products", href: "/products/manage" },
+  { label: "Search Product", href: "/products/search" },
 
-    { label: "Categories", href: "/products/category" },
-    { label: "Category Analytics", href: "/products/category-analytics" },
-    { label: "Collections", href: "/products/collections" },
-    { label: "Attributes", href: "/products/attributes" },
-    { label: "Variants", href: "/products/variants" },
-    { label: "Size Charts", href: "/products/size-charts" },
+  { label: "Categories", href: "/products/category" },
+  { label: "Category Analytics", href: "/products/category-analytics" },
+  { label: "Collections", href: "/products/collections" },
+  { label: "Attributes", href: "/products/attributes" },
+  { label: "Variants", href: "/products/variants" },
+  { label: "Size Charts", href: "/products/size-charts" },
 
-    { label: "Fabric Assignment", href: "/products/fabric-assignment" },
-    { label: "Accessories Assignment", href: "/products/accessories-assignment" },
-    { label: "Fabric Product Assignment", href: "/products/fabric-product-assignment" },
-    { label: "Product Colors", href: "/products/colors" },
+  { label: "Fabric Assignment", href: "/products/fabric-assignment" },
+  { label: "Accessories Assignment", href: "/products/accessories-assignment" },
+  {
+    label: "Fabric Product Assignment",
+    href: "/products/fabric-product-assignment",
+  },
+  { label: "Product Colors", href: "/products/colors" },
 
-    { label: "Bestsellers", href: "/products/bestseller" },
-    { label: "Secondary Products", href: "/products/secondary-products" },
-    { label: "Coming Soon", href: "/products/comingsoon" },
+  { label: "Bestsellers", href: "/products/bestseller" },
+  { label: "Secondary Products", href: "/products/secondary-products" },
+  { label: "Coming Soon", href: "/products/comingsoon" },
 
-    { label: "Analytics", href: "/products/analytics" },
-    { label: "Products RMA Insights", href: "/products/products-rma-insights" },
+  // ================= REPORTS & ANALYTICS =================
+  { label: "Analytics", href: "/products/analytics" },
+  { label: "Product Performance", href: "/products/performance" },
+  {
+    label: "Products RMA Insights",
+    href: "/products/products-rma-insights",
+  },
 
-    { label: "Name Edit", href: "/products/name-edit" },
-    { label: "Price Updates", href: "/products/pricing" },
-    { label: "Bulk Price Editor", href: "/products/bulkPriceEditor" },
-    { label: "Inventory Sync", href: "/products/inventory-sync" },
+  { label: "Name Edit", href: "/products/name-edit" },
+  { label: "Price Updates", href: "/products/pricing" },
+  { label: "Bulk Price Editor", href: "/products/bulkPriceEditor" },
+  { label: "Inventory Sync", href: "/products/inventory-sync" },
 
-    { label: "Bulk Import", href: "/products/bulk-import" },
-    { label: "Bulk Export", href: "/products/bulk-export" },
+  { label: "Bulk Import", href: "/products/bulk-import" },
+  { label: "Bulk Export", href: "/products/bulk-export" },
 
-    { label: "Offers & Discounts", href: "/products/offers" },
-    { label: "SEO Manager", href: "/products/seo" },
-    { label: "Reviews & Ratings", href: "/products/reviews" },
+  { label: "Offers & Discounts", href: "/products/offers" },
+  { label: "SEO Manager", href: "/products/seo" },
+  { label: "Reviews & Ratings", href: "/products/reviews" },
 
-    { label: "Media Library", href: "/media" },
-  ],
+  { label: "Media Library", href: "/media" },
+],
 
   orders: [
     { label: "Orders Dashboard", href: "/orders" },
@@ -425,23 +440,43 @@ export const sidebarMenus = {
   ],
 
   reports: [
-    { label: "Reports Home", href: "/reports" },
-    {
-      label: "Order & Business Overview",
-      href: "/reports/Order-Business-Overview",
-    },
-    { label: "Revenue by Status", href: "/reports/revenue-by-status" },
-    { label: "Product Sales", href: "/reports/ProductSoldReport" },
-    { label: "Low Product Sale", href: "/reports/low-product-sale" },
-    { label: "Product Unsold", href: "/reports/ProductUnSoldReport" },
-    { label: "Orders Report", href: "/reports/Orders" },
-    { label: "ROAS", href: "/reports/ROAS" },
-    { label: "Operations Status", href: "/reports/Operations-Order-Status" },
-    { label: "RTO Report", href: "/reports/RTO" },
-    { label: "Cancellation Report", href: "/reports/Cancellation" },
-    { label: "Cancellation Analytics", href: "/reports/Cancellation-Analytics" },
-    { label: "Products RMA Insights", href: "/reports/products-rma-insights" },
-  ],
+  { label: "Reports Home", href: "/reports" },
+
+  {
+    label: "Order & Business Overview",
+    href: "/reports/Order-Business-Overview",
+  },
+
+  { label: "Revenue by Status", href: "/reports/revenue-by-status" },
+
+  { label: "Product Sales", href: "/reports/ProductSoldReport" },
+
+  { label: "Product Performance", href: "/reports/product-performance" },
+
+  { label: "Low Product Sale", href: "/reports/low-product-sale" },
+
+  { label: "Product Unsold", href: "/reports/ProductUnSoldReport" },
+
+  { label: "Orders Report", href: "/reports/Orders" },
+
+  { label: "ROAS", href: "/reports/ROAS" },
+
+  { label: "Operations Status", href: "/reports/Operations-Order-Status" },
+
+  { label: "RTO Report", href: "/reports/RTO" },
+
+  { label: "Cancellation Report", href: "/reports/Cancellation" },
+
+  {
+    label: "Cancellation Analytics",
+    href: "/reports/Cancellation-Analytics",
+  },
+
+  {
+    label: "Products RMA Insights",
+    href: "/reports/products-rma-insights",
+  },
+],
 
   refunds: [
     { label: "Dashboard", href: "/refunds" },

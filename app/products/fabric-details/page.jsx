@@ -608,7 +608,7 @@ export default function ProductFabricDetailsPage() {
   return (
     <>
       <main className="min-h-screen bg-[#f7f7f5] text-neutral-950">
-        <div className="mx-auto w-full max-w-[820px] px-4 py-8 sm:px-6 sm:py-12">
+        <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 sm:py-12">
 
           {/* =================================================
               HEADER

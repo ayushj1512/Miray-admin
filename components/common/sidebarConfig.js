@@ -228,54 +228,64 @@ inventory: [
     { label: "Analytics", href: "/blogs/analytics" },
   ],
 
-  products: [
+ products: [
+  // ================= PRODUCTS =================
   { label: "Product Dashboard", href: "/products" },
   { label: "Add New Product", href: "/products/add" },
   { label: "Manage Products", href: "/products/manage" },
   { label: "Search Product", href: "/products/search" },
 
+  // ================= CATALOG =================
   { label: "Categories", href: "/products/category" },
-  { label: "Category Analytics", href: "/products/category-analytics" },
   { label: "Collections", href: "/products/collections" },
   { label: "Attributes", href: "/products/attributes" },
   { label: "Variants", href: "/products/variants" },
+  { label: "Product Colors", href: "/products/colors" },
   { label: "Size Charts", href: "/products/size-charts" },
 
-  // ================= PRODUCTION DETAILS =================
+  // ================= FABRIC & PRODUCTION =================
   { label: "Product Fabric Details", href: "/products/fabric-details" },
   { label: "Fabric Assignment", href: "/products/fabric-assignment" },
-  { label: "Accessories Assignment", href: "/products/accessories-assignment" },
   {
     label: "Fabric Product Assignment",
     href: "/products/fabric-product-assignment",
   },
-  { label: "Product Colors", href: "/products/colors" },
+  {
+    label: "Accessories Assignment",
+    href: "/products/accessories-assignment",
+  },
 
+  // ================= MERCHANDISING =================
   { label: "Bestsellers", href: "/products/bestseller" },
   { label: "Secondary Products", href: "/products/secondary-products" },
   { label: "Coming Soon", href: "/products/comingsoon" },
 
-  // ================= REPORTS & ANALYTICS =================
+  // ================= ANALYTICS =================
   { label: "Analytics", href: "/products/analytics" },
   { label: "Product Performance", href: "/products/performance" },
+  {
+    label: "Category Analytics",
+    href: "/products/category-analytics",
+  },
   {
     label: "Products RMA Insights",
     href: "/products/products-rma-insights",
   },
 
-  // ================= PRODUCT MANAGEMENT =================
-  { label: "Name Edit", href: "/products/name-edit" },
+  // ================= PRICING & INVENTORY =================
   { label: "Price Updates", href: "/products/pricing" },
   { label: "Bulk Price Editor", href: "/products/bulkPriceEditor" },
   { label: "Inventory Sync", href: "/products/inventory-sync" },
 
+  // ================= BULK MANAGEMENT =================
+  { label: "Name Edit", href: "/products/name-edit" },
   { label: "Bulk Import", href: "/products/bulk-import" },
   { label: "Bulk Export", href: "/products/bulk-export" },
 
+  // ================= MARKETING & CONTENT =================
   { label: "Offers & Discounts", href: "/products/offers" },
   { label: "SEO Manager", href: "/products/seo" },
   { label: "Reviews & Ratings", href: "/products/reviews" },
-
   { label: "Media Library", href: "/media" },
 ],
 

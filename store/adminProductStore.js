@@ -55,45 +55,25 @@ const normalizeProductPayload = (payload) => {
 
   const out = stripVariantPrices(payload);
 
-  // ✅ backend removed this field (avoid sending)
+  // ✅ Backend removed this field
   delete out.longDescription;
 
+  /* ============================================================
+     BASIC HELPERS
+  ============================================================ */
+
   const toStr = (v) => String(v ?? "").trim();
+
   const toBool = (v) =>
-    typeof v === "boolean" ? v : ["true", "1", "yes"].includes(toStr(v).toLowerCase());
+    typeof v === "boolean"
+      ? v
+      : ["true", "1", "yes"].includes(
+          toStr(v).toLowerCase()
+        );
 
-  // (keep if your UI still uses it somewhere)
-  if (out.patternNumber !== undefined) out.patternNumber = toStr(out.patternNumber);
-
-  // ✅ NEW: product link (accept both keys)
-  if (out.originalProductLink !== undefined) out.originalProductLink = toStr(out.originalProductLink);
-  if (out.productLink !== undefined && out.originalProductLink === undefined) {
-    out.originalProductLink = toStr(out.productLink);
-  }
-  delete out.productLink;
-
-  // ✅ NEW: allow sending (backend may recompute from variants)
-  // ✅ NEW: allow sending (backend may recompute from variants)
-  if (out.isPatternReady !== undefined) out.isPatternReady = toBool(out.isPatternReady);
-
-  // ✅ boolean hygiene
-  if (out.isBestSeller !== undefined) out.isBestSeller = toBool(out.isBestSeller);
-  if (out.isTrending !== undefined) out.isTrending = toBool(out.isTrending);
-  if (out.isSamplingDone !== undefined) out.isSamplingDone = toBool(out.isSamplingDone);
-  if (out.isActive !== undefined) out.isActive = toBool(out.isActive);
-  if (out.isDraft !== undefined) out.isDraft = toBool(out.isDraft);
-  // ✅ HSN Code hygiene: trim + digits-only (allow empty)
-  if (out.hsnCode !== undefined) {
-    const hsn = toStr(out.hsnCode);
-    out.hsnCode = hsn === "" ? "" : hsn.replace(/[^\d]/g, "");
-  }
-  if (out.isPrimaryProduct !== undefined) {
-    out.isPrimaryProduct = toBool(out.isPrimaryProduct);
-  }
-
-  // allow JSON strings
   const tryJson = (v) => {
     if (typeof v !== "string") return v;
+
     try {
       return JSON.parse(v);
     } catch {
@@ -101,20 +81,323 @@ const normalizeProductPayload = (payload) => {
     }
   };
 
-  out.fabrics = tryJson(out.fabrics);
-  out.avgFabricConsumption = tryJson(out.avgFabricConsumption);
-  out.accessories = tryJson(out.accessories);
+  /* ============================================================
+     BASIC PRODUCT FIELDS
+  ============================================================ */
 
-  /* ✅ ACCESSORIES hygiene */
+  if (out.patternNumber !== undefined) {
+    out.patternNumber = toStr(out.patternNumber);
+  }
+
+  // Product link - accept both keys
+  if (out.originalProductLink !== undefined) {
+    out.originalProductLink = toStr(
+      out.originalProductLink
+    );
+  }
+
+  if (
+    out.productLink !== undefined &&
+    out.originalProductLink === undefined
+  ) {
+    out.originalProductLink = toStr(
+      out.productLink
+    );
+  }
+
+  delete out.productLink;
+
+  /* ============================================================
+     BOOLEAN HYGIENE
+  ============================================================ */
+
+  if (out.isPatternReady !== undefined) {
+    out.isPatternReady = toBool(
+      out.isPatternReady
+    );
+  }
+
+  if (out.isBestSeller !== undefined) {
+    out.isBestSeller = toBool(
+      out.isBestSeller
+    );
+  }
+
+  if (out.isTrending !== undefined) {
+    out.isTrending = toBool(
+      out.isTrending
+    );
+  }
+
+  if (out.isSamplingDone !== undefined) {
+    out.isSamplingDone = toBool(
+      out.isSamplingDone
+    );
+  }
+
+  if (out.isActive !== undefined) {
+    out.isActive = toBool(out.isActive);
+  }
+
+  if (out.isDraft !== undefined) {
+    out.isDraft = toBool(out.isDraft);
+  }
+
+  if (out.isPrimaryProduct !== undefined) {
+    out.isPrimaryProduct = toBool(
+      out.isPrimaryProduct
+    );
+  }
+
+  /* ============================================================
+     HSN CODE
+  ============================================================ */
+
+  if (out.hsnCode !== undefined) {
+    const hsn = toStr(out.hsnCode);
+
+    out.hsnCode =
+      hsn === ""
+        ? ""
+        : hsn.replace(/[^\d]/g, "");
+  }
+
+  /* ============================================================
+     PARSE POSSIBLE JSON FIELDS
+  ============================================================ */
+
+  if (out.fabrics !== undefined) {
+    out.fabrics = tryJson(out.fabrics);
+  }
+
+  if (out.avgFabricConsumption !== undefined) {
+    out.avgFabricConsumption = tryJson(
+      out.avgFabricConsumption
+    );
+  }
+
+  if (out.accessories !== undefined) {
+    out.accessories = tryJson(
+      out.accessories
+    );
+  }
+
+  /* ============================================================
+     FABRIC DETAILS
+  ============================================================ */
+
+  if (out.fabricDetails !== undefined) {
+    out.fabricDetails = toStr(
+      out.fabricDetails
+    );
+  }
+
+  /* ============================================================
+     FABRIC PRINT FILE
+     MediaPickerModal may return:
+     - URL string
+     - Media object { url, publicId, ... }
+
+     Product schema stores only URL.
+  ============================================================ */
+
+  if (out.fabricPrintFile !== undefined) {
+    if (
+      out.fabricPrintFile &&
+      typeof out.fabricPrintFile === "object"
+    ) {
+      out.fabricPrintFile = toStr(
+        out.fabricPrintFile.url
+      );
+    } else {
+      out.fabricPrintFile = toStr(
+        out.fabricPrintFile
+      );
+    }
+  }
+
+  /* ============================================================
+     FABRICS HYGIENE
+
+     Current schema:
+     {
+       fabricName,
+       fabricCode,
+       fabricColor,
+       role
+     }
+
+     Valid roles:
+     main | lining | contrast | padding | other
+  ============================================================ */
+
+  if (out.fabrics !== undefined) {
+    const FABRIC_ROLES = new Set([
+      "main",
+      "lining",
+      "contrast",
+      "padding",
+      "other",
+    ]);
+
+    const rawFabrics = Array.isArray(
+      out.fabrics
+    )
+      ? out.fabrics
+      : [];
+
+    const seen = new Set();
+
+    out.fabrics = rawFabrics
+      .map((fabric) => {
+        // Backward compatibility:
+        // "Cotton" -> { fabricName: "Cotton" }
+        if (typeof fabric === "string") {
+          const fabricName = toStr(fabric);
+
+          if (!fabricName) return null;
+
+          return {
+            fabricName,
+            fabricCode: "",
+            fabricColor: "",
+            role: "main",
+          };
+        }
+
+        if (
+          !fabric ||
+          typeof fabric !== "object"
+        ) {
+          return null;
+        }
+
+        const fabricName = toStr(
+          fabric.fabricName
+        );
+
+        const fabricCode = toStr(
+          fabric.fabricCode
+        );
+
+        const fabricColor = toStr(
+          fabric.fabricColor
+        );
+
+        const rawRole = toStr(
+          fabric.role || "main"
+        ).toLowerCase();
+
+        const role = FABRIC_ROLES.has(
+          rawRole
+        )
+          ? rawRole
+          : "main";
+
+        // Schema requires fabricName.
+        // Allow old data where only code exists.
+        const finalName =
+          fabricName || fabricCode;
+
+        if (!finalName) return null;
+
+        return {
+          fabricName: finalName,
+          fabricCode,
+          fabricColor,
+          role,
+        };
+      })
+      .filter(Boolean)
+      .filter((fabric) => {
+        const key = `${fabric.fabricName.toLowerCase()}__${fabric.role}`;
+
+        if (seen.has(key)) {
+          return false;
+        }
+
+        seen.add(key);
+        return true;
+      });
+  }
+
+  /* ============================================================
+     AVG FABRIC CONSUMPTION
+
+     Schema:
+     {
+       value: Number,
+       unit: "meter" | "cm" | "gram",
+       wastePercentage: Number
+     }
+  ============================================================ */
+
+  if (out.avgFabricConsumption !== undefined) {
+    const raw =
+      out.avgFabricConsumption &&
+      typeof out.avgFabricConsumption ===
+        "object"
+        ? out.avgFabricConsumption
+        : {};
+
+    const value = Number(
+      raw.value ?? 0
+    );
+
+    const wastePercentage = Number(
+      raw.wastePercentage ?? 5
+    );
+
+    const unitRaw = toStr(
+      raw.unit || "meter"
+    ).toLowerCase();
+
+    const FABRIC_UNITS = new Set([
+      "meter",
+      "cm",
+      "gram",
+    ]);
+
+    out.avgFabricConsumption = {
+      value:
+        Number.isFinite(value) &&
+        value >= 0
+          ? value
+          : 0,
+
+      unit: FABRIC_UNITS.has(unitRaw)
+        ? unitRaw
+        : "meter",
+
+      wastePercentage:
+        Number.isFinite(wastePercentage) &&
+        wastePercentage >= 0
+          ? wastePercentage
+          : 5,
+    };
+  }
+
+  /* ============================================================
+     ACCESSORIES HYGIENE
+  ============================================================ */
+
   const normalizeAccessories = (v) => {
     const rows = [];
-    const UNITS = new Set(["piece", "pair", "meter", "gram", "roll"]);
+
+    const UNITS = new Set([
+      "piece",
+      "pair",
+      "meter",
+      "gram",
+      "roll",
+    ]);
 
     const push = (row) => {
       if (!row) return;
 
       if (typeof row === "string") {
         const name = toStr(row);
+
         if (!name) return;
 
         rows.push({
@@ -124,44 +407,85 @@ const normalizeProductPayload = (payload) => {
           unit: "piece",
           notes: "",
         });
+
         return;
       }
 
-      if (typeof row !== "object") return;
+      if (typeof row !== "object") {
+        return;
+      }
 
       const name = toStr(row.name);
-      const type = toStr(row.type).toLowerCase();
-      const quantity = Number(row.quantity ?? 1);
-      const unitRaw = toStr(row.unit || "piece").toLowerCase();
 
-      if (!name && !type && !toStr(row.notes)) return;
+      const type = toStr(
+        row.type
+      ).toLowerCase();
+
+      const quantity = Number(
+        row.quantity ?? 1
+      );
+
+      const unitRaw = toStr(
+        row.unit || "piece"
+      ).toLowerCase();
+
+      if (
+        !name &&
+        !type &&
+        !toStr(row.notes)
+      ) {
+        return;
+      }
+
       if (!name) return;
 
       rows.push({
         name,
         type,
-        quantity: Number.isFinite(quantity) && quantity >= 0 ? quantity : 1,
-        unit: UNITS.has(unitRaw) ? unitRaw : "piece",
+
+        quantity:
+          Number.isFinite(quantity) &&
+          quantity >= 0
+            ? quantity
+            : 1,
+
+        unit: UNITS.has(unitRaw)
+          ? unitRaw
+          : "piece",
+
         notes: toStr(row.notes),
       });
     };
 
     if (typeof v === "string") {
       const t = v.trim();
+
       if (!t) return [];
 
       try {
         v = JSON.parse(t);
       } catch {
-        const parts = t.includes("|") ? t.split("|") : t.split(",");
-        parts.forEach((p) => push(String(p || "")));
+        const parts = t.includes("|")
+          ? t.split("|")
+          : t.split(",");
+
+        parts.forEach((p) =>
+          push(String(p || ""))
+        );
+
         return rows;
       }
     }
 
-    if (Array.isArray(v)) return v.forEach(push), rows;
+    if (Array.isArray(v)) {
+      v.forEach(push);
+      return rows;
+    }
 
-    if (v && typeof v === "object") {
+    if (
+      v &&
+      typeof v === "object"
+    ) {
       const looksSingle =
         "name" in v ||
         "type" in v ||
@@ -169,9 +493,19 @@ const normalizeProductPayload = (payload) => {
         "unit" in v ||
         "notes" in v;
 
-      if (looksSingle) return push(v), rows;
+      if (looksSingle) {
+        push(v);
+        return rows;
+      }
 
-      Object.entries(v).forEach(([type, name]) => push({ type, name }));
+      Object.entries(v).forEach(
+        ([type, name]) =>
+          push({
+            type,
+            name,
+          })
+      );
+
       return rows;
     }
 
@@ -179,77 +513,194 @@ const normalizeProductPayload = (payload) => {
   };
 
   if (out.accessories !== undefined) {
-    out.accessories = normalizeAccessories(out.accessories);
+    out.accessories =
+      normalizeAccessories(
+        out.accessories
+      );
   }
 
-  // ✅ highlights -> keyFeatures
-  if (out.highlights !== undefined && out.keyFeatures === undefined) {
+  /* ============================================================
+     KEY FEATURES
+  ============================================================ */
+
+  if (
+    out.highlights !== undefined &&
+    out.keyFeatures === undefined
+  ) {
     out.keyFeatures = out.highlights;
   }
 
-  // ✅ normalize keyFeatures
   if (out.keyFeatures !== undefined) {
-    const raw = tryJson(out.keyFeatures);
-    const list = Array.isArray(raw) ? raw : typeof raw === "string" ? raw.split(",") : [];
-    out.keyFeatures = Array.from(new Set(list.map((x) => toStr(x)).filter(Boolean)));
+    const raw = tryJson(
+      out.keyFeatures
+    );
+
+    const list = Array.isArray(raw)
+      ? raw
+      : typeof raw === "string"
+        ? raw.split(",")
+        : [];
+
+    out.keyFeatures = Array.from(
+      new Set(
+        list
+          .map((x) => toStr(x))
+          .filter(Boolean)
+      )
+    );
   }
+
   delete out.highlights;
 
-  // ✅ optional trims (safe)
-  if (out.shortDescription !== undefined) out.shortDescription = toStr(out.shortDescription);
-  if (out.howToStyle !== undefined) out.howToStyle = toStr(out.howToStyle);
-  if (out.fabricDetails !== undefined) out.fabricDetails = toStr(out.fabricDetails);
+  /* ============================================================
+     OPTIONAL STRING FIELDS
+  ============================================================ */
 
-  // ✅ SPECIFICATIONS hygiene
+  if (
+    out.shortDescription !== undefined
+  ) {
+    out.shortDescription = toStr(
+      out.shortDescription
+    );
+  }
+
+  if (out.howToStyle !== undefined) {
+    out.howToStyle = toStr(
+      out.howToStyle
+    );
+  }
+
+  /* ============================================================
+     SPECIFICATIONS
+  ============================================================ */
+
   const normalizeSpecs = (v) => {
     const rows = [];
+
     const push = (k, val) => {
       const key = toStr(k);
       const value = toStr(val);
+
       if (!key) return;
-      rows.push({ key, value });
+
+      rows.push({
+        key,
+        value,
+      });
     };
 
     if (typeof v === "string") {
       const t = v.trim();
+
       if (!t) return [];
+
       try {
         v = JSON.parse(t);
       } catch {
-        const parts = t.includes("|") ? t.split("|") : t.split(",");
+        const parts = t.includes("|")
+          ? t.split("|")
+          : t.split(",");
+
         for (const p of parts) {
-          const ss = String(p || "").trim();
+          const ss = String(
+            p || ""
+          ).trim();
+
           if (!ss) continue;
-          const sep = ss.includes(":") ? ":" : ss.includes("=") ? "=" : null;
+
+          const sep = ss.includes(":")
+            ? ":"
+            : ss.includes("=")
+              ? "="
+              : null;
+
           if (!sep) continue;
-          const [k, ...rest] = ss.split(sep);
-          push(k, rest.join(sep));
+
+          const [k, ...rest] =
+            ss.split(sep);
+
+          push(
+            k,
+            rest.join(sep)
+          );
         }
+
         return rows;
       }
     }
 
-    if (Array.isArray(v)) return v.forEach((r) => r && push(r.key, r.value)), rows;
-    if (v && typeof v === "object") return Object.entries(v).forEach(([k, val]) => push(k, val)), rows;
+    if (Array.isArray(v)) {
+      v.forEach(
+        (r) =>
+          r &&
+          push(
+            r.key,
+            r.value
+          )
+      );
+
+      return rows;
+    }
+
+    if (
+      v &&
+      typeof v === "object"
+    ) {
+      Object.entries(v).forEach(
+        ([k, val]) =>
+          push(k, val)
+      );
+
+      return rows;
+    }
 
     return [];
   };
 
-  // allow both: specifications / specs
-  if (out.specifications !== undefined || out.specs !== undefined) {
-    out.specifications = normalizeSpecs(out.specifications ?? out.specs);
+  if (
+    out.specifications !== undefined ||
+    out.specs !== undefined
+  ) {
+    out.specifications =
+      normalizeSpecs(
+        out.specifications ??
+          out.specs
+      );
+
     delete out.specs;
 
-    if (Array.isArray(out.specifications) && out.specifications.length === 0) {
+    if (
+      Array.isArray(
+        out.specifications
+      ) &&
+      out.specifications.length === 0
+    ) {
       delete out.specifications;
     }
   }
 
-  // ✅ COLORS hygiene
+  /* ============================================================
+     COLORS
+  ============================================================ */
+
   if (out.colors !== undefined) {
     const raw = tryJson(out.colors);
-    const list = Array.isArray(raw) ? raw : typeof raw === "string" ? raw.split(",") : [];
-    out.colors = Array.from(new Set(list.map((c) => toStr(c).toLowerCase()).filter(Boolean)));
+
+    const list = Array.isArray(raw)
+      ? raw
+      : typeof raw === "string"
+        ? raw.split(",")
+        : [];
+
+    out.colors = Array.from(
+      new Set(
+        list
+          .map((c) =>
+            toStr(c).toLowerCase()
+          )
+          .filter(Boolean)
+      )
+    );
   }
 
   return out;
@@ -991,6 +1442,71 @@ resetProductPerformanceReport: () =>
       set({ loading: false });
     }
   },
+
+  /* ============================================================
+   FETCH PRODUCT FABRIC DETAILS
+   GET /api/products/fabric-details/:id
+
+   Supports:
+   - MongoDB _id
+   - Product Code
+   - Slug
+============================================================ */
+fetchProductFabricDetails: async (id) => {
+  try {
+    const identifier = String(id || "").trim();
+
+    if (!identifier) {
+      throw new Error("Product identifier is required");
+    }
+
+    set({
+      loading: true,
+      error: null,
+    });
+
+    const res = await fetch(
+      `${API}/fabric-details/${encodeURIComponent(identifier)}`,
+      {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+      }
+    );
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(
+        data?.message || "Failed to fetch product fabric details"
+      );
+    }
+
+    return data?.product || null;
+  } catch (error) {
+    console.error(
+      "❌ fetchProductFabricDetails error:",
+      error
+    );
+
+    set({
+      error:
+        error?.message ||
+        "Failed to fetch product fabric details",
+    });
+
+    toast.error(
+      error?.message ||
+        "Failed to fetch product fabric details"
+    );
+
+    return null;
+  } finally {
+    set({
+      loading: false,
+    });
+  }
+},
 
 
   /* ============================================================

@@ -241,6 +241,8 @@ inventory: [
   { label: "Variants", href: "/products/variants" },
   { label: "Size Charts", href: "/products/size-charts" },
 
+  // ================= PRODUCTION DETAILS =================
+  { label: "Product Fabric Details", href: "/products/fabric-details" },
   { label: "Fabric Assignment", href: "/products/fabric-assignment" },
   { label: "Accessories Assignment", href: "/products/accessories-assignment" },
   {
@@ -261,6 +263,7 @@ inventory: [
     href: "/products/products-rma-insights",
   },
 
+  // ================= PRODUCT MANAGEMENT =================
   { label: "Name Edit", href: "/products/name-edit" },
   { label: "Price Updates", href: "/products/pricing" },
   { label: "Bulk Price Editor", href: "/products/bulkPriceEditor" },

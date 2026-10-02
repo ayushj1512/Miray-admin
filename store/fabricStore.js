@@ -105,8 +105,9 @@ const useFabricStore = create((set, get) => ({
   selectedFabric: null,
 
   loading: false,
-  formLoading: false,
-  error: null,
+formLoading: false,
+fabricOptionsLoading: false,
+error: null,
 
   filters: defaultFilters,
   pagination: defaultPagination,
@@ -215,24 +216,73 @@ const useFabricStore = create((set, get) => ({
     }
   },
 
-  fetchFabricOptions: async () => {
-    try {
-      set({ loading: true, error: null });
+ fetchFabricOptions: async (
+  params = {},
+  { force = false } = {}
+) => {
+  try {
+    /*
+     * Fabric options are used like master data.
+     *
+     * If already loaded, don't unnecessarily hit the API
+     * again unless force=true.
+     */
+    const currentOptions = get().fabricOptions;
 
-      const res = await getRequest("fabrics/options");
-
-      set({
-        fabricOptions: res.data || [],
-        loading: false,
-      });
-
-      return res;
-    } catch (error) {
-      const message = getErrorMessage(error, "Failed to fetch fabric options");
-      set({ loading: false, error: message });
-      return { success: false, message };
+    if (
+      !force &&
+      Array.isArray(currentOptions) &&
+      currentOptions.length > 0
+    ) {
+      return {
+        success: true,
+        count: currentOptions.length,
+        data: currentOptions,
+        cached: true,
+      };
     }
-  },
+
+    set({
+      fabricOptionsLoading: true,
+      error: null,
+    });
+
+    const res = await getRequest(
+      "fabrics/options",
+      params
+    );
+
+    const options = Array.isArray(res?.data)
+      ? res.data
+      : [];
+
+    set({
+      fabricOptions: options,
+      fabricOptionsLoading: false,
+    });
+
+    return {
+      ...res,
+      data: options,
+    };
+  } catch (error) {
+    const message = getErrorMessage(
+      error,
+      "Failed to fetch fabric options"
+    );
+
+    set({
+      fabricOptionsLoading: false,
+      error: message,
+    });
+
+    return {
+      success: false,
+      message,
+      data: [],
+    };
+  }
+},
 
   fetchFabricById: async (id) => {
     try {
@@ -731,20 +781,23 @@ const useFabricStore = create((set, get) => ({
   },
 
   resetfabricStore: () => {
-    set({
-      fabrics: [],
-      lowStockFabrics: [],
+  set({
+    fabrics: [],
+    lowStockFabrics: [],
+    fabricOptions: [],
+    fabricStats: null,
+    selectedFabric: null,
+    searchResults: [],
 
-      fabricOptions: [],
-      fabricStats: null,
-selectedFabric: null,
-searchResults: [],      loading: false,
-      formLoading: false,
-      error: null,
-      filters: defaultFilters,
-      pagination: defaultPagination,
-    });
-  },
+    loading: false,
+    formLoading: false,
+    fabricOptionsLoading: false,
+    error: null,
+
+    filters: defaultFilters,
+    pagination: defaultPagination,
+  });
+},
 }));
 
 export default useFabricStore;

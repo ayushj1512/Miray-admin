@@ -18,6 +18,7 @@ import FabricAdd from "@/components/product/FabricAdd";
 import OriginalProductLinkField from "@/components/product/OriginalProductLinkField";
 import ProductProductionDetails from "@/components/product/ProductProductionDetails";
 import ProductSamplingPattern from "@/components/product/ProductSamplingPattern";
+import FabricPrintFile from "@/components/product/FabricPrintFile";
 
 const BACKEND = (process.env.NEXT_PUBLIC_BACKEND_URL || "").replace(/\/+$/, "");
 
@@ -72,10 +73,11 @@ export default function ProductDetailsPage({ params }) {
     categories: [],
     isActive: true,
 
-    shortDescription: "",
-    howToStyle: "",
-    fabricDetails: "",
-    keyFeaturesText: "",
+shortDescription: "",
+howToStyle: "",
+fabricDetails: "",
+fabricPrintFile: "",
+keyFeaturesText: "",
     specifications: [],
     tagsText: "",
     colorsText: "",
@@ -149,10 +151,11 @@ export default function ProductDetailsPage({ params }) {
           categories: arr(p.categories),
           isActive: !!p.isActive,
 
-          shortDescription: s(p.shortDescription),
-          howToStyle: s(p.howToStyle),
-          fabricDetails: s(p.fabricDetails),
-          keyFeaturesText: arr(p.keyFeatures).join(", "),
+         shortDescription: s(p.shortDescription),
+howToStyle: s(p.howToStyle),
+fabricDetails: s(p.fabricDetails),
+fabricPrintFile: s(p.fabricPrintFile),
+keyFeaturesText: arr(p.keyFeatures).join(", "),
           specifications: arr(p.specifications),
           tagsText: arr(p.tags).join(", "),
           colorsText: arr(p.colors).join(", "),
@@ -234,11 +237,12 @@ export default function ProductDetailsPage({ params }) {
         categories: arr(form.categories),
         isActive: !!form.isActive,
 
-        shortDescription: s(form.shortDescription).trim(),
-        howToStyle: s(form.howToStyle).trim(),
-        fabricDetails: s(form.fabricDetails).trim(),
+  shortDescription: s(form.shortDescription).trim(),
+howToStyle: s(form.howToStyle).trim(),
+fabricDetails: s(form.fabricDetails).trim(),
+fabricPrintFile: s(form.fabricPrintFile).trim(),
 
-        keyFeatures: s(form.keyFeaturesText)
+keyFeatures: s(form.keyFeaturesText)
           .split(",")
           .map((x) => x.trim())
           .filter(Boolean),
@@ -558,18 +562,39 @@ export default function ProductDetailsPage({ params }) {
           )}
         </Card>
 
-        {/* FABRICS */}
-        <Card title="Fabrics">
-          <FabricAdd
-            value={editing ? form.fabrics : arr(product.fabrics)}
-            editable={editing}
-            onChange={(fabrics) =>
-              setForm((p) => ({ ...p, fabrics }))
-            }
-          />
-        </Card>
+{/* FABRICS */}
+<Card title="Fabrics">
+  <FabricAdd
+    value={editing ? form.fabrics : arr(product.fabrics)}
+    editable={editing}
+    onChange={(fabrics) =>
+      setForm((p) => ({
+        ...p,
+        fabrics,
+      }))
+    }
+  />
+</Card>
 
-        {/* PRODUCTION */}
+{/* FABRIC PRINT / PATTERN */}
+<Card title="Fabric Print / Pattern">
+  <FabricPrintFile
+    value={
+      editing
+        ? form.fabricPrintFile
+        : product.fabricPrintFile || ""
+    }
+    onChange={(fabricPrintFile) =>
+      setForm((p) => ({
+        ...p,
+        fabricPrintFile,
+      }))
+    }
+    disabled={!editing}
+  />
+</Card>
+
+{/* PRODUCTION */}
         <Card title="Production">
           <ProductProductionDetails
             editable={editing}

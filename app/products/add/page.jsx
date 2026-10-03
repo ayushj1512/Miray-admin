@@ -17,7 +17,7 @@ import FabricAdd from "@/components/product/FabricAdd";
 import OriginalProductLinkField from "@/components/product/OriginalProductLinkField";
 import ProductProductionDetails from "@/components/product/ProductProductionDetails";
 import ProductSamplingPattern from "@/components/product/ProductSamplingPattern";
-
+import FabricPrintFile from "@/components/product/FabricPrintFile";
 const API = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 /* ---------------- helpers ---------------- */
@@ -254,7 +254,9 @@ export default function AddProductPage() {
     shortDescription: "",
     howToStyle: "",
     fabricDetails: "",
-    keyFeaturesText: "",
+    fabricDetails: "",
+fabricPrintFile: "",
+keyFeaturesText: "",
     specificationsText: "",
 
     tagsText: "",
@@ -406,6 +408,7 @@ export default function AddProductPage() {
       shortDescription: String(form.shortDescription || "").trim(),
       howToStyle: String(form.howToStyle || "").trim(),
       fabricDetails: String(form.fabricDetails || "").trim(),
+      fabricPrintFile: String(form.fabricPrintFile || "").trim(),
       keyFeatures,
       specifications,
 
@@ -577,6 +580,18 @@ export default function AddProductPage() {
           </div>
 
           <FabricAdd value={form.fabrics} onChange={(next) => setForm((p) => ({ ...p, fabrics: next }))} />
+            {/* Fabric Print / Pattern */}
+<div className="bg-white rounded-xl p-6 space-y-4">
+  <FabricPrintFile
+    value={form.fabricPrintFile}
+    onChange={(url) =>
+      setForm((prev) => ({
+        ...prev,
+        fabricPrintFile: url,
+      }))
+    }
+  />
+</div>
         </div>
 
         {/* Production Details */}
